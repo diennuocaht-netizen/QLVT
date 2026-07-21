@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { X, FileText, Download } from 'lucide-react';
+import { X, FileText, Download, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { InventorySlip, SlipType, Item, Requisition } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
+import { PrintCompletionReportModal } from './PrintCompletionReportModal';
 
 interface DetailSlipModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface DetailSlipModalProps {
 export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClose, slip }) => {
   const [items, setItems] = useState<Item[]>([]);
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const channels: any[] = [];
 
   useEffect(() => {
@@ -378,8 +380,23 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
           >
             <Download size={20} /> Xuất Excel
           </button>
+          {!isReceipt && (
+            <button
+              onClick={() => setIsPrintModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+            >
+              <Printer size={20} /> In Phiếu Xác Nhận
+            </button>
+          )}
         </div>
       </div>
+
+      <PrintCompletionReportModal
+        isOpen={isPrintModalOpen}
+        slip={slip}
+        items={items}
+        onClose={() => setIsPrintModalOpen(false)}
+      />
     </div>
   );
 };

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { InventorySlip, SlipType, Requisition, Item } from '../types/inventory';
-import { Plus, Search, Trash2, FileText, Download } from 'lucide-react';
+import { Plus, Search, Trash2, FileText, Download, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SlipModal } from '../components/inventory/SlipModal';
 import { DetailSlipModal } from '../components/inventory/DetailSlipModal';
+import { PrintCompletionReportModal } from '../components/inventory/PrintCompletionReportModal';
 import { useAuth } from '../contexts/AuthContext';
 import { slipFromDatabase, itemFromDatabase } from '../utils/dataTransform';
 
@@ -16,7 +17,9 @@ export const InventoryIssues: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSlip, setEditingSlip] = useState<InventorySlip | null>(null);
   const [detailSlip, setDetailSlip] = useState<InventorySlip | null>(null);
+  const [printSlip, setPrintSlip] = useState<InventorySlip | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -287,6 +290,16 @@ export const InventoryIssues: React.FC = () => {
                         >
                           <FileText size={18} />
                         </button>
+                        <button
+                          onClick={() => {
+                            setPrintSlip(slip);
+                            setIsPrintModalOpen(true);
+                          }}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded"
+                          title="In phiếu xác nhận"
+                        >
+                          <Printer size={18} />
+                        </button>
                         {slip.status === 'Đang mở' && (
                           <button
                             onClick={() => {
@@ -335,6 +348,16 @@ export const InventoryIssues: React.FC = () => {
         onClose={() => {
           setIsDetailModalOpen(false);
           setDetailSlip(null);
+        }}
+      />
+
+      <PrintCompletionReportModal
+        isOpen={isPrintModalOpen}
+        slip={printSlip}
+        items={items}
+        onClose={() => {
+          setIsPrintModalOpen(false);
+          setPrintSlip(null);
         }}
       />
     </div>
