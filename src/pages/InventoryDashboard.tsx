@@ -3,7 +3,7 @@ import { supabase, subscribeToTable } from '../supabase-client';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { Item, InventorySlip, SlipType, Requisition, RequisitionStatus } from '../types/inventory';
 import { generateRestockSuggestion } from '../services/geminiService';
-import { Box, FileText, AlertTriangle, TrendingUp, TrendingDown, Clock, BarChart2, PieChart as PieChartIcon, Activity, ShoppingCart } from 'lucide-react';
+import { Box, FileText, AlertTriangle, TrendingUp, TrendingDown, Clock, Zap, BarChart2, PieChart as PieChartIcon, Activity, ShoppingCart } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend
 } from 'recharts';
