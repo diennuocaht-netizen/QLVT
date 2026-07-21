@@ -41,10 +41,10 @@ export const Layout: React.FC = () => {
     <div className="flex h-screen bg-gray-50 flex-col md:flex-row overflow-hidden">
       
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between h-16 bg-white border-b border-gray-200 px-4 flex-shrink-0 z-20">
-        <div className="flex items-center gap-2">
-          <img src="/logo.jpg" alt="Logo" className="h-8 w-auto" />
-          <h1 className="text-lg font-bold text-indigo-600">DNCT Hub</h1>
+      <div className="md:hidden flex items-center justify-between h-20 bg-white border-b border-gray-200 px-4 flex-shrink-0 z-20">
+        <div className="flex items-center gap-3">
+          <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain" />
+          <h1 className="text-xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-blue-600 tracking-tight">DNCT Hub</h1>
         </div>
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -67,10 +67,10 @@ export const Layout: React.FC = () => {
         "fixed md:static inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col z-40 transform transition-transform duration-300 ease-in-out",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <img src="/logo.jpg" alt="Logo" className="h-8 w-auto" />
-            <h1 className="text-xl font-bold text-indigo-600">DNCT Hub</h1>
+        <div className="h-20 flex items-center justify-between px-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <img src="/logo.jpg" alt="Logo" className="h-12 w-auto object-contain" />
+            <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-blue-600 tracking-tight">DNCT Hub</h1>
           </div>
           <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(false)}>
             <X size={20} />
