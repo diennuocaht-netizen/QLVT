@@ -195,12 +195,12 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = (initialItemId: string = '') => {
     setFormData(prev => ({
       ...prev,
       items: [...(prev.items || []), { 
         id: Date.now().toString(), 
-        itemId: '', 
+        itemId: initialItemId, 
         requestedQuantity: 1, 
         receivedQuantity: 0, 
         itemStatus: RequisitionItemStatus.Pending,

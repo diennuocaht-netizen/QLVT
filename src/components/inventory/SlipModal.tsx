@@ -323,11 +323,11 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = (initialItemId: string = '') => {
     setFormData(prev => ({
       ...prev,
       items: [...(prev.items || []), { 
-        itemId: '', 
+        itemId: initialItemId, 
         quantity: 1,
         ...(type === SlipType.Issue ? { issueDate: prev.date } : {})
       }]
