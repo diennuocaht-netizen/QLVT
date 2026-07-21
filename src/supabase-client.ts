@@ -8,9 +8,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// Get credentials from environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Get credentials from environment variables (or use fallback for Vercel)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://setljfuhprinmsqztqyd.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNldGxqZnVocHJpbm1zcXp0cXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjU1OTQsImV4cCI6MjA5MDA0MTU5NH0.G-9i8kycOc8e8ic_tU21sCeL5YQ1R73hkmkS19wWrAM';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
