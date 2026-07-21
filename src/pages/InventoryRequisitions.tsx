@@ -259,14 +259,14 @@ export const InventoryRequisitions: React.FC = () => {
         />
       </div>
 
-      {/* Loading */}
+      // Loading
       {loading && <div className="text-center py-4 text-gray-600">Đang tải dữ liệu...</div>}
 
       {/* Table */}
       {!loading && (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="w-full min-w-[750px]">
-            <thead className="bg-gray-100 border-b">
+        <div className="hidden md:block bg-white rounded-lg shadow overflow-x-auto overflow-y-auto max-h-[calc(100vh-240px)]">
+          <table className="w-full relative">
+            <thead className="bg-gray-100 border-b sticky top-0 z-10 shadow-sm">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Mã Tờ Trình</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Ngày</th>

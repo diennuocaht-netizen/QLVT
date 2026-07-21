@@ -79,9 +79,9 @@ export const InventoryAudits: React.FC = () => {
       {loading && <div className="text-center py-4 text-gray-600">Đang tải dữ liệu...</div>}
 
       {!loading && (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="w-full min-w-[650px]">
-            <thead className="bg-gray-100 border-b">
+        <div className="hidden md:block bg-white rounded-lg shadow overflow-x-auto overflow-y-auto max-h-[calc(100vh-240px)]">
+          <table className="w-full relative">
+            <thead className="bg-gray-100 border-b sticky top-0 z-10 shadow-sm">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Mã Phiếu</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Ngày Tạo</th>
