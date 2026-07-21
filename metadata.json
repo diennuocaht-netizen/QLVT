@@ -1,0 +1,5 @@
+{
+  "name": "Hệ thống Quản lý ISO & Thiết bị",
+  "description": "Quản lý tài liệu chuẩn ISO, tra cứu profile thiết bị và phân quyền người dùng.",
+  "requestFramePermissions": []
+}
