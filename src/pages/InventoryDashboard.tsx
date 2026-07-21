@@ -3,7 +3,7 @@ import { supabase, subscribeToTable } from '../supabase-client';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { Item, InventorySlip, SlipType, Requisition, RequisitionStatus } from '../types/inventory';
 import { generateRestockSuggestion } from '../services/geminiService';
-import { Box, FileText, AlertTriangle, TrendingUp, TrendingDown, Clock, Zap, BarChart2, PieChart as PieChartIcon } from 'lucide-react';
+import { Box, FileText, AlertTriangle, TrendingUp, TrendingDown, Clock, BarChart2, PieChart as PieChartIcon, Activity, ShoppingCart } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend
 } from 'recharts';
@@ -60,6 +60,7 @@ export const InventoryDashboard: React.FC = () => {
       let totalReceipts = 0;
       let totalIssues = 0;
       let issues30d = 0;
+      let receipts30d = 0;
       let lastIssueDate: Date | null = null;
 
       slips.forEach(slip => {
@@ -71,6 +72,9 @@ export const InventoryDashboard: React.FC = () => {
           if (slip.type === SlipType.Receipt) {
             stock += slipItem.quantity;
             totalReceipts += slipItem.quantity;
+            if (slipDate >= thirtyDaysAgo) {
+              receipts30d += slipItem.quantity;
+            }
           } else if (slip.type === SlipType.Issue) {
             stock -= slipItem.quantity;
             totalIssues += slipItem.quantity;
@@ -97,6 +101,7 @@ export const InventoryDashboard: React.FC = () => {
         totalReceipts, 
         totalIssues, 
         issues30d, 
+        receipts30d,
         velocityPerDay, 
         daysToDeplete,
         totalValue,
@@ -110,6 +115,7 @@ export const InventoryDashboard: React.FC = () => {
   const overStockItems = React.useMemo(() => inventoryState.filter(i => i.stock >= (i.item.warningThresholdUpper || Infinity)), [inventoryState]);
   const depletionWarningItems = React.useMemo(() => inventoryState.filter(i => i.stock > 0 && i.daysToDeplete <= 7).sort((a, b) => a.daysToDeplete - b.daysToDeplete), [inventoryState]);
   const deadStockItems = React.useMemo(() => inventoryState.filter(i => i.isDeadStock).sort((a, b) => b.totalValue - a.totalValue), [inventoryState]);
+  const activeItems = React.useMemo(() => inventoryState.filter(i => i.issues30d > 0 || i.receipts30d > 0).sort((a, b) => (b.issues30d + b.receipts30d) - (a.issues30d + a.receipts30d)), [inventoryState]);
   
   const pendingRequisitions = React.useMemo(() => requisitions.filter(r => r.status === RequisitionStatus.New).length, [requisitions]);
   const recentSlips = React.useMemo(() => [...slips].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5), [slips]);
@@ -409,6 +415,100 @@ export const InventoryDashboard: React.FC = () => {
                         </td>
                       </tr>
                     ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+              <Activity className="text-blue-500" size={20} />
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Báo cáo tình hình biến động kho (30 ngày qua)</h2>
+                <p className="text-sm text-gray-500">Thống kê lượng xuất nhập của các vật tư có phát sinh giao dịch trong tháng.</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white text-gray-500 text-sm">
+                    <th className="p-4 font-medium border-b border-gray-100">Mã</th>
+                    <th className="p-4 font-medium border-b border-gray-100">Tên vật tư</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right">Tồn đầu kỳ</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right text-green-600">Nhập trong kỳ</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right text-blue-600">Xuất trong kỳ</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right">Tồn hiện tại</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {activeItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500">
+                        Chưa có giao dịch xuất/nhập nào trong 30 ngày qua.
+                      </td>
+                    </tr>
+                  ) : (
+                    activeItems.map((inv) => {
+                      const initialStock = inv.stock - inv.receipts30d + inv.issues30d;
+                      return (
+                        <tr key={inv.item.id} className="hover:bg-blue-50/50 transition-colors">
+                          <td className="p-4 text-sm font-medium text-gray-900">{inv.item.code}</td>
+                          <td className="p-4 text-sm text-gray-600">{inv.item.name}</td>
+                          <td className="p-4 text-sm text-gray-500 text-right">{initialStock} {inv.item.unit}</td>
+                          <td className="p-4 text-sm font-medium text-green-600 text-right">+{inv.receipts30d}</td>
+                          <td className="p-4 text-sm font-medium text-blue-600 text-right">-{inv.issues30d}</td>
+                          <td className="p-4 text-sm font-bold text-gray-700 text-right">{inv.stock} {inv.item.unit}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+              <ShoppingCart className="text-purple-500" size={20} />
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Đề xuất mua sắm (Dự trù vật tư)</h2>
+                <p className="text-sm text-gray-500">Danh sách các vật tư dưới mức tồn kho tối thiểu và số lượng cần mua thêm.</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white text-gray-500 text-sm">
+                    <th className="p-4 font-medium border-b border-gray-100">Mã</th>
+                    <th className="p-4 font-medium border-b border-gray-100">Tên vật tư</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right text-red-500">Tồn kho hiện tại</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right">Mức tối thiểu</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right">Mức tối đa</th>
+                    <th className="p-4 font-medium border-b border-gray-100 text-right text-purple-600">Đề xuất mua</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {lowStockItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500">
+                        Kho đang ở trạng thái an toàn, không có vật tư nào cần mua sắm thêm.
+                      </td>
+                    </tr>
+                  ) : (
+                    lowStockItems.map((inv) => {
+                      const suggestBuy = Math.max(0, (inv.item.warningThresholdUpper || inv.item.warningThresholdLower || 0) - inv.stock);
+                      return (
+                        <tr key={inv.item.id} className="hover:bg-purple-50/50 transition-colors">
+                          <td className="p-4 text-sm font-medium text-gray-900">{inv.item.code}</td>
+                          <td className="p-4 text-sm text-gray-600">{inv.item.name}</td>
+                          <td className="p-4 text-sm font-bold text-red-500 text-right">{inv.stock} {inv.item.unit}</td>
+                          <td className="p-4 text-sm text-gray-500 text-right">{inv.item.warningThresholdLower || 0}</td>
+                          <td className="p-4 text-sm text-gray-500 text-right">{inv.item.warningThresholdUpper || '-'}</td>
+                          <td className="p-4 text-sm font-bold text-purple-600 text-right">+{suggestBuy} {inv.item.unit}</td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
