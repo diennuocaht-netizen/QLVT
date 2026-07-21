@@ -42,7 +42,10 @@ export const Layout: React.FC = () => {
       
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between h-16 bg-white border-b border-gray-200 px-4 flex-shrink-0 z-20">
-        <h1 className="text-lg font-bold text-indigo-600">ISO & Devices</h1>
+        <div className="flex items-center gap-2">
+          <img src="/logo.jpg" alt="Logo" className="h-8 w-auto" />
+          <h1 className="text-lg font-bold text-indigo-600">DNCT Hub</h1>
+        </div>
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 text-gray-600 hover:bg-gray-100 rounded-md"
@@ -65,7 +68,10 @@ export const Layout: React.FC = () => {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-indigo-600">ISO & Devices</h1>
+          <div className="flex items-center gap-2">
+            <img src="/logo.jpg" alt="Logo" className="h-8 w-auto" />
+            <h1 className="text-xl font-bold text-indigo-600">DNCT Hub</h1>
+          </div>
           <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(false)}>
             <X size={20} />
           </button>
