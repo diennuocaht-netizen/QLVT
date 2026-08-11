@@ -11,7 +11,7 @@ import { ItemTraceabilityModal } from '../components/inventory/ItemTraceabilityM
 import { PrintQRModal } from '../components/inventory/PrintQRModal';
 import { QRScannerModal } from '../components/inventory/QRScannerModal';
 import { itemFromDatabase, slipFromDatabase, itemToDatabase } from '../utils/dataTransform';
-import { QrCode, ScanLine } from 'lucide-react';
+import { QrCode, ScanLine, X, ArrowUpFromLine, FileText } from 'lucide-react';
 
 export const InventoryItems: React.FC = () => {
   const { profile } = useAuth();
