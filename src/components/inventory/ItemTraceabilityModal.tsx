@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, FileText, TrendingUp, TrendingDown } from 'lucide-react';
+import { X, FileText, TrendingUp, TrendingDown, Package, MapPin, Tag, Layers } from 'lucide-react';
 import { Item, InventorySlip, SlipType, Requisition } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
 import { slipFromDatabase, requisitionFromDatabase } from '../../utils/dataTransform';
@@ -24,6 +24,7 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [records, setRecords] = useState<TraceabilityRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'receipts' | 'issues' | 'requisitions'>('all');
+  const [locations, setLocations] = useState<{id: string, code: string, name: string}[]>([]);
 
   useEffect(() => {
     let channels: any[] = [];
@@ -34,6 +35,9 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
 
       const { data: reqsData } = await supabase.from('inventory_requisitions').select('*');
       if (reqsData) setRequisitions((reqsData || []).map(r => requisitionFromDatabase(r) as Requisition));
+
+      const { data: locData } = await supabase.from('inventory_locations').select('*');
+      if (locData) setLocations(locData);
 
       // Subscribe to changes
       const slipsChannel = supabase
@@ -144,6 +148,8 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
   const totalReceived = receipts.reduce((sum, r) => sum + (r.quantity || 0), 0);
   const totalIssued = issues.reduce((sum, r) => sum + (r.quantity || 0), 0);
   const totalRequisitioned = reqs.reduce((sum, r) => sum + (r.quantity || 0), 0);
+  const currentStock = (item.initialStock || 0) + totalReceived - totalIssued;
+  const locationCode = locations.find(l => l.id === item.locationId)?.code || '-';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -159,8 +165,46 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
         </div>
 
         <div className="flex-1 overflow-y-auto">
+          {/* Item Master Details */}
+          <div className="p-6 bg-white border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Package size={20} className="text-indigo-600" />
+              Thông tin chi tiết
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <Tag size={16} className="text-gray-500" />
+                  <span className="text-xs text-gray-500 uppercase font-semibold">Danh mục</span>
+                </div>
+                <p className="font-medium text-gray-900">{item.category}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <Layers size={16} className="text-gray-500" />
+                  <span className="text-xs text-gray-500 uppercase font-semibold">Đơn vị tính</span>
+                </div>
+                <p className="font-medium text-gray-900">{item.unit}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <MapPin size={16} className="text-gray-500" />
+                  <span className="text-xs text-gray-500 uppercase font-semibold">Vị trí kệ</span>
+                </div>
+                <p className="font-medium text-gray-900">{locationCode}</p>
+              </div>
+              <div className={`p-4 rounded-lg border ${currentStock <= 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Package size={16} className={currentStock <= 0 ? 'text-red-500' : 'text-green-500'} />
+                  <span className={`text-xs uppercase font-semibold ${currentStock <= 0 ? 'text-red-600' : 'text-green-600'}`}>Tồn kho hiện tại</span>
+                </div>
+                <p className={`text-xl font-bold ${currentStock <= 0 ? 'text-red-700' : 'text-green-700'}`}>{currentStock}</p>
+              </div>
+            </div>
+          </div>
+
           {/* Summary Cards */}
-          <div className="p-6 bg-gray-50 border-b border-gray-100 grid grid-cols-4 gap-4">
+          <div className="p-6 bg-gray-50 border-b border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg p-4 border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
