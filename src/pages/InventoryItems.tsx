@@ -25,6 +25,9 @@ export const InventoryItems: React.FC = () => {
   const [quickIssueOpen, setQuickIssueOpen] = useState(false);
   const [quickIssueItem, setQuickIssueItem] = useState<Item | null>(null);
   const [isGlobalQRScannerOpen, setIsGlobalQRScannerOpen] = useState(false);
+  const [scannedItemAction, setScannedItemAction] = useState<Item | null>(null);
+  
+  const hasAccess = profile?.role === 'admin' || profile?.role === 'manager';
   const [traceabilityOpen, setTraceabilityOpen] = useState(false);
   const [traceabilityItem, setTraceabilityItem] = useState<Item | null>(null);
   const [printQROpen, setPrintQROpen] = useState(false);
@@ -534,8 +537,7 @@ export const InventoryItems: React.FC = () => {
   const handleGlobalQRScanSuccess = (decodedText: string) => {
     const foundItem = items.find(i => i.code.toLowerCase() === decodedText.toLowerCase());
     if (foundItem) {
-      setQuickIssueItem(foundItem);
-      setQuickIssueOpen(true);
+      setScannedItemAction(foundItem);
     } else {
       alert(`Không tìm thấy vật tư với mã: ${decodedText}`);
     }
@@ -551,7 +553,7 @@ export const InventoryItems: React.FC = () => {
             onClick={() => setIsGlobalQRScannerOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"
           >
-            <ScanLine size={20} /> Xuất Nhanh (QR)
+            <ScanLine size={20} /> Quét mã QR
           </button>
           <button
             onClick={() => {
@@ -853,6 +855,42 @@ export const InventoryItems: React.FC = () => {
         onClose={() => setIsGlobalQRScannerOpen(false)}
         onScanSuccess={handleGlobalQRScanSuccess}
       />
+
+      {scannedItemAction && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-gray-800">Chọn hành động</h3>
+              <button onClick={() => setScannedItemAction(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+               <p className="text-sm text-gray-600 mb-4">Bạn muốn thực hiện thao tác gì với vật tư <strong className="text-gray-900">{scannedItemAction.name}</strong>?</p>
+               <button 
+                 onClick={() => { 
+                   setQuickIssueItem(scannedItemAction); 
+                   setQuickIssueOpen(true); 
+                   setScannedItemAction(null); 
+                 }} 
+                 className="w-full flex items-center gap-3 p-4 border border-indigo-200 rounded-lg text-indigo-700 hover:bg-indigo-50 font-medium transition-colors"
+               >
+                  <ArrowUpFromLine size={20} /> Xuất vật tư (Xuất nhanh)
+               </button>
+               <button 
+                 onClick={() => { 
+                   setTraceabilityItem(scannedItemAction); 
+                   setTraceabilityOpen(true); 
+                   setScannedItemAction(null); 
+                 }} 
+                 className="w-full flex items-center gap-3 p-4 border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-50 font-medium transition-colors"
+               >
+                  <FileText size={20} /> Xem chi tiết / Truy xuất
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
