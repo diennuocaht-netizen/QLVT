@@ -79,6 +79,7 @@ export const InventoryAudits: React.FC = () => {
       {loading && <div className="text-center py-4 text-gray-600">Đang tải dữ liệu...</div>}
 
       {!loading && (
+        <>
         <div className="hidden md:block bg-white rounded-lg shadow overflow-x-auto overflow-y-auto max-h-[calc(100vh-240px)]">
           <table className="w-full relative">
             <thead className="bg-gray-100 border-b sticky top-0 z-10 shadow-sm">
@@ -123,6 +124,39 @@ export const InventoryAudits: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden grid grid-cols-1 gap-4">
+          {filteredAudits.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow">Không có phiếu kiểm kê nào</div>
+          ) : (
+            filteredAudits.map((audit) => (
+              <div key={audit.id} className="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-semibold text-lg text-gray-900">{audit.code}</h3>
+                    <p className="text-sm text-gray-500">{new Date(audit.date).toLocaleDateString('vi-VN')} - {audit.createdBy}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    audit.status === 'Hoàn thành' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {audit.status}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600 mb-4">
+                  <span className="block text-xs text-gray-400">Ghi chú</span>
+                  <span className="font-medium text-gray-800">{audit.notes || '-'}</span>
+                </div>
+                <div className="flex justify-end gap-2 border-t pt-3">
+                  <button className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md" title="Chi tiết">
+                    <FileText size={18} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        </>
       )}
 
       <AuditModal 
