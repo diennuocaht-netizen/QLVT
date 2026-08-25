@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { Requisition, InventorySlip, RequisitionStatus } from '../types/inventory';
-import { Plus, Search, Trash2, FileText, CheckCircle, XCircle, Edit, Download } from 'lucide-react';
+import { Plus, Search, Trash2, FileText, CheckCircle, XCircle, Edit, Download, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { RequisitionModal } from '../components/inventory/RequisitionModal';
 import { DetailRequisitionModal } from '../components/inventory/DetailRequisitionModal';
+import { PrintRequisitionModal } from '../components/inventory/PrintRequisitionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { requisitionFromDatabase, slipFromDatabase } from '../utils/dataTransform';
 
@@ -17,6 +18,8 @@ export const InventoryRequisitions: React.FC = () => {
   const [editingRequisition, setEditingRequisition] = useState<Requisition | null>(null);
   const [detailRequisition, setDetailRequisition] = useState<Requisition | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [printRequisition, setPrintRequisition] = useState<Requisition | null>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -322,6 +325,16 @@ export const InventoryRequisitions: React.FC = () => {
                         >
                           <FileText size={18} />
                         </button>
+                        <button
+                          onClick={() => {
+                            setPrintRequisition(req);
+                            setIsPrintModalOpen(true);
+                          }}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded"
+                          title="In Tờ trình"
+                        >
+                          <Printer size={18} />
+                        </button>
                         {req.status === RequisitionStatus.New && (profile?.role === 'admin' || profile?.role === 'manager') && (
                           <>
                             <button
@@ -405,6 +418,16 @@ export const InventoryRequisitions: React.FC = () => {
                   >
                     <FileText size={18} />
                   </button>
+                  <button
+                    onClick={() => {
+                      setPrintRequisition(req);
+                      setIsPrintModalOpen(true);
+                    }}
+                    className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-md"
+                    title="In Tờ trình"
+                  >
+                    <Printer size={18} />
+                  </button>
                   {req.status === RequisitionStatus.New && (profile?.role === 'admin' || profile?.role === 'manager') && (
                     <>
                       <button
@@ -466,6 +489,15 @@ export const InventoryRequisitions: React.FC = () => {
         onClose={() => {
           setIsDetailModalOpen(false);
           setDetailRequisition(null);
+        }}
+      />
+
+      <PrintRequisitionModal
+        isOpen={isPrintModalOpen}
+        requisition={printRequisition}
+        onClose={() => {
+          setIsPrintModalOpen(false);
+          setPrintRequisition(null);
         }}
       />
     </div>
