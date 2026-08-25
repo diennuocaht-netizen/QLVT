@@ -26,7 +26,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
 
       // Subscribe to changes
       channel = supabase
-        .channel('inventory_items_changes')
+        .channel(`inventory_items_changes_${Math.random()}`)
         .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'inventory_items' },
           () => {
@@ -52,7 +52,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
 
       // Subscribe to changes
       channel = supabase
-        .channel('inventory_requisitions_changes')
+        .channel(`inventory_requisitions_changes_${Math.random()}`)
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'inventory_requisitions' },
           () => {

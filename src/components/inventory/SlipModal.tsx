@@ -98,9 +98,9 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
 
     loadData();
 
-    // Subscribe to real-time changes for inventory items
+    // Subscribe to real-time changes
     const itemsChannel = supabase
-      .channel('inventory_items_changes')
+      .channel(`inventory_items_changes_${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setItems(prev => [...prev, itemFromDatabase(payload.new) as Item]);
@@ -114,7 +114,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
 
     // Subscribe to requisitions changes
     const reqChannel = supabase
-      .channel('inventory_requisitions_changes')
+      .channel(`inventory_requisitions_changes_${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_requisitions' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setRequisitions(prev => [...prev, requisitionFromDatabase(payload.new) as Requisition]);
@@ -128,7 +128,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
 
     // Subscribe to slips changes
     const slipsChannel = supabase
-      .channel('inventory_slips_changes')
+      .channel(`inventory_slips_changes_${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_slips' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setSlips(prev => [...prev, slipFromDatabase(payload.new) as InventorySlip]);

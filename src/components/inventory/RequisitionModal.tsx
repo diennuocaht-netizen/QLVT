@@ -114,7 +114,7 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
 
     // Subscribe to real-time changes for inventory items
     const itemsChannel = supabase
-      .channel('inventory_items_changes')
+      .channel(`inventory_items_changes_${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setItems(prev => [...prev, payload.new as Item]);

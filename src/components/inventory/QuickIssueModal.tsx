@@ -79,7 +79,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
         // Subscribe to slips
         const slipsChannel = supabase
-          .channel('inventory_slips_changes')
+          .channel(`inventory_slips_changes_${Math.random()}`)
           .on('postgres_changes',
             { event: '*', schema: 'public', table: 'inventory_slips' },
             () => {
@@ -93,7 +93,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
         // Subscribe to requisitions
         const reqsChannel = supabase
-          .channel('inventory_requisitions_changes')
+          .channel(`inventory_requisitions_changes_${Math.random()}`)
           .on('postgres_changes',
             { event: '*', schema: 'public', table: 'inventory_requisitions' },
             () => {

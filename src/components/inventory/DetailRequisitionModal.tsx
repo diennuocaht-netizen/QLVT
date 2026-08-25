@@ -108,7 +108,7 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
 
       // Subscribe to changes
       channel = supabase
-        .channel('inventory_items_changes')
+        .channel(`inventory_items_changes_${Math.random()}`)
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'inventory_items' },
           () => {

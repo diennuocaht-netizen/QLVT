@@ -27,7 +27,7 @@ export const Admin: React.FC = () => {
 
     // Subscribe to real-time changes
     const subscription = supabase
-      .channel('users_changes')
+      .channel(`users_changes_${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
         loadUsers();
       })

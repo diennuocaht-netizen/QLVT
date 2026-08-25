@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { InventorySlip, SlipType, Requisition, Item } from '../types/inventory';
-import { Plus, Search, Trash2, FileText, Download, Printer } from 'lucide-react';
+import { Plus, Search, Trash2, FileText, Download, Printer, Edit, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SlipModal } from '../components/inventory/SlipModal';
 import { DetailSlipModal } from '../components/inventory/DetailSlipModal';

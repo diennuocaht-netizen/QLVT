@@ -41,7 +41,7 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
 
       // Subscribe to changes
       const slipsChannel = supabase
-        .channel('inventory_slips_changes')
+        .channel(`inventory_slips_changes_${Math.random()}`)
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'inventory_slips' },
             () => {
@@ -54,7 +54,7 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
       channels.push(slipsChannel);
 
       const reqsChannel = supabase
-        .channel('inventory_requisitions_changes')
+        .channel(`inventory_requisitions_changes_${Math.random()}`)
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'inventory_requisitions' },
             () => {
