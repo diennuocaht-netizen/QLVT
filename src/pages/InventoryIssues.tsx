@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import { SlipModal } from '../components/inventory/SlipModal';
 import { DetailSlipModal } from '../components/inventory/DetailSlipModal';
 import { PrintCompletionReportModal } from '../components/inventory/PrintCompletionReportModal';
+import { CompleteIssueItemsModal } from '../components/inventory/CompleteIssueItemsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { slipFromDatabase, itemFromDatabase } from '../utils/dataTransform';
 
@@ -20,6 +21,8 @@ export const InventoryIssues: React.FC = () => {
   const [printSlip, setPrintSlip] = useState<InventorySlip | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [completeSlip, setCompleteSlip] = useState<InventorySlip | null>(null);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -178,13 +181,33 @@ export const InventoryIssues: React.FC = () => {
     );
   }, [slips, searchTerm]);
 
+  const isSlipLocked = (slipDate: string) => {
+    const date = new Date(slipDate);
+    const now = new Date();
+    
+    // Get start of current week (Monday)
+    const currentDay = now.getDay();
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const startOfCurrentWeek = new Date(now);
+    startOfCurrentWeek.setDate(now.getDate() + diffToMonday);
+    startOfCurrentWeek.setHours(0, 0, 0, 0);
+  
+    return date < startOfCurrentWeek;
+  };
+
+  const getSlipDisplayStatus = (slip: InventorySlip) => {
+    if (slip.status === 'Đã hoàn thành') return slip.status;
+    if (isSlipLocked(slip.date)) return 'Đã khóa';
+    return slip.status || 'Đang mở';
+  };
+
   const handleExportExcel = () => {
     const dataToExport = filteredSlips.map(slip => ({
       'Mã phiếu': slip.code,
       'Ngày xuất': new Date(slip.date).toLocaleDateString('vi-VN'),
       'Lý do xuất': slip.reason || '',
       'Người yêu cầu': slip.requester || '',
-      'Trạng thái': slip.status,
+      'Trạng thái': getSlipDisplayStatus(slip),
       'Số lượng vật tư': slip.items?.length || 0
     }));
 
@@ -269,14 +292,16 @@ export const InventoryIssues: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-center">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          slip.status === 'Đã đóng'
+                          getSlipDisplayStatus(slip) === 'Đã đóng'
                             ? 'bg-green-100 text-green-800'
-                            : slip.status === 'Đã hoàn thành'
+                            : getSlipDisplayStatus(slip) === 'Đã hoàn thành'
                               ? 'bg-blue-100 text-blue-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              : getSlipDisplayStatus(slip) === 'Đã khóa'
+                                ? 'bg-gray-200 text-gray-800'
+                                : 'bg-yellow-100 text-yellow-800'
                         }`}
                       >
-                        {slip.status}
+                        {getSlipDisplayStatus(slip)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-center">
@@ -301,7 +326,19 @@ export const InventoryIssues: React.FC = () => {
                         >
                           <Printer size={18} />
                         </button>
-                        {slip.status === 'Đang mở' && (
+                        {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                          <button
+                            onClick={() => {
+                              setCompleteSlip(slip);
+                              setIsCompleteModalOpen(true);
+                            }}
+                            className="p-2 text-teal-600 hover:bg-teal-50 rounded"
+                            title="Hoàn thành vật tư"
+                          >
+                            <CheckCircle size={18} />
+                          </button>
+                        )}
+                        {(!isSlipLocked(slip.date) || profile?.role === 'admin' || profile?.role === 'manager') && slip.status !== 'Đã hoàn thành' && (
                           <button
                             onClick={() => {
                               setEditingSlip(slip);
@@ -310,7 +347,7 @@ export const InventoryIssues: React.FC = () => {
                             className="p-2 text-indigo-600 hover:bg-indigo-50 rounded"
                             title="Sửa"
                           >
-                            Edit
+                            <Edit size={18} />
                           </button>
                         )}
                         {profile?.role === 'admin' && (
@@ -344,13 +381,15 @@ export const InventoryIssues: React.FC = () => {
                     <p className="text-sm text-gray-500">{new Date(slip.date).toLocaleDateString('vi-VN')}</p>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    slip.status === 'Đã đóng'
+                    getSlipDisplayStatus(slip) === 'Đã đóng'
                       ? 'bg-green-100 text-green-800'
-                      : slip.status === 'Đã hoàn thành'
+                      : getSlipDisplayStatus(slip) === 'Đã hoàn thành'
                         ? 'bg-blue-100 text-blue-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                        : getSlipDisplayStatus(slip) === 'Đã khóa'
+                          ? 'bg-gray-200 text-gray-800'
+                          : 'bg-yellow-100 text-yellow-800'
                   }`}>
-                    {slip.status}
+                    {getSlipDisplayStatus(slip)}
                   </span>
                 </div>
                 <div className="text-sm text-gray-600 mb-4">
@@ -378,7 +417,19 @@ export const InventoryIssues: React.FC = () => {
                   >
                     <Printer size={18} />
                   </button>
-                  {slip.status === 'Đang mở' && (
+                  {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                    <button
+                      onClick={() => {
+                        setCompleteSlip(slip);
+                        setIsCompleteModalOpen(true);
+                      }}
+                      className="p-2 text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-md"
+                      title="Hoàn thành vật tư"
+                    >
+                      <CheckCircle size={18} />
+                    </button>
+                  )}
+                  {(!isSlipLocked(slip.date) || profile?.role === 'admin' || profile?.role === 'manager') && slip.status !== 'Đã hoàn thành' && (
                     <button
                       onClick={() => {
                         setEditingSlip(slip);
@@ -434,6 +485,15 @@ export const InventoryIssues: React.FC = () => {
         onClose={() => {
           setIsPrintModalOpen(false);
           setPrintSlip(null);
+        }}
+      />
+
+      <CompleteIssueItemsModal
+        isOpen={isCompleteModalOpen}
+        slip={completeSlip}
+        onClose={() => {
+          setIsCompleteModalOpen(false);
+          setCompleteSlip(null);
         }}
       />
     </div>

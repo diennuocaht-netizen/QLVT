@@ -93,6 +93,7 @@ export interface InventorySlipItem {
   handler?: string; // Người xuất/giao
   notes?: string;   // Ghi chú
   issueDate?: string; // Ngày xuất
+  isCompleted?: boolean; // Vật tư đã hoàn thành
 }
 
 export enum SlipType {
@@ -100,7 +101,7 @@ export enum SlipType {
   Issue = 'Issue', // Phiếu Xuất
 }
 
-export type SlipStatus = 'Đang mở' | 'Đã đóng' | 'Đã hoàn thành';
+export type SlipStatus = 'Đang mở' | 'Đã đóng' | 'Đã hoàn thành' | 'Đã khóa';
 export type ReceiptType = 'Theo tờ trình' | 'Nhận ngoài';
 
 export interface InventorySlip {
