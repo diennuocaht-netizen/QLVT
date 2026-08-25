@@ -161,13 +161,79 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
             className="bg-white shadow-sm p-[15mm] mx-auto w-full max-w-[297mm] min-h-[210mm] text-black"
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
-            {/* Template Header block */}
-            <div className="mb-6 border border-black p-4 text-[11pt]">
-              <table className="w-full border-none">
+            {/* Cover Page Container */}
+            <div className="page-break-after mb-10 w-full" style={{ pageBreakAfter: 'always' }}>
+              {/* Logo */}
+              <div className="mb-4">
+                <img src="/logo.jpg" alt="AHT Logo" className="h-10 w-auto" />
+              </div>
+              
+              {/* Cover Table */}
+              <table className="w-full border-collapse text-[11pt] border border-black mb-8">
                 <tbody>
                   <tr>
-                    <td className="w-48 font-bold align-top border-none p-1">Hạng mục kế hoạch</td>
-                    <td className="border-none p-1">
+                    <td colSpan={2} className="border border-black p-2 text-center font-bold uppercase text-lg">
+                      TỜ TRÌNH:
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold w-56 align-top">Số tờ trình</td>
+                    <td className="border border-black p-2">{requisition.code}</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Bộ phận yêu cầu</td>
+                    <td className="border border-black p-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div><span className="font-sans">☐</span> Ban Điều hành</div>
+                          <div><span className="font-sans">☐</span> Hành chính Nhân sự</div>
+                          <div><span className="font-sans">☐</span> Chiến lược & Đầu tư</div>
+                          <div><span className="font-sans">☑</span> Kỹ thuật</div>
+                        </div>
+                        <div>
+                          <div><span className="font-sans">☐</span> Truyền thông & Đối ngoại</div>
+                          <div><span className="font-sans">☐</span> Tài chính Kế toán</div>
+                          <div><span className="font-sans">☐</span> Điều hành</div>
+                          <div><span className="font-sans">☐</span> Quản lý dự án</div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Được yêu cầu bởi</td>
+                    <td className="border border-black p-2">{requisition.createdBy}</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Ngày yêu cầu</td>
+                    <td className="border border-black p-2">{new Date(requisition.date).toLocaleDateString('vi-VN')}</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Loại yêu cầu</td>
+                    <td className="border border-black p-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div><span className="font-sans">☐</span> Thức ăn và đồ uống</div>
+                          <div><span className="font-sans">☐</span> Hàng hóa lẻ</div>
+                          <div><span className="font-sans">☐</span> Sửa chữa và bảo trì</div>
+                          <div><span className="font-sans">☐</span> Phần mềm và giấy phép</div>
+                          <div><span className="font-sans">☐</span> Dịch vụ tư vấn/ đào tạo</div>
+                        </div>
+                        <div>
+                          <div><span className="font-sans">☐</span> Đầu tư mới</div>
+                          <div><span className="font-sans">☑</span> Vật tư trang thiết bị</div>
+                          <div><span className="font-sans">☐</span> Dịch vụ lưu trú/ vé máy bay</div>
+                          <div><span className="font-sans">☐</span> Khác: ...............................</div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Lý do/Sự cần thiết</td>
+                    <td className="border border-black p-2">{requisition.purpose || ''}</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Hạng mục kế hoạch</td>
+                    <td className="border border-black p-2">
                       Chi phí OPEX {new Date().getFullYear()}:
                       <ul className="list-none m-0 p-0 pl-2">
                         {Object.values(groupedItems).map((group, idx) => (
@@ -176,8 +242,27 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
                       </ul>
                     </td>
                   </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Phạm vi công việc và thông số kỹ thuật</td>
+                    <td className="border border-black p-2">Chi tiết tại trang sau.</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Ngày giao hàng dự kiến/ ngày bắt đầu hợp đồng</td>
+                    <td className="border border-black p-2"></td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black p-2 font-bold align-top">Số tiền ngân sách</td>
+                    <td className="border border-black p-2"></td>
+                  </tr>
                 </tbody>
               </table>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-3 gap-4 text-center text-[11pt] font-bold mt-12 pb-32">
+                <div>PHÒNG KỸ THUẬT</div>
+                <div>PHÒNG CL & ĐT</div>
+                <div>BAN ĐIỀU HÀNH</div>
+              </div>
             </div>
 
             {/* Table Title */}
