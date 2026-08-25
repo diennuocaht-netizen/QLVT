@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, Download } from 'lucide-react';
 import { Requisition, Item, InventorySlip, SlipType, RequisitionType } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
 import { itemFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
@@ -84,6 +84,67 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
     printWindow.document.close();
   };
 
+  const handleExportWord = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    // Convert relative image paths to absolute for MS Word to load them
+    const baseUrl = window.location.origin;
+    let htmlContent = printContent.innerHTML;
+    htmlContent = htmlContent.replace(/src="\/logo.jpg"/g, `src="${baseUrl}/logo.jpg"`);
+
+    const html = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset="utf-8">
+        <title>${requisition.code}</title>
+        <style>
+          @page WordSection1 {
+              size: 841.9pt 595.3pt; /* A4 Landscape */
+              mso-page-orientation: landscape;
+              margin: 1.0in 1.0in 1.0in 1.0in;
+          }
+          div.WordSection1 { page: WordSection1; }
+          body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid black; padding: 6px; }
+          th { text-align: center; font-weight: bold; }
+          /* Simulate Tailwind classes used */
+          .text-center { text-align: center; }
+          .font-bold { font-weight: bold; }
+          .uppercase { text-transform: uppercase; }
+          .text-lg { font-size: 14pt; }
+          .align-top { vertical-align: top; }
+          .w-56 { width: 14rem; }
+          .w-full { width: 100%; }
+          .border-none { border: none !important; }
+          .mb-8 { margin-bottom: 32px; }
+          .mb-10 { margin-bottom: 40px; }
+          .mt-12 { margin-top: 48px; }
+          .pb-32 { padding-bottom: 128px; }
+          ul { margin-top: 0; padding-left: 20px; }
+          img { max-height: 48px; width: auto; }
+        </style>
+      </head>
+      <body>
+        <div class="WordSection1">
+          ${htmlContent}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `To_trinh_${requisition.code}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Compute current stock for an item
   const getCurrentStock = (itemId: string, itemData?: Item) => {
     if (!itemData) return 0;
@@ -140,6 +201,13 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
           <h2 className="text-xl font-bold text-gray-800">In Tờ Trình Mua Sắm ({requisition.code})</h2>
           <div className="flex gap-2">
             <button
+              onClick={handleExportWord}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <Download size={18} /> Tải Word
+            </button>
+            <button
               onClick={handlePrint}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
@@ -164,8 +232,8 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
             {/* Cover Page Container */}
             <div className="page-break-after mb-10 w-full" style={{ pageBreakAfter: 'always' }}>
               {/* Logo */}
-              <div className="mb-4">
-                <img src="/logo.jpg" alt="AHT Logo" className="h-10 w-auto" />
+              <div className="mb-4 text-center" style={{ textAlign: 'center' }}>
+                <img src="/logo.jpg" alt="AHT Logo" className="h-12 w-auto mx-auto" />
               </div>
               
               {/* Cover Table */}
@@ -183,20 +251,24 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
                   <tr>
                     <td className="border border-black p-2 font-bold align-top">Bộ phận yêu cầu</td>
                     <td className="border border-black p-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <div><span className="font-sans">☐</span> Ban Điều hành</div>
-                          <div><span className="font-sans">☐</span> Hành chính Nhân sự</div>
-                          <div><span className="font-sans">☐</span> Chiến lược & Đầu tư</div>
-                          <div><span className="font-sans">☑</span> Kỹ thuật</div>
-                        </div>
-                        <div>
-                          <div><span className="font-sans">☐</span> Truyền thông & Đối ngoại</div>
-                          <div><span className="font-sans">☐</span> Tài chính Kế toán</div>
-                          <div><span className="font-sans">☐</span> Điều hành</div>
-                          <div><span className="font-sans">☐</span> Quản lý dự án</div>
-                        </div>
-                      </div>
+                      <table className="w-full border-none m-0 p-0" style={{ border: 'none' }}>
+                        <tbody>
+                          <tr>
+                            <td className="border-none p-0 align-top" style={{ border: 'none', padding: 0 }}>
+                              <div><span className="font-sans">☐</span> Ban Điều hành</div>
+                              <div><span className="font-sans">☐</span> Hành chính Nhân sự</div>
+                              <div><span className="font-sans">☐</span> Chiến lược & Đầu tư</div>
+                              <div><span className="font-sans">☑</span> Kỹ thuật</div>
+                            </td>
+                            <td className="border-none p-0 align-top" style={{ border: 'none', padding: 0 }}>
+                              <div><span className="font-sans">☐</span> Truyền thông & Đối ngoại</div>
+                              <div><span className="font-sans">☐</span> Tài chính Kế toán</div>
+                              <div><span className="font-sans">☐</span> Điều hành</div>
+                              <div><span className="font-sans">☐</span> Quản lý dự án</div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </td>
                   </tr>
                   <tr>
@@ -210,21 +282,25 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
                   <tr>
                     <td className="border border-black p-2 font-bold align-top">Loại yêu cầu</td>
                     <td className="border border-black p-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <div><span className="font-sans">☐</span> Thức ăn và đồ uống</div>
-                          <div><span className="font-sans">☐</span> Hàng hóa lẻ</div>
-                          <div><span className="font-sans">☐</span> Sửa chữa và bảo trì</div>
-                          <div><span className="font-sans">☐</span> Phần mềm và giấy phép</div>
-                          <div><span className="font-sans">☐</span> Dịch vụ tư vấn/ đào tạo</div>
-                        </div>
-                        <div>
-                          <div><span className="font-sans">☐</span> Đầu tư mới</div>
-                          <div><span className="font-sans">☑</span> Vật tư trang thiết bị</div>
-                          <div><span className="font-sans">☐</span> Dịch vụ lưu trú/ vé máy bay</div>
-                          <div><span className="font-sans">☐</span> Khác: ...............................</div>
-                        </div>
-                      </div>
+                      <table className="w-full border-none m-0 p-0" style={{ border: 'none' }}>
+                        <tbody>
+                          <tr>
+                            <td className="border-none p-0 align-top" style={{ border: 'none', padding: 0 }}>
+                              <div><span className="font-sans">☐</span> Thức ăn và đồ uống</div>
+                              <div><span className="font-sans">☐</span> Hàng hóa lẻ</div>
+                              <div><span className="font-sans">☐</span> Sửa chữa và bảo trì</div>
+                              <div><span className="font-sans">☐</span> Phần mềm và giấy phép</div>
+                              <div><span className="font-sans">☐</span> Dịch vụ tư vấn/ đào tạo</div>
+                            </td>
+                            <td className="border-none p-0 align-top" style={{ border: 'none', padding: 0 }}>
+                              <div><span className="font-sans">☐</span> Đầu tư mới</div>
+                              <div><span className="font-sans">☑</span> Vật tư trang thiết bị</div>
+                              <div><span className="font-sans">☐</span> Dịch vụ lưu trú/ vé máy bay</div>
+                              <div><span className="font-sans">☐</span> Khác: ...............................</div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </td>
                   </tr>
                   <tr>
@@ -258,11 +334,15 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
               </table>
 
               {/* Signatures */}
-              <div className="grid grid-cols-3 gap-4 text-center text-[11pt] font-bold mt-12 pb-32">
-                <div>PHÒNG KỸ THUẬT</div>
-                <div>PHÒNG CL & ĐT</div>
-                <div>BAN ĐIỀU HÀNH</div>
-              </div>
+              <table className="w-full border-none text-center text-[11pt] font-bold mt-12 pb-32" style={{ border: 'none', marginTop: '48px', paddingBottom: '128px' }}>
+                <tbody>
+                  <tr>
+                    <td className="border-none w-1/3" style={{ border: 'none' }}>PHÒNG KỸ THUẬT</td>
+                    <td className="border-none w-1/3" style={{ border: 'none' }}>PHÒNG CL & ĐT</td>
+                    <td className="border-none w-1/3" style={{ border: 'none' }}>BAN ĐIỀU HÀNH</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             {/* Table Title */}
