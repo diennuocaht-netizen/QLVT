@@ -16,6 +16,8 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
   const handleExportExcel = () => {
     if (!requisition) return;
 
+    const reqStatus = getRequisitionDisplayStatus(requisition).text;
+
     // Prepare general information
     const generalInfo = [
       { A: "TỜ TRÌNH MUA SẮM" },
@@ -24,7 +26,7 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
       { A: "Người yêu cầu:", B: requisition.createdBy || '-' },
       { A: "Mục đích:", B: requisition.purpose || '-' },
       { A: "Ghi chú:", B: requisition.notes || '-' },
-      { A: "Trạng thái:", B: requisition.status },
+      { A: "Trạng thái:", B: reqStatus },
       {} // empty row
     ];
 
@@ -150,19 +152,16 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
     }, 0);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Đã duyệt':
-        return 'bg-blue-100 text-blue-800';
-      case 'Đã nhập đủ':
-        return 'bg-green-100 text-green-800';
-      case 'Từ chối':
-      case 'Đã đóng':
-        return 'bg-red-100 text-red-800';
-      case 'Đã nhập 1 phần':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-yellow-100 text-yellow-800';
+  const getRequisitionDisplayStatus = (req: Requisition) => {
+    if (!req.items || req.items.length === 0) return { text: 'Mới tạo (0)', color: 'bg-gray-100 text-gray-800' };
+    
+    const completedItems = req.items.filter(item => (item.receivedQuantity || 0) >= item.requestedQuantity).length;
+    const totalItems = req.items.length;
+    
+    if (completedItems === totalItems) {
+      return { text: 'Hoàn thành', color: 'bg-green-100 text-green-800' };
+    } else {
+      return { text: `Đã nhận đủ ${completedItems}/${totalItems} vật tư`, color: 'bg-blue-100 text-blue-800' };
     }
   };
 
@@ -207,8 +206,8 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Trạng Thái</label>
-                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(requisition.status)}`}>
-                  {requisition.status}
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getRequisitionDisplayStatus(requisition).color}`}>
+                  {getRequisitionDisplayStatus(requisition).text}
                 </span>
               </div>
               <div>

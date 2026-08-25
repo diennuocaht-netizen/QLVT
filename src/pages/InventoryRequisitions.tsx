@@ -175,31 +175,16 @@ export const InventoryRequisitions: React.FC = () => {
     }
   };
 
-  const handleApprove = async (req: Requisition) => {
-    if (!window.confirm('Bạn có chắc chắn muốn duyệt tờ trình này?')) return;
-    try {
-      const { error } = await supabase
-        .from('inventory_requisitions')
-        .update({ status: RequisitionStatus.Approved })
-        .eq('id', req.id);
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error approving requisition:', error);
-      alert('Không thể duyệt tờ trình. Vui lòng thử lại.');
-    }
-  };
-
-  const handleReject = async (req: Requisition) => {
-    if (!window.confirm('Bạn có chắc chắn muốn từ chối tờ trình này?')) return;
-    try {
-      const { error } = await supabase
-        .from('inventory_requisitions')
-        .update({ status: RequisitionStatus.Rejected })
-        .eq('id', req.id);
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error rejecting requisition:', error);
-      alert('Không thể từ chối tờ trình. Vui lòng thử lại.');
+  const getRequisitionDisplayStatus = (req: Requisition) => {
+    if (!req.items || req.items.length === 0) return { text: 'Mới tạo (0)', color: 'bg-gray-100 text-gray-800' };
+    
+    const completedItems = req.items.filter(item => (item.receivedQuantity || 0) >= item.requestedQuantity).length;
+    const totalItems = req.items.length;
+    
+    if (completedItems === totalItems) {
+      return { text: 'Hoàn thành', color: 'bg-green-100 text-green-800' };
+    } else {
+      return { text: `Đã nhận đủ ${completedItems}/${totalItems} vật tư`, color: 'bg-blue-100 text-blue-800' };
     }
   };
 
@@ -216,7 +201,7 @@ export const InventoryRequisitions: React.FC = () => {
       'Ngày tạo': new Date(req.date).toLocaleDateString('vi-VN'),
       'Mục đích': req.purpose || '',
       'Người tạo': req.createdBy || '',
-      'Trạng thái': req.status,
+      'Trạng thái': getRequisitionDisplayStatus(req).text,
       'Số lượng vật tư': req.items?.length || 0
     }));
 
@@ -302,15 +287,9 @@ export const InventoryRequisitions: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-center">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          req.status === 'Đã duyệt'
-                            ? 'bg-green-100 text-green-800'
-                            : req.status === 'Từ chối'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${getRequisitionDisplayStatus(req).color}`}
                       >
-                        {req.status}
+                        {getRequisitionDisplayStatus(req).text}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-center">
@@ -335,33 +314,17 @@ export const InventoryRequisitions: React.FC = () => {
                         >
                           <Printer size={18} />
                         </button>
-                        {req.status === RequisitionStatus.New && (profile?.role === 'admin' || profile?.role === 'manager') && (
-                          <>
-                            <button
-                              onClick={() => handleApprove(req)}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded"
-                              title="Duyệt"
-                            >
-                              <CheckCircle size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleReject(req)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded"
-                              title="Từ chối"
-                            >
-                              <XCircle size={18} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingRequisition(req);
-                                setIsModalOpen(true);
-                              }}
-                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded"
-                              title="Sửa"
-                            >
-                              <Edit size={18} />
-                            </button>
-                          </>
+                        {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                          <button
+                            onClick={() => {
+                              setEditingRequisition(req);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded"
+                            title="Sửa"
+                          >
+                            <Edit size={18} />
+                          </button>
                         )}
                         {profile?.role === 'admin' && (
                           <button
@@ -393,14 +356,8 @@ export const InventoryRequisitions: React.FC = () => {
                     <h3 className="font-semibold text-lg text-gray-900">{req.code}</h3>
                     <p className="text-sm text-gray-500">{new Date(req.date).toLocaleDateString('vi-VN')} - {req.type}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    req.status === 'Đã duyệt'
-                      ? 'bg-green-100 text-green-800'
-                      : req.status === 'Từ chối'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {req.status}
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRequisitionDisplayStatus(req).color}`}>
+                    {getRequisitionDisplayStatus(req).text}
                   </span>
                 </div>
                 <div className="text-sm text-gray-600 mb-4">
@@ -428,33 +385,17 @@ export const InventoryRequisitions: React.FC = () => {
                   >
                     <Printer size={18} />
                   </button>
-                  {req.status === RequisitionStatus.New && (profile?.role === 'admin' || profile?.role === 'manager') && (
-                    <>
-                      <button
-                        onClick={() => handleApprove(req)}
-                        className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-md"
-                        title="Duyệt"
-                      >
-                        <CheckCircle size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleReject(req)}
-                        className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md"
-                        title="Từ chối"
-                      >
-                        <XCircle size={18} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingRequisition(req);
-                          setIsModalOpen(true);
-                        }}
-                        className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md"
-                        title="Sửa"
-                      >
-                        <Edit size={18} />
-                      </button>
-                    </>
+                  {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                    <button
+                      onClick={() => {
+                        setEditingRequisition(req);
+                        setIsModalOpen(true);
+                      }}
+                      className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md"
+                      title="Sửa"
+                    >
+                      <Edit size={18} />
+                    </button>
                   )}
                   {profile?.role === 'admin' && (
                     <button

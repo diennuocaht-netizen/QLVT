@@ -117,7 +117,10 @@ export const InventoryDashboard: React.FC = () => {
   const deadStockItems = React.useMemo(() => inventoryState.filter(i => i.isDeadStock).sort((a, b) => b.totalValue - a.totalValue), [inventoryState]);
   const activeItems = React.useMemo(() => inventoryState.filter(i => i.issues30d > 0 || i.receipts30d > 0).sort((a, b) => (b.issues30d + b.receipts30d) - (a.issues30d + a.receipts30d)), [inventoryState]);
   
-  const pendingRequisitions = React.useMemo(() => requisitions.filter(r => r.status === RequisitionStatus.New).length, [requisitions]);
+  const pendingRequisitions = React.useMemo(() => requisitions.filter(req => {
+    const completedItems = req.items?.filter(item => (item.receivedQuantity || 0) >= item.requestedQuantity).length || 0;
+    return completedItems < (req.items?.length || 0);
+  }).length, [requisitions]);
   const recentSlips = React.useMemo(() => [...slips].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5), [slips]);
 
   // Analytics Data Preparations
@@ -200,7 +203,7 @@ export const InventoryDashboard: React.FC = () => {
 
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-500 font-medium">Tờ trình chờ duyệt</h3>
+                <h3 className="text-gray-500 font-medium">Tờ trình chưa hoàn thành</h3>
                 <div className="p-2 bg-yellow-50 text-yellow-600 rounded-lg">
                   <FileText size={24} />
                 </div>
