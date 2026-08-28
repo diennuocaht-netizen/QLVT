@@ -323,8 +323,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
       let existingSlip = slips.find(s => 
         s.type === SlipType.Issue && 
-        s.code.includes(weekCode) &&
-        s.status !== 'Đã hoàn thành'
+        s.code.startsWith(weekCode)
       );
 
       if (!existingSlip) {
@@ -386,7 +385,10 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
           }
         ];
 
-        const updateData = { items: newItems };
+        const updateData = { 
+          items: newItems,
+          status: 'Đang mở' // Luôn mở lại phiếu nếu có thêm vật tư mới
+        };
         const dbUpdateData = slipToDatabase(updateData);
         const { error: updateError } = await supabase.from('inventory_slips').update(dbUpdateData).eq('id', existingSlip.id);
         if (updateError) throw updateError;

@@ -204,18 +204,20 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
 
   const generateIssueCode = async (dateStr: string): Promise<string> => {
     const { week, year } = getWeekNumber(dateStr);
-    const weekStr = week.toString().padStart(2, '0');
-    const baseCode = `Tuần ${weekStr}-${year}`;
+    const baseCode = `Tuần ${week.toString().padStart(2, '0')}-${year}`;
     
-    // Get all slips with this week code to find the sequence number
+    // Always use the existing one if it exists (merge logic)
     const { data: matchingSlips } = await supabase
       .from('inventory_slips')
       .select('*')
       .eq('type', SlipType.Issue)
-      .eq('weekOfYear', baseCode);
+      .like('code', `${baseCode}%`);
     
-    const sequenceNum = (matchingSlips?.length || 0) + 1;
-    return `${baseCode}-${sequenceNum.toString().padStart(2, '0')}`;
+    if (matchingSlips && matchingSlips.length > 0) {
+      return matchingSlips[0].code;
+    }
+    
+    return `${baseCode}-01`;
   };
 
   const generateReceiptCode = async (dateStr: string): Promise<string> => {
@@ -277,24 +279,10 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
         
         const existingSlips = slips.filter(s => s.type === SlipType.Issue && s.code.startsWith(baseCode));
         if (existingSlips.length > 0) {
-          let maxSuffix = 0;
-          existingSlips.forEach(s => {
-            const match = s.code.match(/-(\d+)$/);
-            if (match) {
-              const num = parseInt(match[1], 10);
-              if (num > maxSuffix) maxSuffix = num;
-            } else if (s.code === baseCode) {
-              if (maxSuffix === 0) maxSuffix = 1;
-            }
-          });
-          
-          if (maxSuffix > 0) {
-            setFormData(prev => ({ ...prev, code: `${baseCode}-${(maxSuffix + 1).toString().padStart(2, '0')}` }));
-          } else {
-            setFormData(prev => ({ ...prev, code: baseCode }));
-          }
+          // Logic gom phiếu mới: ta luôn dùng mã phiếu hiện tại để hiển thị tạm thời
+          setFormData(prev => ({ ...prev, code: existingSlips[0].code }));
         } else {
-          setFormData(prev => ({ ...prev, code: baseCode }));
+          setFormData(prev => ({ ...prev, code: `${baseCode}-01` }));
         }
       }
     }
@@ -577,16 +565,41 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
         if (error) throw error;
         createdSlipId = slip.id;
       } else {
-        const dbData = slipToDatabase(slipData);
-        const { data: inserted, error } = await supabase
-          .from('inventory_slips')
-          .insert([dbData])
-          .select('*')
-          .single();
-        if (error) throw error;
-        createdSlipId = inserted?.id;
-        // set the id on slipData for downstream processing
-        if (createdSlipId) slipData.id = createdSlipId;
+        // Try to find an existing slip for the week to merge into
+        let existingSlip: InventorySlip | undefined;
+        
+        if (type === SlipType.Issue && formData.date) {
+          const { week, year } = getWeekNumber(formData.date);
+          const weekCode = `Tuần ${week.toString().padStart(2, '0')}-${year}`;
+          existingSlip = slips.find(s => s.type === SlipType.Issue && s.code.startsWith(weekCode));
+        }
+
+        if (existingSlip) {
+          // Merge items
+          const mergedItems = [...existingSlip.items, ...(slipData.items || [])];
+          const updateData = { 
+            items: mergedItems,
+            status: 'Đang mở' // Always reopen if appending new items
+          };
+          const dbData = slipToDatabase(updateData);
+          const { error } = await supabase.from('inventory_slips').update(dbData).eq('id', existingSlip.id);
+          if (error) throw error;
+          
+          createdSlipId = existingSlip.id;
+          slipData.id = createdSlipId;
+          slipData.code = existingSlip.code; 
+          // Do not mutate slipData.items so that delta calculation correctly only subtracts new items
+        } else {
+          const dbData = slipToDatabase(slipData);
+          const { data: inserted, error } = await supabase
+            .from('inventory_slips')
+            .insert([dbData])
+            .select('*')
+            .single();
+          if (error) throw error;
+          createdSlipId = inserted?.id;
+          if (createdSlipId) slipData.id = createdSlipId;
+        }
       }
 
       // *** Calculate Deltas for Synchronization ***
