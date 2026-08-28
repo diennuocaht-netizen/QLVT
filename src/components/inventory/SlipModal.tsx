@@ -867,6 +867,20 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
   const itemCodeOptions = items.map(i => ({ value: i.id, label: i.code }));
   const itemNameOptions = items.map(i => ({ value: i.id, label: i.name }));
 
+  const formatItemOptionLabel = (option: any) => {
+    if (type !== SlipType.Issue) return option.label;
+    const avail = getAvailableQty(option.value);
+    if (avail <= 0) {
+      return (
+        <div className="flex flex-col sm:flex-row justify-between text-red-500">
+          <span>{option.label}</span>
+          <span className="text-xs font-medium sm:ml-2">(Hết hàng)</span>
+        </div>
+      );
+    }
+    return option.label;
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1128,6 +1142,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 placeholder="-- Chọn vật tư --"
                                 styles={selectStyles}
                                 menuPortalTarget={document.body}
+                                formatOptionLabel={formatItemOptionLabel}
                                 isClearable
                                 required
                               />
