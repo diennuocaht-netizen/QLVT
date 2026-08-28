@@ -277,7 +277,7 @@ export const InventoryIssues: React.FC = () => {
                 <th className="px-6 py-3 text-left text-sm font-semibold">Mã Phiếu</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Ngày</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Lý Do</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold">Số Mặt Hàng</th>
+                <th className="px-6 py-3 text-center text-sm font-semibold">Tiến Độ HT</th>
                 <th className="px-6 py-3 text-center text-sm font-semibold">Trạng Thái</th>
                 <th className="px-6 py-3 text-center text-sm font-semibold">Thao Tác</th>
               </tr>
@@ -297,8 +297,17 @@ export const InventoryIssues: React.FC = () => {
                       {new Date(slip.date).toLocaleDateString('vi-VN')}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{slip.reason || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-center text-gray-700 font-semibold">
-                      {(slip.items as any[])?.length || 0}
+                    <td className="px-6 py-4 text-sm text-center font-semibold">
+                      {(() => {
+                        const items = slip.items as any[] || [];
+                        const total = items.length;
+                        const completed = items.filter(i => (i.completedQuantity || 0) >= (i.quantity || 1)).length;
+                        return (
+                          <span className={completed >= total && total > 0 ? 'text-green-600' : 'text-orange-600'}>
+                            {completed} / {total}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-sm text-center">
                       <span
@@ -391,9 +400,24 @@ export const InventoryIssues: React.FC = () => {
                     {getSlipDisplayStatus(slip)}
                   </span>
                 </div>
-                <div className="text-sm text-gray-600 mb-4">
-                  <span className="block text-xs text-gray-400">Lý do</span>
-                  <span className="font-medium text-gray-800">{slip.reason || '-'}</span>
+                <div className="text-sm text-gray-600 mb-4 flex justify-between">
+                  <div>
+                    <span className="block text-xs text-gray-400">Lý do</span>
+                    <span className="font-medium text-gray-800">{slip.reason || '-'}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-xs text-gray-400">Tiến Độ HT</span>
+                    {(() => {
+                      const items = slip.items as any[] || [];
+                      const total = items.length;
+                      const completed = items.filter(i => (i.completedQuantity || 0) >= (i.quantity || 1)).length;
+                      return (
+                        <span className={`font-semibold ${completed >= total && total > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                          {completed} / {total}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2 border-t pt-3">
                   <button
