@@ -140,7 +140,8 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
       I: "Hệ Thống",
       J: "Mục Đích",
       K: "Phương Thức",
-      L: "Mã Chi Phí"
+      L: "Mã Chi Phí",
+      M: !isReceipt ? "Hoàn Thành" : ""
     };
     
     // Prepare item rows
@@ -159,7 +160,8 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
         I: item.subsystem || '-',
         J: item.purpose || '-',
         K: item.method || '-',
-        L: item.costCode || '-'
+        L: item.costCode || '-',
+        M: !isReceipt ? `${item.completedQuantity || 0} / ${item.quantity}` : '-'
       };
     });
 
@@ -299,6 +301,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                       <>
                         <th className="px-4 py-3 text-left font-medium text-gray-600">Vật Tư</th>
                         <th className="px-4 py-3 text-right font-medium text-gray-600">Số Lượng</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-600">Hoàn Thành</th>
                         <th className="px-4 py-3 text-right font-medium text-gray-600">Đơn Giá</th>
                         <th className="px-4 py-3 text-right font-medium text-gray-600">Thành Tiền</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-600">Ngày Xuất</th>
@@ -335,6 +338,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                               <span className="text-sm text-gray-600">{getItemName(item.itemId)}</span>
                             </td>
                             <td className="px-4 py-3 text-right text-gray-900 font-medium">{item.quantity}</td>
+                            <td className="px-4 py-3 text-center text-teal-600 font-semibold">{item.completedQuantity || 0} / {item.quantity}</td>
                             <td className="px-4 py-3 text-right text-gray-600">{price.toLocaleString('vi-VN')} ₫</td>
                             <td className="px-4 py-3 text-right text-indigo-600 font-semibold">{totalPrice.toLocaleString('vi-VN')} ₫</td>
                             <td className="px-4 py-3 text-gray-600">{item.issueDate || '-'}</td>

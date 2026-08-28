@@ -337,7 +337,7 @@ export const InventoryIssues: React.FC = () => {
                         >
                           <Printer size={18} />
                         </button>
-                        {(!isSlipLocked(slip.date) || profile?.role === 'admin' || profile?.role === 'manager') && slip.status !== 'Đã hoàn thành' && (
+                        {((!isSlipLocked(slip.date) && slip.status !== 'Đã hoàn thành') || profile?.role === 'admin' || profile?.role === 'manager') && (
                           <button
                             onClick={() => {
                               setEditingSlip(slip);
@@ -416,7 +416,7 @@ export const InventoryIssues: React.FC = () => {
                   >
                     <Printer size={18} />
                   </button>
-                  {(!isSlipLocked(slip.date) || profile?.role === 'admin' || profile?.role === 'manager') && slip.status !== 'Đã hoàn thành' && (
+                  {((!isSlipLocked(slip.date) && slip.status !== 'Đã hoàn thành') || profile?.role === 'admin' || profile?.role === 'manager') && (
                     <button
                       onClick={() => {
                         setEditingSlip(slip);
