@@ -3,6 +3,7 @@ import { X, Save, CheckSquare } from 'lucide-react';
 import { supabase } from '../../supabase-client';
 import { InventorySlip, InventorySlipItem } from '../../types/inventory';
 import { itemFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
+import Select from 'react-select';
 
 interface GlobalCompletionModalProps {
   isOpen: boolean;
@@ -17,12 +18,16 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
   
   // Trạng thái lưu trữ số lượng hoàn thành đợt này của người dùng
   const [completionInputs, setCompletionInputs] = useState<Record<string, number>>({});
+  
+  // Trạng thái lưu trữ các phiếu được chọn
+  const [selectedSlips, setSelectedSlips] = useState<{value: string, label: string}[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       loadData();
     } else {
       setCompletionInputs({});
+      setSelectedSlips([]);
     }
   }, [isOpen]);
 
@@ -74,19 +79,21 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
     return itemsRef.find(i => i.id === itemId)?.code || 'N/A';
   };
 
-  // Tập hợp tất cả các vật tư chưa hoàn thành từ các phiếu
-  const pendingItems = slips.flatMap((slip) => {
-    return slip.items
-      .map((item, index) => ({
-        ...item,
-        slipId: slip.id,
-        slipCode: slip.code,
-        itemIndex: index,
-        remainingQty: item.quantity - (item.completedQuantity || 0),
-        uniqueKey: `${slip.id}-${index}`
-      }))
-      .filter(item => item.remainingQty > 0);
-  });
+  // Tập hợp tất cả các vật tư chưa hoàn thành từ các phiếu ĐƯỢC CHỌN
+  const pendingItems = slips
+    .filter(slip => selectedSlips.some(s => s.value === slip.id))
+    .flatMap((slip) => {
+      return slip.items
+        .map((item, index) => ({
+          ...item,
+          slipId: slip.id,
+          slipCode: slip.code,
+          itemIndex: index,
+          remainingQty: item.quantity - (item.completedQuantity || 0),
+          uniqueKey: `${slip.id}-${index}`
+        }))
+        .filter(item => item.remainingQty > 0);
+    });
 
   const handleInputChange = (uniqueKey: string, value: string, max: number) => {
     const numValue = Number(value);
@@ -199,11 +206,28 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
             <X size={24} />
           </button>
         </div>
+        
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Chọn Phiếu Xuất Cần Hoàn Thành
+          </label>
+          <Select
+            isMulti
+            placeholder="Vui lòng chọn một hoặc nhiều phiếu xuất..."
+            options={slips.map(s => ({ value: s.id, label: `${s.code} - ${new Date(s.date).toLocaleDateString('vi-VN')}` }))}
+            value={selectedSlips}
+            onChange={(selected) => setSelectedSlips(selected as any)}
+            className="w-full"
+            noOptionsMessage={() => "Không có phiếu xuất nào đang chờ hoàn thành"}
+          />
+        </div>
 
         <div className="flex-1 overflow-y-auto p-6">
           {pendingItems.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              Không có vật tư nào đang chờ hoàn thành.
+            <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200 border-dashed">
+              {selectedSlips.length === 0 
+                ? "Vui lòng chọn phiếu xuất ở trên để hiển thị danh sách vật tư." 
+                : "Không có vật tư nào đang chờ hoàn thành trong các phiếu đã chọn."}
             </div>
           ) : (
             <div className="border border-gray-200 rounded-lg overflow-hidden">
