@@ -379,28 +379,7 @@ export const InventoryReceipts: React.FC = () => {
           console.log(`✅ [InventoryReceipts] All warehouse quantities rolled back`);
         }
 
-        // Delete from Google Drive if exists
-        if (slipToDelete.handover_record_url) {
-          try {
-            console.log(`🗑️ [InventoryReceipts] Found attached file, attempting to delete from Google Drive...`);
-            // Extract fileId from URL like https://drive.google.com/file/d/12345abcde/view?usp=drivesdk
-            const match = slipToDelete.handover_record_url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (match && match[1]) {
-              const fileId = match[1];
-              // Fire and forget, don't await. This prevents slip deletion from hanging if Google API hangs/blocks
-              deleteFromGoogleDrive(fileId)
-                .then(() => console.log(`✅ [InventoryReceipts] Successfully deleted file from Google Drive`))
-                .catch(err => console.warn(`⚠️ [InventoryReceipts] Background file deletion failed (safe to ignore):`, err));
-              console.log(`✅ [InventoryReceipts] Delete request sent to background`);
-            } else {
-              console.warn(`⚠️ [InventoryReceipts] Could not extract file ID from URL: ${slipToDelete.handover_record_url}`);
-            }
-          } catch (err) {
-            console.error(`❌ [InventoryReceipts] Error deleting file from Google Drive:`, err);
-            // Don't block slip deletion if file deletion fails
-          }
-        }
-
+        // Skip deleteFromGoogleDrive since we only store links now
         // Step 3: Delete the slip
         const { error } = await supabase
           .from('inventory_slips')
