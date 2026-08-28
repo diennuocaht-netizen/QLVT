@@ -5,26 +5,37 @@ import { InventorySlip, Item } from '../../types/inventory';
 interface PrintCompletionReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  slip: InventorySlip | null;
+  slip?: InventorySlip | null;
   items: Item[]; // All items lookup
+  globalPrintItems?: any[];
+  globalSourceSlipCodes?: string[];
 }
 
 export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProps> = ({
   isOpen,
   onClose,
   slip,
-  items
+  items,
+  globalPrintItems,
+  globalSourceSlipCodes
 }) => {
   const printRef = useRef<HTMLDivElement>(null);
   const [reportTitle, setReportTitle] = useState('PHIẾU XÁC NHẬN HOÀN THÀNH CÔNG VIỆC');
+  const [itemsToPrint, setItemsToPrint] = useState<any[]>([]);
+
+  const isGlobalPrint = globalPrintItems && globalPrintItems.length > 0;
 
   useEffect(() => {
-    if (slip) {
+    if (isGlobalPrint) {
+      setReportTitle('PHIẾU XÁC NHẬN HOÀN THÀNH CÔNG VIỆC TỔNG HỢP');
+      setItemsToPrint(globalPrintItems);
+    } else if (slip) {
       setReportTitle(`${slip.code} - Phiếu xác nhận hoàn thành công việc`);
+      setItemsToPrint(slip.items);
     }
-  }, [slip]);
+  }, [slip, globalPrintItems, isGlobalPrint]);
 
-  if (!isOpen || !slip) return null;
+  if (!isOpen || (!slip && !isGlobalPrint)) return null;
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -40,7 +51,7 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
     printWindow.document.write(`
       <html>
         <head>
-          <title>${slip.code} - In Phiếu</title>
+          <title>${isGlobalPrint ? 'Tổng hợp' : slip?.code} - In Phiếu</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @media print {
@@ -70,12 +81,12 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
   };
 
   // Group items by subsystem
-  const groupedItems = slip.items.reduce((acc, item) => {
+  const groupedItems = itemsToPrint.reduce((acc, item) => {
     const subsystem = item.subsystem || 'Khác';
     if (!acc[subsystem]) acc[subsystem] = [];
     acc[subsystem].push(item);
     return acc;
-  }, {} as Record<string, typeof slip.items>);
+  }, {} as Record<string, typeof itemsToPrint>);
 
   let globalRowIndex = 1;
 
@@ -85,7 +96,7 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
         
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b bg-gray-50 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-800">In Phiếu Xác Nhận ({slip.code})</h2>
+          <h2 className="text-xl font-bold text-gray-800">In Phiếu Xác Nhận {slip?.code ? `(${slip.code})` : '(Tổng hợp)'}</h2>
           <div className="flex gap-2">
             <button
               onClick={handlePrint}
@@ -111,7 +122,11 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
             {/* Report Header */}
             <div className="text-center mb-8">
               <h1 className="text-xl font-bold uppercase mb-2">PHIẾU XÁC NHẬN HOÀN THÀNH CÔNG VIỆC</h1>
-              <p className="text-sm font-bold italic">Tuần {slip.code.split('-')[0]?.replace('Tuần ', '') || ''}</p>
+              {isGlobalPrint ? (
+                <p className="text-sm font-bold italic">Từ các phiếu: {globalSourceSlipCodes?.join(', ')}</p>
+              ) : (
+                <p className="text-sm font-bold italic">Tuần {slip?.code.split('-')[0]?.replace('Tuần ', '') || ''}</p>
+              )}
             </div>
 
             {/* Table */}
@@ -120,9 +135,10 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
                 <thead>
                   <tr>
                     <th className="w-12 text-center border border-black p-2 font-bold bg-gray-50">STT</th>
-                    <th className="w-28 text-center border border-black p-2 font-bold bg-gray-50">Mã chi phí</th>
+                    {isGlobalPrint && <th className="w-24 text-center border border-black p-2 font-bold bg-gray-50">Nguồn</th>}
+                    <th className="w-24 text-center border border-black p-2 font-bold bg-gray-50">Mã chi phí</th>
                     <th className="text-center border border-black p-2 font-bold bg-gray-50">Tên vật tư</th>
-                    <th className="w-32 text-center border border-black p-2 font-bold bg-gray-50">Mã vật tư</th>
+                    <th className="w-28 text-center border border-black p-2 font-bold bg-gray-50">Mã vật tư</th>
                     <th className="w-16 text-center border border-black p-2 font-bold bg-gray-50">ĐVT</th>
                     <th className="w-20 text-center border border-black p-2 font-bold bg-gray-50">Số lượng</th>
                     <th className="text-center border border-black p-2 font-bold bg-gray-50">Ghi chú</th>
@@ -133,7 +149,7 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
                     <React.Fragment key={subsystem}>
                       {/* Group Header Row */}
                       <tr>
-                        <td colSpan={7} className="border border-black p-2 font-bold text-left italic">
+                        <td colSpan={isGlobalPrint ? 8 : 7} className="border border-black p-2 font-bold text-left italic">
                           {subsystem}
                         </td>
                       </tr>
@@ -143,6 +159,7 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
                         return (
                           <tr key={`${slipItem.itemId}-${index}`}>
                             <td className="text-center border border-black p-2">{globalRowIndex++}</td>
+                            {isGlobalPrint && <td className="text-center border border-black p-2 font-medium text-indigo-700">{slipItem.sourceSlipCode || ''}</td>}
                             <td className="text-center border border-black p-2">{slipItem.costCode || ''}</td>
                             <td className="border border-black p-2">{itemData?.name || 'Không xác định'}</td>
                             <td className="border border-black p-2">{itemData?.code || ''}</td>
@@ -175,7 +192,7 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
               <div>
                 <p>Người thực hiện</p>
                 <div className="h-28"></div>
-                <p className="font-normal italic">{slip.createdBy}</p>
+                <p className="font-normal italic">{isGlobalPrint ? '' : slip?.createdBy}</p>
               </div>
               <div>
                 <p>Người kiểm tra</p>

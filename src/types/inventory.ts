@@ -92,8 +92,8 @@ export interface InventorySlipItem {
   costCode?: string;
   handler?: string; // Người xuất/giao
   notes?: string;   // Ghi chú
-  issueDate?: string; // Ngày xuất
-  isCompleted?: boolean; // Vật tư đã hoàn thành
+  isCompleted?: boolean; // Vật tư đã hoàn thành (cũ)
+  completedQuantity?: number; // Số lượng đã hoàn thành (mới)
 }
 
 export enum SlipType {

@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx';
 import { SlipModal } from '../components/inventory/SlipModal';
 import { DetailSlipModal } from '../components/inventory/DetailSlipModal';
 import { PrintCompletionReportModal } from '../components/inventory/PrintCompletionReportModal';
-import { CompleteIssueItemsModal } from '../components/inventory/CompleteIssueItemsModal';
+import { GlobalCompletionModal } from '../components/inventory/GlobalCompletionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { slipFromDatabase, itemFromDatabase } from '../utils/dataTransform';
 
@@ -21,8 +21,11 @@ export const InventoryIssues: React.FC = () => {
   const [printSlip, setPrintSlip] = useState<InventorySlip | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-  const [completeSlip, setCompleteSlip] = useState<InventorySlip | null>(null);
-  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [isGlobalCompleteModalOpen, setIsGlobalCompleteModalOpen] = useState(false);
+  
+  const [globalPrintItems, setGlobalPrintItems] = useState<any[]>([]);
+  const [globalSourceSlipCodes, setGlobalSourceSlipCodes] = useState<string[]>([]);
+  
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -220,9 +223,17 @@ export const InventoryIssues: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800">Phiếu Xuất Kho</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {(profile?.role === 'admin' || profile?.role === 'manager') && (
+            <button
+              onClick={() => setIsGlobalCompleteModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+            >
+              <CheckCircle size={20} /> Tạo Biên Bản Hoàn Thành
+            </button>
+          )}
           <button
             onClick={() => {
               setEditingSlip(null);
@@ -326,18 +337,6 @@ export const InventoryIssues: React.FC = () => {
                         >
                           <Printer size={18} />
                         </button>
-                        {(profile?.role === 'admin' || profile?.role === 'manager') && (
-                          <button
-                            onClick={() => {
-                              setCompleteSlip(slip);
-                              setIsCompleteModalOpen(true);
-                            }}
-                            className="p-2 text-teal-600 hover:bg-teal-50 rounded"
-                            title="Hoàn thành vật tư"
-                          >
-                            <CheckCircle size={18} />
-                          </button>
-                        )}
                         {(!isSlipLocked(slip.date) || profile?.role === 'admin' || profile?.role === 'manager') && slip.status !== 'Đã hoàn thành' && (
                           <button
                             onClick={() => {
@@ -417,18 +416,6 @@ export const InventoryIssues: React.FC = () => {
                   >
                     <Printer size={18} />
                   </button>
-                  {(profile?.role === 'admin' || profile?.role === 'manager') && (
-                    <button
-                      onClick={() => {
-                        setCompleteSlip(slip);
-                        setIsCompleteModalOpen(true);
-                      }}
-                      className="p-2 text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-md"
-                      title="Hoàn thành vật tư"
-                    >
-                      <CheckCircle size={18} />
-                    </button>
-                  )}
                   {(!isSlipLocked(slip.date) || profile?.role === 'admin' || profile?.role === 'manager') && slip.status !== 'Đã hoàn thành' && (
                     <button
                       onClick={() => {
@@ -482,18 +469,23 @@ export const InventoryIssues: React.FC = () => {
         isOpen={isPrintModalOpen}
         slip={printSlip}
         items={items}
+        globalPrintItems={globalPrintItems}
+        globalSourceSlipCodes={globalSourceSlipCodes}
         onClose={() => {
           setIsPrintModalOpen(false);
           setPrintSlip(null);
+          setGlobalPrintItems([]);
+          setGlobalSourceSlipCodes([]);
         }}
       />
 
-      <CompleteIssueItemsModal
-        isOpen={isCompleteModalOpen}
-        slip={completeSlip}
-        onClose={() => {
-          setIsCompleteModalOpen(false);
-          setCompleteSlip(null);
+      <GlobalCompletionModal
+        isOpen={isGlobalCompleteModalOpen}
+        onClose={() => setIsGlobalCompleteModalOpen(false)}
+        onPrintReport={(itemsToPrint, sourceSlips) => {
+          setGlobalPrintItems(itemsToPrint);
+          setGlobalSourceSlipCodes(sourceSlips);
+          setIsPrintModalOpen(true);
         }}
       />
     </div>
