@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, Download } from 'lucide-react';
 import { InventorySlip, Item } from '../../types/inventory';
 
 interface PrintCompletionReportModalProps {
@@ -80,6 +80,64 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
     printWindow.document.close();
   };
 
+  const handleExportWord = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    let htmlContent = printContent.innerHTML;
+
+    // A basic HTML wrapper that Word can understand
+    const html = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset="utf-8">
+        <title>Phieu Xac Nhan</title>
+        <style>
+          @page WordSection1 {
+              size: 595.3pt 841.9pt; /* A4 Portrait */
+              margin: 1.0in 1.0in 1.0in 1.0in;
+          }
+          div.WordSection1 { page: WordSection1; }
+          body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid black; padding: 6px; }
+          th { text-align: center; font-weight: bold; background-color: #f3f4f6; }
+          .text-center { text-align: center; }
+          .font-bold { font-weight: bold; }
+          .uppercase { text-transform: uppercase; }
+          .text-xl { font-size: 16pt; }
+          .text-sm { font-size: 10pt; }
+          .italic { font-style: italic; }
+          .w-full { width: 100%; }
+          .mb-8 { margin-bottom: 32px; }
+          .mb-10 { margin-bottom: 40px; }
+          .mt-12 { margin-top: 48px; }
+          .grid { display: table; width: 100%; }
+          .grid-cols-5 > div { display: table-cell; width: 20%; text-align: center; }
+          .h-28 { height: 112px; }
+        </style>
+      </head>
+      <body>
+        <div class="WordSection1">
+          ${htmlContent}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const filename = isGlobalPrint ? 'Phieu_Xac_Nhan_Tong_Hop.doc' : `Phieu_Xac_Nhan_${slip?.code}.doc`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+
   // Group items by subsystem
   const groupedItems = itemsToPrint.reduce((acc, item) => {
     const subsystem = item.subsystem || 'Khác';
@@ -98,6 +156,12 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
         <div className="flex justify-between items-center p-4 border-b bg-gray-50 flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-800">In Phiếu Xác Nhận {slip?.code ? `(${slip.code})` : '(Tổng hợp)'}</h2>
           <div className="flex gap-2">
+            <button
+              onClick={handleExportWord}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+            >
+              <Download size={18} /> Tải Word
+            </button>
             <button
               onClick={handlePrint}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
