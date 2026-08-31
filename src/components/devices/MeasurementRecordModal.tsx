@@ -5,13 +5,13 @@ import { X, Save, ClipboardList } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface MeasurementRecordModalProps {
-  deviceId: string;
-  deviceName: string;
+  equipmentId: string;
+  equipmentName: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const MeasurementRecordModal: React.FC<MeasurementRecordModalProps> = ({ deviceId, deviceName, onClose, onSuccess }) => {
+export const MeasurementRecordModal: React.FC<MeasurementRecordModalProps> = ({ equipmentId, equipmentName, onClose, onSuccess }) => {
   const { profile } = useAuth();
   const [forms, setForms] = useState<MeasurementForm[]>([]);
   const [selectedFormId, setSelectedFormId] = useState<string>('');
@@ -70,7 +70,7 @@ export const MeasurementRecordModal: React.FC<MeasurementRecordModalProps> = ({ 
       setLoading(true);
       const now = new Date().toISOString();
       const newRecord = {
-        device_id: deviceId,
+        equipment_id: equipmentId,
         form_id: selectedFormId,
         record_data: recordData,
         recorded_by: profile?.id,
@@ -89,9 +89,9 @@ export const MeasurementRecordModal: React.FC<MeasurementRecordModalProps> = ({ 
       // Log activity
       import('../../utils/activityLogger').then(m => m.logActivity({
         action: 'add_measurement',
-        entityType: 'device',
-        entityId: deviceId,
-        details: { deviceName, formName: selectedForm.name }
+        entityType: 'measured_equipment',
+        entityId: equipmentId,
+        details: { equipmentName, formName: selectedForm.name }
       })).catch(err => console.warn('Activity logger failed:', err));
 
       alert('Đã lưu phiếu đo đạc thành công!');
@@ -110,7 +110,7 @@ export const MeasurementRecordModal: React.FC<MeasurementRecordModalProps> = ({ 
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900 flex items-center">
             <ClipboardList className="w-6 h-6 mr-2 text-indigo-600" />
-            Tạo phiếu đo đạc: {deviceName}
+            Tạo phiếu đo đạc: {equipmentName}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
             <X className="w-6 h-6" />

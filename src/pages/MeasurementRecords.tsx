@@ -183,8 +183,8 @@ export const MeasurementRecords: React.FC = () => {
           </div>
           {selectedEq && (
             <MeasurementRecordModal
-              deviceId={selectedEq.id}
-              deviceName={selectedEq.name}
+              equipmentId={selectedEq.id}
+              equipmentName={selectedEq.name}
               onClose={() => setIsModalOpen(false)}
               onSuccess={() => {
                 setIsModalOpen(false);
