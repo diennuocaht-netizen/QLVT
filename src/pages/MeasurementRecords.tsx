@@ -8,6 +8,7 @@ export const MeasurementRecords: React.FC = () => {
   const [records, setRecords] = useState<any[]>([]);
   const [equipments, setEquipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -23,8 +24,7 @@ export const MeasurementRecords: React.FC = () => {
           .from('measurement_records')
           .select(`
             *,
-            form:measurement_forms(name),
-            user:recorded_by(email, raw_user_meta_data)
+            form:measurement_forms(name)
           `)
           .order('recorded_at', { ascending: false }),
         supabase
@@ -35,17 +35,20 @@ export const MeasurementRecords: React.FC = () => {
       
       if (recRes.error) {
         console.error('Error fetching records:', recRes.error);
+        setErrorMsg('Lỗi tải danh sách biên bản: ' + recRes.error.message);
       } else {
         setRecords(recRes.data || []);
       }
 
       if (eqRes.error) {
         console.error('Error fetching equipments:', eqRes.error);
+        if (!errorMsg) setErrorMsg('Lỗi tải danh sách máy móc: ' + eqRes.error.message);
       } else {
         setEquipments(eqRes.data || []);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error in fetchData:', err);
+      setErrorMsg(err.message || 'Lỗi không xác định');
     } finally {
       setLoading(false);
     }
@@ -104,6 +107,13 @@ export const MeasurementRecords: React.FC = () => {
         </div>
 
         <div className="flex-1 overflow-auto p-6">
+          {errorMsg && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+              <p className="text-red-700">{errorMsg}</p>
+              <p className="text-sm text-red-600 mt-1">Gợi ý: Nếu đây là lỗi liên kết bảng, có thể bộ đệm Supabase chưa kịp cập nhật. Vui lòng tải lại trang hoặc chạy lệnh <code>NOTIFY pgrst, 'reload schema';</code></p>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-10">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
