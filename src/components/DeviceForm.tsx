@@ -54,8 +54,25 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({ device, onClose }) => {
 
       if (device) {
         // Update
+        const changes: string[] = [];
+        if (device.name !== formData.name) changes.push(`Tên`);
+        if ((device.location || '') !== (formData.location || '')) changes.push(`Vị trí`);
+        if (device.status !== formData.status) changes.push(`Trạng thái`);
+        
+        let updatedHistoryLogs = device.history_logs || [];
+        if (changes.length > 0) {
+          const autoLog = {
+            id: Date.now().toString(),
+            date: now.split('T')[0],
+            action: 'Cập nhật thông tin',
+            details: `Thay đổi: ${changes.join(', ')} bởi ${profile?.displayName || profile?.email || 'Người dùng'}`,
+          };
+          updatedHistoryLogs = [autoLog, ...updatedHistoryLogs];
+        }
+
         const { error } = await supabase.from('devices').update({
           ...dataToSave,
+          history_logs: updatedHistoryLogs,
           updated_at: now,
         }).eq('id', device.id);
         

@@ -100,6 +100,33 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
         usageDate: formData.usageDate || '',
       };
 
+      let updatedHistoryLogs = [...historyLogs];
+      if (device) {
+        const changes: string[] = [];
+        
+        if (device.name !== formData.name) changes.push(`Tên`);
+        if ((device.location || '') !== (formData.location || '')) changes.push(`Vị trí`);
+        if (device.status !== formData.status) changes.push(`Trạng thái`);
+        
+        const oldSpecs = device.specs || {};
+        if ((oldSpecs.type || '') !== (formData.type || '')) changes.push(`Loại`);
+        if ((oldSpecs.origin || '') !== (formData.origin || '')) changes.push(`Xuất xứ`);
+        if ((oldSpecs.manager || '') !== (formData.manager || '')) changes.push(`Người quản lý`);
+        if ((oldSpecs.contactInfo || '') !== (formData.contactInfo || '')) changes.push(`SĐT`);
+        if ((oldSpecs.measuringElement || '') !== (formData.measuringElement || '')) changes.push(`Phần tử đo đếm`);
+        if ((oldSpecs.protectionElement || '') !== (formData.protectionElement || '')) changes.push(`Phần tử bảo vệ`);
+        
+        if (changes.length > 0) {
+          const autoLog = {
+            id: Date.now().toString(),
+            date: now.split('T')[0],
+            action: 'Cập nhật thông tin',
+            details: `Thay đổi: ${changes.join(', ')} bởi ${profile?.displayName || profile?.email || 'Người dùng'}`,
+          };
+          updatedHistoryLogs = [autoLog, ...updatedHistoryLogs];
+        }
+      }
+
       // Only include schema columns
       const finalData = {
         code: formData.code,
@@ -109,7 +136,7 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
         status: formData.status,
         author_id: profile?.id || null,
         sub_components: subComponents,
-        history_logs: historyLogs,
+        history_logs: updatedHistoryLogs,
         updated_at: now,
       };
 
