@@ -11,6 +11,7 @@ export const MeasurementRecords: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewingRecord, setViewingRecord] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -157,7 +158,10 @@ export const MeasurementRecords: React.FC = () => {
                     <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-between">
                       <button 
                         className="text-indigo-600 hover:text-indigo-900 text-sm font-medium flex items-center"
-                        onClick={() => alert('Tính năng xem chi tiết biên bản sẽ được cập nhật sau')}
+                        onClick={() => {
+                          setViewingRecord(record);
+                          setIsModalOpen(true);
+                        }}
                       >
                         <Eye className="w-4 h-4 mr-1" /> Chi tiết
                       </button>
@@ -180,9 +184,15 @@ export const MeasurementRecords: React.FC = () => {
       {isModalOpen && (
         <MeasurementSessionModal
           availableEquipments={equipments}
-          onClose={() => setIsModalOpen(false)}
+          initialRecord={viewingRecord}
+          isViewOnly={!!viewingRecord}
+          onClose={() => {
+            setIsModalOpen(false);
+            setViewingRecord(null);
+          }}
           onSuccess={() => {
             setIsModalOpen(false);
+            setViewingRecord(null);
             fetchData();
           }}
         />

@@ -8,9 +8,11 @@ interface MeasurementSessionModalProps {
   onClose: () => void;
   onSuccess: () => void;
   availableEquipments: any[];
+  initialRecord?: any;
+  isViewOnly?: boolean;
 }
 
-export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = ({ onClose, onSuccess, availableEquipments }) => {
+export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = ({ onClose, onSuccess, availableEquipments, initialRecord, isViewOnly }) => {
   const { profile } = useAuth();
   const [forms, setForms] = useState<MeasurementForm[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,8 +30,25 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
   const [postMaintenanceNote, setPostMaintenanceNote] = useState('');
 
   useEffect(() => {
-    fetchForms();
-  }, []);
+    fetchForms().then(() => {
+      if (initialRecord) {
+        setRecordName(initialRecord.record_name);
+        setSelectedFormId(initialRecord.form_id);
+        const eqIds = initialRecord.record_data?.equipments?.map((e: any) => e.equipment_id) || [];
+        setSelectedEquipmentIds(eqIds);
+        setChecklistData(initialRecord.record_data?.checklist || {});
+        setPostMaintenanceNote(initialRecord.record_data?.post_maintenance_note || '');
+        
+        // Reconstruct equipmentsData
+        const eqData: any = {};
+        initialRecord.record_data?.equipments?.forEach((eq: any) => {
+          eqData[eq.equipment_id] = eq.measurements || {};
+        });
+        setEquipmentsData(eqData);
+        setStep(2);
+      }
+    });
+  }, [initialRecord]);
 
   const fetchForms = async () => {
     try {
@@ -41,7 +60,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
         
       if (error) throw error;
       setForms(data || []);
-      if (data && data.length > 0) {
+      if (data && data.length > 0 && !initialRecord) {
         setSelectedFormId(data[0].id);
       }
     } catch (err) {
@@ -191,7 +210,8 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                   type="text"
                   value={recordName}
                   onChange={e => setRecordName(e.target.value)}
-                  className="w-full border-gray-300 rounded-md focus:ring-indigo-500"
+                  disabled={isViewOnly}
+                  className="w-full border-gray-300 rounded-md focus:ring-indigo-500 disabled:bg-gray-100"
                   placeholder="VD: Biên bản kiểm tra hệ thống bơm tiểu cảnh định kỳ"
                 />
               </div>
@@ -201,7 +221,8 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                 <select
                   value={selectedFormId}
                   onChange={e => setSelectedFormId(e.target.value)}
-                  className="w-full border-gray-300 rounded-md focus:ring-indigo-500"
+                  disabled={isViewOnly || !!initialRecord}
+                  className="w-full border-gray-300 rounded-md focus:ring-indigo-500 disabled:bg-gray-100"
                 >
                   {forms.map(f => (
                     <option key={f.id} value={f.id}>{f.name}</option>
@@ -212,18 +233,21 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-semibold text-gray-700">Thiết bị/Máy móc cần kiểm tra <span className="text-red-500">*</span></label>
-                  <button type="button" onClick={handleSelectAllEq} className="text-xs text-indigo-600 hover:underline">
-                    {selectedEquipmentIds.length === availableEquipments.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                  </button>
+                  {!isViewOnly && (
+                    <button type="button" onClick={handleSelectAllEq} className="text-xs text-indigo-600 hover:underline">
+                      {selectedEquipmentIds.length === availableEquipments.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                    </button>
+                  )}
                 </div>
                 <div className="border border-gray-300 rounded-md max-h-60 overflow-y-auto bg-white divide-y divide-gray-100">
                   {availableEquipments.map(eq => (
-                    <label key={eq.id} className="flex items-center px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                    <label key={eq.id} className={`flex items-center px-4 py-3 ${isViewOnly ? 'opacity-70' : 'hover:bg-gray-50 cursor-pointer'}`}>
                       <input
                         type="checkbox"
                         checked={selectedEquipmentIds.includes(eq.id)}
-                        onChange={() => handleToggleEquipment(eq.id)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded border-gray-300 mr-3"
+                        onChange={() => !isViewOnly && handleToggleEquipment(eq.id)}
+                        disabled={isViewOnly}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded border-gray-300 mr-3 disabled:opacity-50"
                       />
                       <div className="flex flex-col">
                         <span className="font-medium text-gray-900">{eq.name}</span>
@@ -270,6 +294,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                                 name={`check_${item.id}`}
                                 checked={val === 'Đạt'}
                                 onChange={() => handleChecklistChange(item.id, 'status', 'Đạt')}
+                                disabled={isViewOnly}
                                 className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300"
                               />
                             </td>
@@ -279,6 +304,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                                 name={`check_${item.id}`}
                                 checked={val === 'Không đạt'}
                                 onChange={() => handleChecklistChange(item.id, 'status', 'Không đạt')}
+                                disabled={isViewOnly}
                                 className="w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
                               />
                             </td>
@@ -287,8 +313,9 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                                 type="text"
                                 value={checklistData[item.id]?.note || ''}
                                 onChange={e => handleChecklistChange(item.id, 'note', e.target.value)}
+                                disabled={isViewOnly}
                                 className="w-full h-full border-0 focus:ring-0 p-2 text-sm bg-transparent"
-                                placeholder="Ghi chú..."
+                                placeholder={isViewOnly ? '' : 'Ghi chú...'}
                               />
                             </td>
                           </tr>
@@ -338,6 +365,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                                     <select
                                       value={val}
                                       onChange={e => handleMeasurementChange(eqId, f.id, e.target.value)}
+                                      disabled={isViewOnly}
                                       className="w-full h-full border-0 focus:ring-0 p-2 text-sm bg-transparent text-center"
                                     >
                                       <option value=""></option>
@@ -350,6 +378,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                                       step={f.type === 'number' ? 'any' : undefined}
                                       value={val}
                                       onChange={e => handleMeasurementChange(eqId, f.id, e.target.value)}
+                                      disabled={isViewOnly}
                                       className="w-full h-full border-0 focus:ring-0 p-2 text-sm text-center bg-transparent"
                                     />
                                   )}
@@ -370,9 +399,10 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                 <textarea
                   value={postMaintenanceNote}
                   onChange={e => setPostMaintenanceNote(e.target.value)}
+                  disabled={isViewOnly}
                   rows={4}
                   className="w-full border-gray-300 rounded-md focus:ring-indigo-500 p-3 text-sm"
-                  placeholder="Ghi chú tổng quan, tình trạng thiết bị không đạt, kế hoạch sửa chữa..."
+                  placeholder={isViewOnly ? '' : 'Ghi chú tổng quan, tình trạng thiết bị không đạt, kế hoạch sửa chữa...'}
                 ></textarea>
               </div>
             </div>
@@ -405,7 +435,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
             >
               Tiếp tục
             </button>
-          ) : (
+          ) : !isViewOnly ? (
             <button
               type="button"
               onClick={handleSubmit}
@@ -415,7 +445,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
               {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : <Save className="w-4 h-4 mr-2" />}
               Lưu Biên Bản
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
