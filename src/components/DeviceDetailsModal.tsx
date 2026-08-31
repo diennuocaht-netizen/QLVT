@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Clock, User, Calendar, MapPin, Tag, Info, Activity, Zap, Shield, FileText } from 'lucide-react';
-import { DeviceMeasurementTab } from './devices/DeviceMeasurementTab';
+import { Wrench, Settings, Trash2, Edit, Save, Plus, ArrowLeft, PenTool, CheckCircle2, History, AlertCircle, ShieldAlert, Cpu, Layers, Search, Maximize2, Layout, CheckSquare } from 'lucide-react';
+import QRCode from 'qrcode.react';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { DeviceProfileModal } from './DeviceProfileModal';
 
 interface DeviceDetailsModalProps {
   device: any;
@@ -52,12 +55,6 @@ export const DeviceDetailsModal: React.FC<DeviceDetailsModalProps> = ({ device, 
             onClick={() => setActiveTab('changelog')}
           >
             Logfile (Lịch sử thay đổi)
-          </button>
-          <button
-            className={`px-4 py-2 font-medium text-sm border-b-2 ${activeTab === 'measurements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('measurements')}
-          >
-            Thông số đo định kỳ
           </button>
         </div>
 
@@ -340,10 +337,6 @@ export const DeviceDetailsModal: React.FC<DeviceDetailsModalProps> = ({ device, 
                 </div>
               )}
             </div>
-          )}
-
-          {activeTab === 'measurements' && (
-            <DeviceMeasurementTab deviceId={device.id} deviceName={device.name} />
           )}
         </div>
       </div>

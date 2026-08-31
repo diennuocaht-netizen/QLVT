@@ -20,6 +20,8 @@ import { InventoryRequisitions } from './pages/InventoryRequisitions';
 import { InventoryAudits } from './pages/InventoryAudits';
 import { InventorySettings } from './pages/InventorySettings';
 import { MeasurementForms } from './pages/MeasurementForms';
+import { MeasurementRecords } from './pages/MeasurementRecords';
+import { MeasuredEquipments } from './pages/MeasuredEquipments';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -53,7 +55,11 @@ export default function App() {
             <Route path="documents" element={<Documents />} />
             <Route path="devices" element={<Devices />} />
             <Route path="admin" element={<Admin />} />
-            <Route path="measurements" element={<MeasurementForms />} />
+            
+            {/* Device Measurements */}
+            <Route path="measured-equipments" element={<MeasuredEquipments />} />
+            <Route path="measurements/forms" element={<MeasurementForms />} />
+            <Route path="measurements/records" element={<MeasurementRecords />} />
             
             {/* Inventory Routes */}
             <Route path="inventory" element={<InventoryDashboard />} />

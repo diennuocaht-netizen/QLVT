@@ -7,15 +7,21 @@ import clsx from 'clsx';
 export const Layout: React.FC = () => {
   const { profile, logout } = useAuth();
   const location = useLocation();
+  const [isDeviceOpen, setIsDeviceOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
     { path: '/', label: 'Tổng quan', icon: LayoutDashboard, roles: ['admin', 'manager', 'viewer'] },
     { path: '/documents', label: 'Tài liệu ISO', icon: FileText, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/devices', label: 'Thiết bị', icon: Server, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/measurements', label: 'Biểu mẫu đo đạc', icon: ClipboardList, roles: ['admin', 'manager'] },
     { path: '/admin', label: 'Quản trị', icon: Users, roles: ['admin'] },
+  ];
+
+  const deviceItems = [
+    { path: '/devices', label: 'Quản lý Tủ điện', icon: Server, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/measured-equipments', label: 'Quản lý Máy móc', icon: Box, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/measurements/records', label: 'Quản lý Phiếu đo đạc', icon: ClipboardList, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/measurements/forms', label: 'Biểu mẫu đo đạc', icon: Settings, roles: ['admin', 'manager'] },
   ];
 
   const inventoryItems = [
@@ -100,6 +106,52 @@ export const Layout: React.FC = () => {
                 </li>
               );
             })}
+
+            {/* Device Section */}
+            {profile && deviceItems.filter(i => i.roles.includes(profile.role)).length > 0 && (
+              <li className="pt-4 mt-4 border-t border-gray-100">
+                <button
+                  onClick={() => setIsDeviceOpen(!isDeviceOpen)}
+                  className={clsx(
+                    'flex items-center justify-between w-full px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    (location.pathname.startsWith('/devices') || location.pathname.startsWith('/measurements')) && !isDeviceOpen
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  <div className="flex items-center">
+                    <Server className={clsx('mr-3 h-5 w-5', (location.pathname.startsWith('/devices') || location.pathname.startsWith('/measurements')) ? 'text-indigo-700' : 'text-gray-400')} />
+                    Quản lý Thiết bị
+                  </div>
+                  {isDeviceOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+                
+                {isDeviceOpen && (
+                  <ul className="mt-1 ml-6 space-y-1 border-l-2 border-gray-100 pl-2">
+                    {deviceItems.filter(i => i.roles.includes(profile.role)).map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <li key={item.path}>
+                          <Link
+                            to={item.path}
+                            className={clsx(
+                              'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                              isActive
+                                ? 'bg-indigo-50 text-indigo-700'
+                                : 'text-gray-600 hover:bg-gray-100'
+                            )}
+                          >
+                            <Icon className={clsx('mr-3 h-4 w-4', isActive ? 'text-indigo-700' : 'text-gray-400')} />
+                            {item.label}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            )}
 
             {/* Inventory Section */}
             {filteredInventoryItems.length > 0 && (
