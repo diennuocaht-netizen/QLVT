@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
-import { Box, Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Box, Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { EquipmentDetailsModal } from '../components/devices/EquipmentDetailsModal';
 
 export const MeasuredEquipments: React.FC = () => {
   const { profile } = useAuth();
@@ -12,6 +13,7 @@ export const MeasuredEquipments: React.FC = () => {
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [viewingDetailsItem, setViewingDetailsItem] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -182,10 +184,13 @@ export const MeasuredEquipments: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button onClick={() => handleOpenModal(item)} className="text-indigo-600 hover:text-indigo-900 mr-3">
+                      <button onClick={() => setViewingDetailsItem(item)} className="text-blue-600 hover:text-blue-900 mr-3" title="Chi tiết">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleOpenModal(item)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900">
+                      <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900" title="Xóa">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -276,6 +281,13 @@ export const MeasuredEquipments: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {viewingDetailsItem && (
+        <EquipmentDetailsModal
+          equipment={viewingDetailsItem}
+          onClose={() => setViewingDetailsItem(null)}
+        />
       )}
     </div>
   );
