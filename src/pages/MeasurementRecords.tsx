@@ -35,13 +35,19 @@ export const MeasurementRecords: React.FC = () => {
           .order('name')
       ]);
       
-      if (recRes.error) throw recRes.error;
-      if (eqRes.error) throw eqRes.error;
-      
-      setRecords(recRes.data || []);
-      setEquipments(eqRes.data || []);
+      if (recRes.error) {
+        console.error('Error fetching records:', recRes.error);
+      } else {
+        setRecords(recRes.data || []);
+      }
+
+      if (eqRes.error) {
+        console.error('Error fetching equipments:', eqRes.error);
+      } else {
+        setEquipments(eqRes.data || []);
+      }
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error in fetchData:', err);
     } finally {
       setLoading(false);
     }
