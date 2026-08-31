@@ -14,6 +14,7 @@ export const Layout: React.FC = () => {
     { path: '/', label: 'Tổng quan', icon: LayoutDashboard, roles: ['admin', 'manager', 'viewer'] },
     { path: '/documents', label: 'Tài liệu ISO', icon: FileText, roles: ['admin', 'manager', 'viewer'] },
     { path: '/devices', label: 'Thiết bị', icon: Server, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/measurements', label: 'Biểu mẫu đo đạc', icon: ClipboardList, roles: ['admin', 'manager'] },
     { path: '/admin', label: 'Quản trị', icon: Users, roles: ['admin'] },
   ];
 
