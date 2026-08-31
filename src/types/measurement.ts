@@ -1,32 +1,35 @@
-export type MeasurementFieldType = 'text' | 'number' | 'boolean' | 'select';
+export interface ChecklistItem {
+  id: string;
+  label: string;
+}
 
 export interface MeasurementField {
   id: string;
   label: string;
-  type: MeasurementFieldType;
-  unit?: string; // Ví dụ: V, A, °C, %
-  options?: string[]; // Cho select
-  required: boolean;
+  type: 'number' | 'text' | 'boolean';
+  unit?: string;
+  required?: boolean;
+  group?: string;
 }
 
 export interface MeasurementForm {
   id: string;
   name: string;
-  description: string | null;
-  fields: MeasurementField[];
-  created_by?: string;
+  description?: string;
+  checklist_items: ChecklistItem[];
+  measurement_fields: MeasurementField[];
   created_at: string;
   updated_at: string;
 }
 
 export interface MeasurementRecord {
   id: string;
-  device_id: string;
+  record_name: string;
   form_id: string;
-  record_data: Record<string, any>;
+  record_data: any; // Complex JSON structure
+  recorded_by: string;
+  notes?: string;
   recorded_at: string;
-  recorded_by?: string;
-  notes: string | null;
   created_at: string;
   updated_at: string;
 }
