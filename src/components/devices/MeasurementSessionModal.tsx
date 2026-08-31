@@ -410,7 +410,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
         </div>
 
         <div className="p-6 border-t border-gray-200 flex justify-end space-x-3 bg-white rounded-b-lg">
-          {step === 2 && (
+          {step === 2 && !isViewOnly && (
             <button
               type="button"
               onClick={() => setStep(1)}
@@ -419,12 +419,28 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
               Quay lại
             </button>
           )}
+
+          {isViewOnly && selectedForm && initialRecord && (
+            <button
+              type="button"
+              onClick={() => {
+                import('../../utils/exportWord').then(m => {
+                  m.exportMeasurementRecordToWord(initialRecord, selectedForm, initialRecord.user);
+                });
+              }}
+              className="px-4 py-2 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 mr-auto flex items-center"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Xuất file Word
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
-            Hủy
+            {isViewOnly ? 'Đóng' : 'Hủy'}
           </button>
           
           {step === 1 ? (
