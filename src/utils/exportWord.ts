@@ -1,10 +1,25 @@
-export const exportMeasurementRecordToWord = (
+export const exportMeasurementRecordToWord = async (
   record: any,
   form: any,
   user: any
 ) => {
   const { record_name, recorded_at, record_data } = record;
   const { checklist = {}, equipments = [], post_maintenance_note = '' } = record_data;
+
+  // Fetch logo as base64
+  let logoBase64 = '';
+  try {
+    const response = await fetch('/AHT.png');
+    const blob = await response.blob();
+    logoBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error('Failed to load logo', err);
+  }
 
   // Group measurement fields
   const groupedColumns: { name: string; fields: any[] }[] = [];
@@ -88,23 +103,26 @@ export const exportMeasurementRecordToWord = (
     <body>
       <table class="header-table">
         <tr>
-          <td style="width: 50%;">
-            CÔNG TY CỔ PHẦN ĐẦU TƯ KHAI THÁC<br>
-            NHÀ GA QUỐC TẾ ĐÀ NẴNG<br>
-            <span style="text-decoration: underline;">PHÒNG KỸ THUẬT - ĐỘI ĐNCT</span>
+          <td style="width: 40%; vertical-align: middle; text-align: left;">
+            ${logoBase64 ? `<img src="${logoBase64}" width="150" alt="AHT Logo" />` : 'AHT Logo'}
           </td>
-          <td style="width: 50%;">
-            CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br>
-            <span style="text-decoration: underline;">Độc lập - Tự do - Hạnh phúc</span>
+          <td style="width: 60%; text-align: center; font-size: 11pt;">
+            CÔNG TY CỔ PHẦN ĐẦU TƯ KHAI THÁC NHÀ GA<br>
+            QUỐC TẾ ĐÀ NẴNG<br>
+            <b>PHÒNG KỸ THUẬT - ĐỘI ĐNCT</b>
           </td>
         </tr>
       </table>
 
+      <div style="text-align: right; font-size: 11pt; margin-bottom: 20px; font-style: italic; text-decoration: underline;">
+        Số: M8/26/BB/KT-DNCT/BTC
+      </div>
+
       <div class="title">${record_name}</div>
       
       <div class="info">
-        - Thời gian thực hiện: ${timeStr} ${dateStr}<br>
-        - Người thực hiện: ${userName}
+        <b>Thời gian thực hiện:</b> ${dateStr}<br>
+        <b>Người thực hiện:</b> ${userName}
       </div>
 
       ${form.checklist_items && form.checklist_items.length > 0 ? `
