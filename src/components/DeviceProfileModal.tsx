@@ -116,6 +116,36 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
         if ((oldSpecs.measuringElement || '') !== (formData.measuringElement || '')) changes.push(`Phần tử đo đếm`);
         if ((oldSpecs.protectionElement || '') !== (formData.protectionElement || '')) changes.push(`Phần tử bảo vệ`);
         
+        // Diff subComponents
+        const oldSubs = device.sub_components || [];
+        const newSubs = subComponents;
+        
+        if (oldSubs.length !== newSubs.length) {
+          changes.push(`Số lượng phụ tải: ${oldSubs.length} -> ${newSubs.length}`);
+        } else {
+          let compChanges = 0;
+          let compDetails: string[] = [];
+          for (let i = 0; i < newSubs.length; i++) {
+            const oldItem = oldSubs.find((o: any) => o.id === newSubs[i].id) || oldSubs[i];
+            if (oldItem) {
+              const itemChanges = [];
+              if (oldItem.label !== newSubs[i].label) itemChanges.push(`Nhãn`);
+              if (oldItem.name !== newSubs[i].name) itemChanges.push(`Tên MCB`);
+              if (oldItem.location !== newSubs[i].location) itemChanges.push(`Vị trí (${oldItem.location || 'Trống'} -> ${newSubs[i].location || 'Trống'})`);
+              if (oldItem.model !== newSubs[i].model) itemChanges.push(`Model`);
+              if (oldItem.current !== newSubs[i].current) itemChanges.push(`Dòng ĐM`);
+              
+              if (itemChanges.length > 0) {
+                compChanges++;
+                compDetails.push(`[${newSubs[i].label || 'Phụ tải'}] sửa ${itemChanges.join(', ')}`);
+              }
+            }
+          }
+          if (compChanges > 0) {
+            changes.push(`Đã thay đổi ${compChanges} phụ tải: ${compDetails.join('; ')}`);
+          }
+        }
+        
         if (changes.length > 0) {
           const autoLog = {
             id: Date.now().toString(),
