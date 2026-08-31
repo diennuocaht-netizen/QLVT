@@ -100,13 +100,13 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
         usageDate: formData.usageDate || '',
       };
 
-      let updatedHistoryLogs = [...historyLogs];
+      let updatedChangeLogs = device ? [...(device.change_logs || [])] : [];
       if (device) {
         const changes: string[] = [];
         
-        if (device.name !== formData.name) changes.push(`Tên`);
-        if ((device.location || '') !== (formData.location || '')) changes.push(`Vị trí`);
-        if (device.status !== formData.status) changes.push(`Trạng thái`);
+        if (device.name !== formData.name) changes.push(`Tên: ${device.name} -> ${formData.name}`);
+        if ((device.location || '') !== (formData.location || '')) changes.push(`Vị trí: ${device.location} -> ${formData.location}`);
+        if (device.status !== formData.status) changes.push(`Trạng thái: ${device.status} -> ${formData.status}`);
         
         const oldSpecs = device.specs || {};
         if ((oldSpecs.type || '') !== (formData.type || '')) changes.push(`Loại`);
@@ -119,11 +119,12 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
         if (changes.length > 0) {
           const autoLog = {
             id: Date.now().toString(),
-            date: now.split('T')[0],
+            timestamp: now,
             action: 'Cập nhật thông tin',
-            details: `Thay đổi: ${changes.join(', ')} bởi ${profile?.displayName || profile?.email || 'Người dùng'}`,
+            user: profile?.displayName || profile?.email || 'Hệ thống',
+            details: `Thay đổi: ${changes.join(', ')}`,
           };
-          updatedHistoryLogs = [autoLog, ...updatedHistoryLogs];
+          updatedChangeLogs = [autoLog, ...updatedChangeLogs];
         }
       }
 
@@ -136,13 +137,25 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
         status: formData.status,
         author_id: profile?.id || null,
         sub_components: subComponents,
-        history_logs: updatedHistoryLogs,
+        history_logs: historyLogs,
+        change_logs: updatedChangeLogs,
         updated_at: now,
       };
 
       if (device) {
         const { error } = await supabase.from('devices').update(finalData).eq('id', device.id);
         if (error) throw error;
+        
+        // Let's use the local 'changes' array here but it was scoped inside the earlier block.
+        // I will re-calculate changes or check updatedChangeLogs length difference
+        if (updatedChangeLogs.length > (device.change_logs?.length || 0)) {
+          import('../utils/activityLogger').then(m => m.logActivity({
+            action: 'update_device',
+            entityType: 'device',
+            entityId: device.id,
+            details: { name: formData.name, code: formData.code }
+          })).catch(err => console.warn('Activity logger failed:', err));
+        }
       } else {
         const { error } = await supabase.from('devices').insert([{
           ...finalData,

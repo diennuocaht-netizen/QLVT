@@ -59,24 +59,34 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({ device, onClose }) => {
         if ((device.location || '') !== (formData.location || '')) changes.push(`Vị trí`);
         if (device.status !== formData.status) changes.push(`Trạng thái`);
         
-        let updatedHistoryLogs = device.history_logs || [];
+        let updatedChangeLogs = device.change_logs || [];
         if (changes.length > 0) {
           const autoLog = {
             id: Date.now().toString(),
-            date: now.split('T')[0],
+            timestamp: now,
             action: 'Cập nhật thông tin',
-            details: `Thay đổi: ${changes.join(', ')} bởi ${profile?.displayName || profile?.email || 'Người dùng'}`,
+            user: profile?.displayName || profile?.email || 'Hệ thống',
+            details: `Thay đổi: ${changes.join(', ')}`,
           };
-          updatedHistoryLogs = [autoLog, ...updatedHistoryLogs];
+          updatedChangeLogs = [autoLog, ...updatedChangeLogs];
         }
 
         const { error } = await supabase.from('devices').update({
           ...dataToSave,
-          history_logs: updatedHistoryLogs,
+          change_logs: updatedChangeLogs,
           updated_at: now,
         }).eq('id', device.id);
         
         if (error) throw error;
+
+        if (changes.length > 0) {
+          import('../utils/activityLogger').then(m => m.logActivity({
+            action: 'update_device',
+            entityType: 'device',
+            entityId: device.id,
+            details: { name: formData.name, code: formData.code, changes: changes.join(', ') }
+          })).catch(err => console.warn('Activity logger failed:', err));
+        }
       } else {
         // Create
         const { error } = await supabase.from('devices').insert([{
