@@ -19,6 +19,9 @@ export const MeasuredEquipments: React.FC = () => {
     name: '',
     location: '',
     status: 'active',
+    subsystem: '',
+    manufacturer: '',
+    specifications: '',
     notes: ''
   });
 
@@ -51,6 +54,9 @@ export const MeasuredEquipments: React.FC = () => {
         name: item.name,
         location: item.location || '',
         status: item.status || 'active',
+        subsystem: item.subsystem || '',
+        manufacturer: item.manufacturer || '',
+        specifications: item.specifications || '',
         notes: item.notes || ''
       });
     } else {
@@ -60,6 +66,9 @@ export const MeasuredEquipments: React.FC = () => {
         name: '',
         location: '',
         status: 'active',
+        subsystem: '',
+        manufacturer: '',
+        specifications: '',
         notes: ''
       });
     }
@@ -204,7 +213,7 @@ export const MeasuredEquipments: React.FC = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900">
                 {editingItem ? 'Sửa thông tin máy móc' : 'Thêm máy móc mới'}
@@ -213,55 +222,101 @@ export const MeasuredEquipments: React.FC = () => {
                 &times;
               </button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Mã thiết bị <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={formData.code}
-                  onChange={e => setFormData({...formData, code: e.target.value})}
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
-                />
+            <form onSubmit={handleSave} className="p-6">
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Mã thiết bị <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.code}
+                    onChange={e => setFormData({...formData, code: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Tên máy móc <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phân hệ</label>
+                  <select
+                    value={formData.subsystem}
+                    onChange={e => setFormData({...formData, subsystem: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">-- Chọn phân hệ --</option>
+                    <option value="Hệ hạ thế">Hệ hạ thế</option>
+                    <option value="Hệ trung thế">Hệ trung thế</option>
+                    <option value="Máy phát">Máy phát</option>
+                    <option value="UPS">UPS</option>
+                    <option value="Xử lý nước thải">Xử lý nước thải</option>
+                    <option value="Hệ thống bơm">Hệ thống bơm</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Hãng sản xuất</label>
+                  <input
+                    type="text"
+                    value={formData.manufacturer}
+                    onChange={e => setFormData({...formData, manufacturer: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="VD: Schneider, ABB..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Vị trí lắp đặt</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={e => setFormData({...formData, location: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Trạng thái</label>
+                  <select
+                    value={formData.status}
+                    onChange={e => setFormData({...formData, status: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="active">Hoạt động</option>
+                    <option value="inactive">Tạm ngưng</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Tên máy móc <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Vị trí</label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={e => setFormData({...formData, location: e.target.value})}
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Trạng thái</label>
-                <select
-                  value={formData.status}
-                  onChange={e => setFormData({...formData, status: e.target.value})}
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Tạm ngưng</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Ghi chú</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={e => setFormData({...formData, notes: e.target.value})}
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
-                  rows={3}
-                />
+
+              <div className="space-y-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Thông số định mức</label>
+                  <textarea
+                    value={formData.specifications}
+                    onChange={e => setFormData({...formData, specifications: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                    rows={2}
+                    placeholder="VD: Công suất: 55kW, Điện áp: 380V..."
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Ghi chú</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={e => setFormData({...formData, notes: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+                    rows={2}
+                  />
+                </div>
               </div>
               <div className="pt-4 flex justify-end space-x-3">
                 <button

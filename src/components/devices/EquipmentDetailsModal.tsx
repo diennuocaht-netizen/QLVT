@@ -162,6 +162,18 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4 border-b pb-4">
+                <div className="text-sm font-medium text-gray-500">Phân hệ</div>
+                <div className="col-span-2 text-sm text-gray-900">{equipment.subsystem || '-'}</div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 border-b pb-4">
+                <div className="text-sm font-medium text-gray-500">Hãng sản xuất</div>
+                <div className="col-span-2 text-sm text-gray-900">{equipment.manufacturer || '-'}</div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 border-b pb-4">
+                <div className="text-sm font-medium text-gray-500">Thông số định mức</div>
+                <div className="col-span-2 text-sm text-gray-900 whitespace-pre-line">{equipment.specifications || '-'}</div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 border-b pb-4">
                 <div className="text-sm font-medium text-gray-500">Ghi chú</div>
                 <div className="col-span-2 text-sm text-gray-900 whitespace-pre-line">{equipment.notes || '-'}</div>
               </div>
