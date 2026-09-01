@@ -14,6 +14,7 @@ export const MeasuredEquipments: React.FC = () => {
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [filterSubsystem, setFilterSubsystem] = useState('');
+  const [filterManufacturer, setFilterManufacturer] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   
   // Unique options for dropdowns

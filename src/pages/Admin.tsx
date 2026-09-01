@@ -138,35 +138,53 @@ export const Admin: React.FC = () => {
         return;
       }
 
-      console.log('📤 Sending request to API server...');
-
-      // Call API server to create user
-      const response = await fetch('http://localhost:3001/api/users/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: newUser.email,
-          password: newUser.password,
-          displayName: newUser.displayName,
-          role: newUser.role,
-        }),
+      // Create a temporary client that doesn't persist sessions
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const { createClient } = await import('@supabase/supabase-js');
+      const tempSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        }
       });
 
-      const data = await response.json();
+      // 1. Sign up the user (this creates auth.users record)
+      const { data: authData, error: authError } = await tempSupabase.auth.signUp({
+        email: newUser.email,
+        password: newUser.password,
+      });
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to create user');
+      if (authError) {
+        throw new Error(`Lỗi tạo tài khoản: ${authError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error("Tạo tài khoản thất bại (không trả về user).");
+      }
+
+      // 2. Insert the user profile into public.users
+      const { error: profileError } = await supabase.from('users').insert([{
+        id: authData.user.id,
+        email: newUser.email,
+        display_name: newUser.displayName || newUser.email.split('@')[0],
+        role: newUser.role,
+        created_at: new Date().toISOString()
+      }]);
+
+      if (profileError) {
+        // If profile creation fails, we can't easily rollback auth.users without admin key,
+        // but we'll notify the admin.
+        throw new Error(`Tài khoản đã tạo nhưng lỗi lưu thông tin profile: ${profileError.message}`);
       }
 
       setCreateSuccess(
         `✅ Người dùng ${newUser.email} đã được tạo thành công!\n\n` +
         `📋 Thông tin:\n` +
         `• Email: ${newUser.email}\n` +
-        `• Mật khẩu: ${newUser.password}\n` +
         `• Phân quyền: ${newUser.role}\n\n` +
-        `👉 User có thể đăng nhập ngay!`
+        `👉 User có thể đăng nhập ngay (hoặc cần xác nhận email nếu Supabase yêu cầu).`
       );
       
       setIsCreateModalOpen(false);
@@ -176,20 +194,9 @@ export const Admin: React.FC = () => {
       setTimeout(() => setCreateSuccess(''), 10000);
     } catch (error) {
       console.error("Error creating user:", error);
-      
-      // Check if it's a connection error
-      if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
-        setCreateError(
-          '❌ Không thể kết nối đến API server.\n\n' +
-          '💡 Hãy chạy lệnh này trong terminal:\n' +
-          '$env:SUPABASE_SERVICE_ROLE_KEY="your_key"\n' +
-          'node scripts/user-api-server.js'
-        );
-      } else {
-        setCreateError(
-          error instanceof Error ? error.message : "Không thể tạo người dùng. Vui lòng thử lại."
-        );
-      }
+      setCreateError(
+        error instanceof Error ? error.message : "Không thể tạo người dùng. Vui lòng thử lại."
+      );
     } finally {
       setCreating(false);
     }
