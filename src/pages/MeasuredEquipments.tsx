@@ -1,14 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
-import { Box, Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
+import { Box, Plus, Search, Edit, Trash2, Eye, Filter } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { EquipmentDetailsModal } from '../components/devices/EquipmentDetailsModal';
+import CreatableSelect from 'react-select/creatable';
 
 export const MeasuredEquipments: React.FC = () => {
   const { profile } = useAuth();
   const [equipments, setEquipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterSubsystem, setFilterSubsystem] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  
+  // Unique options for dropdowns
+  const uniqueSubsystems = Array.from(new Set(equipments.map(e => e.subsystem).filter(Boolean)));
+  const subsystemOptions = [
+    { value: 'Hệ hạ thế', label: 'Hệ hạ thế' },
+    { value: 'Hệ trung thế', label: 'Hệ trung thế' },
+    { value: 'Máy phát', label: 'Máy phát' },
+    { value: 'UPS', label: 'UPS' },
+    { value: 'Xử lý nước thải', label: 'Xử lý nước thải' },
+    { value: 'Hệ thống bơm', label: 'Hệ thống bơm' }
+  ];
+  // Merge with existing from DB
+  uniqueSubsystems.forEach(sub => {
+    if (!subsystemOptions.find(o => o.value === sub)) {
+      subsystemOptions.push({ value: sub as string, label: sub as string });
+    }
+  });
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -119,10 +142,15 @@ export const MeasuredEquipments: React.FC = () => {
     }
   };
 
-  const filtered = equipments.filter(e => 
-    e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    e.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = equipments.filter(e => {
+    const matchSearch = e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        e.code.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSubsystem = filterSubsystem ? e.subsystem === filterSubsystem : true;
+    const matchManufacturer = filterManufacturer ? (e.manufacturer || '').toLowerCase().includes(filterManufacturer.toLowerCase()) : true;
+    const matchStatus = filterStatus ? e.status === filterStatus : true;
+    
+    return matchSearch && matchSubsystem && matchManufacturer && matchStatus;
+  });
 
   return (
     <div className="p-6 h-full flex flex-col">
@@ -144,7 +172,7 @@ export const MeasuredEquipments: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
+        <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
           <div className="relative w-96">
             <input
               type="text"
@@ -155,7 +183,66 @@ export const MeasuredEquipments: React.FC = () => {
             />
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
+          
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Bộ lọc
+          </button>
         </div>
+
+        {showFilters && (
+          <div className="p-4 border-b border-gray-200 bg-indigo-50/50 flex space-x-4">
+            <div className="w-64">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Phân hệ</label>
+              <select
+                value={filterSubsystem}
+                onChange={(e) => setFilterSubsystem(e.target.value)}
+                className="w-full border-gray-300 rounded-md text-sm py-1.5 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">Tất cả phân hệ</option>
+                {subsystemOptions.map(sub => (
+                  <option key={sub.value} value={sub.value}>{sub.label}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="w-48">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Hãng sản xuất</label>
+              <input
+                type="text"
+                placeholder="Lọc theo hãng..."
+                value={filterManufacturer}
+                onChange={(e) => setFilterManufacturer(e.target.value)}
+                className="w-full border-gray-300 rounded-md text-sm py-1.5 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            
+            <div className="w-48">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Trạng thái</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full border-gray-300 rounded-md text-sm py-1.5 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Tạm ngưng</option>
+              </select>
+            </div>
+            
+            <div className="flex items-end">
+              <button
+                onClick={() => { setFilterSubsystem(''); setFilterManufacturer(''); setFilterStatus(''); setSearchTerm(''); }}
+                className="text-sm text-gray-500 hover:text-gray-700 underline pb-1.5"
+              >
+                Xóa bộ lọc
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -247,20 +334,25 @@ export const MeasuredEquipments: React.FC = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Phân hệ</label>
-                  <select
-                    value={formData.subsystem}
-                    onChange={e => setFormData({...formData, subsystem: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">-- Chọn phân hệ --</option>
-                    <option value="Hệ hạ thế">Hệ hạ thế</option>
-                    <option value="Hệ trung thế">Hệ trung thế</option>
-                    <option value="Máy phát">Máy phát</option>
-                    <option value="UPS">UPS</option>
-                    <option value="Xử lý nước thải">Xử lý nước thải</option>
-                    <option value="Hệ thống bơm">Hệ thống bơm</option>
-                    <option value="Khác">Khác</option>
-                  </select>
+                  <CreatableSelect
+                    isClearable
+                    placeholder="Chọn hoặc nhập mới..."
+                    options={subsystemOptions}
+                    value={formData.subsystem ? { label: formData.subsystem, value: formData.subsystem } : null}
+                    onChange={(newValue) => setFormData({...formData, subsystem: newValue ? newValue.value : ''})}
+                    className="mt-1"
+                    styles={{
+                      control: (base) => ({
+                        ...base,
+                        borderColor: '#d1d5db',
+                        '&:hover': { borderColor: '#9ca3af' },
+                        boxShadow: 'none',
+                        paddingTop: '2px',
+                        paddingBottom: '2px'
+                      })
+                    }}
+                    formatCreateLabel={(inputValue) => `Thêm phân hệ mới: "${inputValue}"`}
+                  />
                 </div>
                 
                 <div>
