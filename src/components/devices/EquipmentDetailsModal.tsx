@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wrench, Activity, Info, Plus, Trash2 } from 'lucide-react';
+import { X, Wrench, Activity, Info, Plus, Trash2, FileText, ExternalLink } from 'lucide-react';
 import { supabase } from '../../supabase-client';
 import { MeasurementSessionModal } from './MeasurementSessionModal';
 
@@ -9,7 +9,7 @@ interface EquipmentDetailsModalProps {
 }
 
 export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ equipment, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'measurements' | 'maintenance'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'measurements' | 'maintenance' | 'documents'>('info');
   
   // Measurements
   const [measurementRecords, setMeasurementRecords] = useState<any[]>([]);
@@ -29,13 +29,37 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
     performed_by: ''
   });
 
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+
   useEffect(() => {
     if (activeTab === 'measurements') {
       fetchMeasurements();
     } else if (activeTab === 'maintenance') {
       fetchMaintenanceLogs();
+    } else if (activeTab === 'documents') {
+      fetchDocuments();
     }
   }, [activeTab]);
+
+  const fetchDocuments = async () => {
+    try {
+      setLoadingDocs(true);
+      // Query JSONB array contains
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .contains('linked_equipments', `["${equipment.id}"]`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (err) {
+      console.error('Error fetching documents:', err);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
 
   const fetchMeasurements = async () => {
     try {
@@ -134,7 +158,13 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
             onClick={() => setActiveTab('maintenance')}
             className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'maintenance' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
-            <Wrench className="w-4 h-4 mr-2" /> Lý lịch bảo dưỡng, thay thế
+            <Wrench className="w-4 h-4 mr-2" /> Lý lịch bảo dưỡng
+          </button>
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'documents' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            <FileText className="w-4 h-4 mr-2" /> Tài liệu kỹ thuật
           </button>
         </div>
 
@@ -287,6 +317,58 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
                           <div className="text-xs text-gray-500 mt-2 border-t pt-2">
                             Thực hiện bởi: {log.performed_by}
                           </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'documents' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Tài liệu kỹ thuật liên kết</h3>
+              
+              {loadingDocs ? (
+                <div className="text-center py-4 text-gray-500">Đang tải tài liệu...</div>
+              ) : documents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                  <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p>Không có tài liệu nào được liên kết với thiết bị này.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {documents.map((doc: any) => (
+                    <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex flex-col">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center">
+                          <FileText className="w-5 h-5 text-indigo-500 mr-2" />
+                          <h4 className="font-semibold text-gray-900">{doc.code}</h4>
+                        </div>
+                        {doc.access_level === 'internal' && <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Nội bộ</span>}
+                        {doc.access_level === 'restricted' && <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Bảo mật</span>}
+                      </div>
+                      <p className="text-sm text-gray-700 font-medium mb-3 flex-1">{doc.title}</p>
+                      
+                      <div className="text-xs text-gray-500 space-y-1 mb-4">
+                        <p>Hệ: {doc.system}</p>
+                        <p>Loại: {doc.document_type}</p>
+                        <p>Phiên bản: {doc.version}</p>
+                      </div>
+                      
+                      <div className="mt-auto pt-3 border-t border-gray-100">
+                        {doc.file_url ? (
+                          <a 
+                            href={doc.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-1" /> Mở tài liệu
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400 italic">Không có file đính kèm</span>
                         )}
                       </div>
                     </div>

@@ -164,19 +164,21 @@ export const Admin: React.FC = () => {
         throw new Error("Tạo tài khoản thất bại (không trả về user).");
       }
 
-      // 2. Insert the user profile into public.users
-      const { error: profileError } = await supabase.from('users').insert([{
-        id: authData.user.id,
-        email: newUser.email,
-        display_name: newUser.displayName || newUser.email.split('@')[0],
-        role: newUser.role,
-        created_at: new Date().toISOString()
-      }]);
+      // 2. Insert the user profile via RPC to bypass RLS restrictions
+      const { data: rpcData, error: profileError } = await supabase.rpc('create_user_profile', {
+        p_id: authData.user.id,
+        p_email: newUser.email,
+        p_display_name: newUser.displayName || newUser.email.split('@')[0],
+        p_role: newUser.role
+      });
 
       if (profileError) {
-        // If profile creation fails, we can't easily rollback auth.users without admin key,
-        // but we'll notify the admin.
+        console.error("Lỗi cập nhật profile:", profileError);
         throw new Error(`Tài khoản đã tạo nhưng lỗi lưu thông tin profile: ${profileError.message}`);
+      }
+      
+      if (rpcData && rpcData.success === false) {
+        throw new Error(`Tài khoản đã tạo nhưng lỗi lưu thông tin profile: ${rpcData.error}`);
       }
 
       setCreateSuccess(

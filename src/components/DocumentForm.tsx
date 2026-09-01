@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
 import { X, Info } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import CreatableSelect from 'react-select/creatable';
+import Select from 'react-select';
 
 const documentSchema = z.object({
   code: z.string().min(1, 'Mã tài liệu là bắt buộc'),
@@ -21,6 +23,11 @@ const documentSchema = z.object({
   file_url: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
   status: z.enum(['active', 'pending', 'draft', 'archived']),
   isNewVersion: z.boolean().optional(),
+  tags: z.array(z.string()).optional().default([]),
+  linked_equipments: z.array(z.string()).optional().default([]),
+  linked_projects: z.array(z.string()).optional().default([]),
+  access_level: z.enum(['public', 'internal', 'restricted']).optional().default('public'),
+  allowed_users: z.array(z.string()).optional().default([]),
 });
 
 type DocumentFormValues = z.infer<typeof documentSchema>;
@@ -36,7 +43,7 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({ document, onClose })
   const canApprove = profile?.role === 'admin' || profile?.role === 'manager';
   const [users, setUsers] = useState<any[]>([]);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<DocumentFormValues>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting }, watch } = useForm<DocumentFormValues>({
     resolver: zodResolver(documentSchema),
     defaultValues: {
       code: document?.code || '',
@@ -51,21 +58,36 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({ document, onClose })
       author_name: document?.author_name || '',
       status: document?.status || (canApprove ? 'active' : 'pending'),
       isNewVersion: false,
+      tags: document?.tags || [],
+      linked_equipments: document?.linked_equipments || [],
+      linked_projects: document?.linked_projects || [],
+      access_level: document?.access_level || 'public',
+      allowed_users: document?.allowed_users || [],
     }
   });
 
   const isNewVersion = watch('isNewVersion');
+  const watchAccessLevel = watch('access_level');
+  
+  const [equipments, setEquipments] = useState<any[]>([]);
+  const [projectsList, setProjectsList] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchUsersAndEquips = async () => {
       try {
-        const { data } = await supabase.from('users').select('*');
-        if (data) setUsers(data);
+        const { data: usersData } = await supabase.from('users').select('*');
+        if (usersData) setUsers(usersData);
+        
+        const { data: equipData } = await supabase.from('measured_equipments').select('id, code, name');
+        if (equipData) setEquipments(equipData);
+
+        const { data: projData } = await supabase.from('projects').select('id, code, name');
+        if (projData) setProjectsList(projData);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchUsers();
+    fetchUsersAndEquips();
   }, []);
 
   const onSubmit = async (data: DocumentFormValues) => {
@@ -85,6 +107,11 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({ document, onClose })
         file_url: data.file_url,
         author_name: data.author_name,
         status: finalStatus,
+        tags: data.tags,
+        linked_equipments: data.linked_equipments,
+        linked_projects: data.linked_projects,
+        access_level: data.access_level,
+        allowed_users: data.allowed_users,
       };
 
       if (document) {
@@ -97,6 +124,11 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({ document, onClose })
             file_url: document.file_url,
             author_name: document.author_name,
             status: document.status,
+            tags: document.tags,
+            linked_equipments: document.linked_equipments,
+            linked_projects: document.linked_projects,
+            access_level: document.access_level,
+            allowed_users: document.allowed_users,
             archived_at: now,
             archived_by: profile?.id
           };
@@ -125,6 +157,10 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({ document, onClose })
             file_url: existingDoc.file_url,
             author_name: existingDoc.author_name,
             status: existingDoc.status,
+            tags: existingDoc.tags,
+            linked_equipments: existingDoc.linked_equipments,
+            access_level: existingDoc.access_level,
+            allowed_users: existingDoc.allowed_users,
             archived_at: now,
             archived_by: profile?.id
           };
@@ -286,6 +322,91 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({ document, onClose })
               />
               {errors.file_url && <p className="mt-1 text-xs text-red-600">{errors.file_url.message}</p>}
             </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Thẻ (Tags)</label>
+              <Controller
+                name="tags"
+                control={control}
+                render={({ field }) => (
+                  <CreatableSelect
+                    isMulti
+                    value={field.value.map((tag: string) => ({ value: tag, label: tag }))}
+                    onChange={(newValue) => field.onChange(newValue ? newValue.map(v => v.value) : [])}
+                    placeholder="Nhập thẻ và ấn Enter..."
+                    className="mt-1 block w-full"
+                  />
+                )}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Máy móc liên kết</label>
+              <Controller
+                name="linked_equipments"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    isMulti
+                    options={equipments.map(e => ({ value: e.id, label: `${e.code} - ${e.name}` }))}
+                    value={equipments.filter(e => field.value.includes(e.id)).map(e => ({ value: e.id, label: `${e.code} - ${e.name}` }))}
+                    onChange={(newValue) => field.onChange(newValue ? newValue.map(v => v.value) : [])}
+                    placeholder="Chọn máy móc..."
+                    className="mt-1 block w-full"
+                  />
+                )}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Dự án liên kết</label>
+              <Controller
+                name="linked_projects"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    isMulti
+                    options={projectsList.map(p => ({ value: p.id, label: `${p.code} - ${p.name}` }))}
+                    value={projectsList.filter(p => field.value.includes(p.id)).map(p => ({ value: p.id, label: `${p.code} - ${p.name}` }))}
+                    onChange={(newValue) => field.onChange(newValue ? newValue.map(v => v.value) : [])}
+                    placeholder="Chọn dự án..."
+                    className="mt-1 block w-full"
+                  />
+                )}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Quyền truy cập</label>
+              <select
+                {...register('access_level')}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
+                <option value="public">Công khai (Tất cả)</option>
+                <option value="internal">Nội bộ (Quản lý/Admin)</option>
+                <option value="restricted">Hạn chế (Chỉ định)</option>
+              </select>
+            </div>
+
+            {watchAccessLevel === 'restricted' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Người được phép truy cập</label>
+                <Controller
+                  name="allowed_users"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      isMulti
+                      options={users.map(u => ({ value: u.id, label: u.displayName || u.email }))}
+                      value={users.filter(u => field.value.includes(u.id)).map(u => ({ value: u.id, label: u.displayName || u.email }))}
+                      onChange={(newValue) => field.onChange(newValue ? newValue.map(v => v.value) : [])}
+                      placeholder="Chọn người dùng..."
+                      className="mt-1 block w-full"
+                    />
+                  )}
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Trạng thái</label>

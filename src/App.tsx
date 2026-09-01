@@ -10,8 +10,10 @@ import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Documents } from './pages/Documents';
+import { Projects } from './pages/Projects';
 import { Devices } from './pages/Devices';
 import { Admin } from './pages/Admin';
+import { Profile } from './pages/Profile';
 import { InventoryDashboard } from './pages/InventoryDashboard';
 import { InventoryItems } from './pages/InventoryItems';
 import { InventoryReceipts } from './pages/InventoryReceipts';
@@ -53,6 +55,7 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="documents" element={<Documents />} />
+            <Route path="projects" element={<Projects />} />
             <Route path="devices" element={<Devices />} />
             <Route path="admin" element={<Admin />} />
             

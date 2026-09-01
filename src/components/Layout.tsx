@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
@@ -13,6 +13,7 @@ export const Layout: React.FC = () => {
 
   const navItems = [
     { path: '/', label: 'Tổng quan', icon: LayoutDashboard, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/projects', label: 'Quản lý Dự án', icon: Briefcase, roles: ['admin', 'manager', 'viewer'] },
     { path: '/documents', label: 'Tài liệu ISO', icon: FileText, roles: ['admin', 'manager', 'viewer'] },
     { path: '/admin', label: 'Quản trị', icon: Users, roles: ['admin'] },
   ];
