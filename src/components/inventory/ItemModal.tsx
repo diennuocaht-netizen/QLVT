@@ -175,36 +175,31 @@ export const ItemModal: React.FC<ItemModalProps> = ({ isOpen, onClose, item, onS
       }
       alert('✅ Lưu vật tư thành công!');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ [ItemModal] Error saving item:', error);
       
       let errorMessage = 'Không biết lỗi gì';
       let errorCode = '';
       
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        errorCode = (error as any).code || '';
+      if (error) {
+        errorMessage = error.message || String(error);
+        errorCode = error.code || '';
         
-        console.error('❌ [ItemModal] Full error object:', {
-          name: error.name,
-          message: error.message,
-          code: errorCode,
-          stack: error.stack
-        });
+        console.error('❌ [ItemModal] Full error object:', error);
         
         // Add more details for common errors
         if (errorCode === 'PGRST116' || errorMessage.includes('PGRST116')) {
           errorMessage += '\n\n💡 Gợi ý: User profile không tìm thấy. Bạn cần tạo user profile trong Supabase trước. Xem DEBUG_GUIDE.md';
         } else if (errorCode === 'PGRST301' || errorMessage.includes('PGRST301')) {
           errorMessage += '\n\n💡 Gợi ý: RLS policy không cho phép. Hãy chạy SQL script 06-quick-rls-fix.sql';
-        } else if (errorMessage.includes('permission denied')) {
-          errorMessage += '\n\n💡 Gợi ý: Bạn không có quyền thêm vật tư. Kiểm tra role của user trong Supabase.';
-        } else if (errorMessage.includes('invalid syntax')) {
-          errorMessage += '\n\n💡 Gợi ý: Dữ liệu không đúng format. Kiểm tra DevTools Console để xem chi tiết.';
+        } else if (errorMessage.includes('permission denied') || errorMessage.includes('violates row-level security policy')) {
+          errorMessage += '\n\n💡 Gợi ý: Bạn không có quyền (RLS block). Hãy vào Supabase SQL Editor chạy file "05-fix-inventory-rls.sql" để cấp quyền nhé.';
+        } else if (errorCode === '23505' || errorMessage.includes('duplicate key value')) {
+          errorMessage += '\n\n💡 Gợi ý: Mã vật tư này đã tồn tại trong hệ thống. Vui lòng nhập mã khác.';
         }
       }
       
-      alert(`❌ Lỗi lưu vật tu:\n${errorMessage}`);
+      alert(`❌ Lỗi lưu vật tư:\n${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

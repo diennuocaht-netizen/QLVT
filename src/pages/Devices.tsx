@@ -7,6 +7,7 @@ import { DeviceDetailsModal } from '../components/DeviceDetailsModal';
 import { SiblingDevicesModal } from '../components/SiblingDevicesModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 export const Devices: React.FC = () => {
   const { profile } = useAuth();
@@ -233,85 +234,119 @@ export const Devices: React.FC = () => {
     if (!file) return;
 
     setImporting(true);
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: 'greedy',
-      complete: async (results) => {
-        try {
-          let count = 0;
-          for (const row of results.data as any[]) {
-            // Normalize row keys to lowercase for easier matching and remove BOM if present
-            const normalizedRow: any = {};
-            for (const key in row) {
-              if (row.hasOwnProperty(key)) {
-                const cleanKey = key.replace(/^\uFEFF/, '').trim().toLowerCase();
-                normalizedRow[cleanKey] = row[key];
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        let count = 0;
+        for (const row of data as any[]) {
+          // Normalize row keys to lowercase for easier matching and remove BOM if present
+          const normalizedRow: any = {};
+          for (const key in row) {
+            if (row.hasOwnProperty(key)) {
+              const cleanKey = key.replace(/^\uFEFF/, '').trim().toLowerCase();
+              normalizedRow[cleanKey] = row[key];
+            }
+          }
+
+          const convertDateFormat = (val: any): string => {
+            if (!val) return '';
+            
+            // Excel dates are often numbers
+            if (typeof val === 'number') {
+              const date = new Date((val - (25567 + 2)) * 86400 * 1000); // Excel epoch conversion
+              if (!isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100) {
+                return date.toISOString().split('T')[0];
               }
             }
-
-            // Expected CSV columns: Mã thiết bị, Tên thiết bị, Loại thiết bị, Xuất xứ, Vị trí lắp đặt, Trạng thái
-            let code = normalizedRow['mã thiết bị'] || normalizedRow['mã thiết bị *'] || normalizedRow['code'] || '';
-            let name = normalizedRow['tên thiết bị'] || normalizedRow['tên thiết bị *'] || normalizedRow['name'] || '';
             
-            // Fallback: if one is missing, use the other
-            if (!code && name) code = name;
-            if (!name && code) name = code;
-
-            if (!code || !name) continue; // Skip rows without code or name
-
-            const now = new Date().toISOString();
-
-            // Build specs JSON with all extra fields
-            const specs = {
-              type: normalizedRow['loại thiết bị'] || normalizedRow['kind'] || '',
-              origin: normalizedRow['xuất xứ'] || normalizedRow['origin'] || '',
-              manager: normalizedRow['nhân viên quản lý'] || normalizedRow['manager'] || '',
-              contactInfo: normalizedRow['thông tin liên hệ'] || normalizedRow['contact'] || '',
-              measuringElement: normalizedRow['phần tử đo lường'] || '',
-              protectionElement: normalizedRow['phần tử bảo vệ'] || '',
-              poweredFrom: normalizedRow['cấp nguồn từ'] || '',
-              powersTo: normalizedRow['cấp nguồn cho (phụ tải)'] || normalizedRow['cấp nguồn cho'] || '',
-              installationDate: normalizedRow['ngày lắp đặt'] || '',
-              usageDate: normalizedRow['ngày sử dụng'] || '',
-            };
+            const dateStr = String(val).trim();
+            if (!dateStr) return '';
             
-            console.log(`📋 Importing device: ${code} - ${name}`);
+            const parts = dateStr.split(/[-/]/);
+            if (parts.length === 3) {
+              const [part1, part2, part3] = parts;
+              // Detect format DD/MM/YYYY vs YYYY/MM/DD
+              if (part1.length === 4) {
+                 return `${part1}-${part2.padStart(2, '0')}-${part3.padStart(2, '0')}`;
+              } else {
+                 return `${part3}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
+              }
+            }
+            return dateStr;
+          };
 
-            await supabase.from('devices').insert([{
-              code: String(code).trim().substring(0, 99),
-              name: String(name).trim().substring(0, 299),
-              location: String(normalizedRow['vị trí lắp đặt'] || normalizedRow['vị trí lắp đặt *'] || normalizedRow['vị trí'] || normalizedRow['location'] || 'Chưa xác định').trim().substring(0, 499),
-              specs: specs,
-              status: normalizedRow['trạng thái'] === 'Bảo trì' ? 'maintenance' : (normalizedRow['trạng thái'] === 'Ngưng hoạt động' ? 'inactive' : 'active'),
-              author_id: profile?.id || null,
-            }]);
-            count++;
-            console.log(`✅ Device imported: ${code}`);
-          }
+          // Expected Excel columns: Mã thiết bị, Tên thiết bị, Loại thiết bị, Xuất xứ, Vị trí lắp đặt, Trạng thái
+          let code = normalizedRow['mã thiết bị'] || normalizedRow['mã thiết bị *'] || normalizedRow['code'] || '';
+          let name = normalizedRow['tên thiết bị'] || normalizedRow['tên thiết bị *'] || normalizedRow['name'] || '';
           
-          if (count === 0) {
-            alert('Không có dữ liệu nào được import. Vui lòng kiểm tra lại:\n1. File phải có cột "Mã thiết bị" hoặc "Tên thiết bị"\n2. File phải được lưu ở định dạng "CSV UTF-8 (Comma delimited)".');
-          } else {
-            alert(`✅ Đã import thành công ${count} thiết bị!`);
-            // Reload devices after import
-            const { data, error } = await supabase.from('devices').select('*').order('created_at', { ascending: false });
-            if (data && !error) setDevices(data);
-          }
-        } catch (error: any) {
-          console.error("Error importing devices:", error);
-          alert(`❌ Có lỗi xảy ra khi import dữ liệu: ${error.message || 'Lỗi không xác định'}`);
-        } finally {
-          setImporting(false);
-          if (fileInputRef.current) fileInputRef.current.value = '';
+          // Fallback: if one is missing, use the other
+          if (!code && name) code = name;
+          if (!name && code) name = code;
+
+          if (!code || !name) continue; // Skip rows without code or name
+
+          const now = new Date().toISOString();
+
+          // Build specs JSON with all extra fields
+          const specs = {
+            type: normalizedRow['loại thiết bị'] || normalizedRow['kind'] || '',
+            origin: normalizedRow['xuất xứ'] || normalizedRow['origin'] || '',
+            manager: normalizedRow['nhân viên quản lý'] || normalizedRow['manager'] || '',
+            contactInfo: normalizedRow['thông tin liên hệ'] || normalizedRow['contact'] || '',
+            measuringElement: normalizedRow['phần tử đo lường'] || '',
+            protectionElement: normalizedRow['phần tử bảo vệ'] || '',
+            poweredFrom: normalizedRow['cấp nguồn từ'] || '',
+            powersTo: normalizedRow['cấp nguồn cho (phụ tải)'] || normalizedRow['cấp nguồn cho'] || '',
+            installationDate: convertDateFormat(normalizedRow['ngày lắp đặt']),
+            usageDate: convertDateFormat(normalizedRow['ngày sử dụng']),
+          };
+          
+          console.log(`📋 Importing device: ${code} - ${name}`);
+
+          await supabase.from('devices').insert([{
+            code: String(code).trim().substring(0, 99),
+            name: String(name).trim().substring(0, 299),
+            location: String(normalizedRow['vị trí lắp đặt'] || normalizedRow['vị trí lắp đặt *'] || normalizedRow['vị trí'] || normalizedRow['location'] || 'Chưa xác định').trim().substring(0, 499),
+            specs: specs,
+            status: normalizedRow['trạng thái'] === 'Bảo trì' ? 'maintenance' : (normalizedRow['trạng thái'] === 'Ngưng hoạt động' ? 'inactive' : 'active'),
+            author_id: profile?.id || null,
+          }]);
+          count++;
+          console.log(`✅ Device imported: ${code}`);
         }
-      },
-      error: (error) => {
-        console.error("Error parsing CSV:", error);
-        alert("Lỗi khi đọc file CSV.");
+        
+        if (count === 0) {
+          alert('Không có dữ liệu nào được import. Vui lòng kiểm tra lại:\n1. File phải có cột "Mã thiết bị" hoặc "Tên thiết bị".');
+        } else {
+          alert(`✅ Đã import thành công ${count} thiết bị!`);
+          // Reload devices after import
+          const { data, error } = await supabase.from('devices').select('*').order('created_at', { ascending: false });
+          if (data && !error) setDevices(data);
+        }
+      } catch (error: any) {
+        console.error("Error importing devices:", error);
+        alert(`❌ Có lỗi xảy ra khi import dữ liệu: ${error.message || 'Lỗi không xác định'}`);
+      } finally {
         setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
-    });
+    };
+    
+    reader.onerror = () => {
+      console.error("Error parsing Excel");
+      alert("Lỗi khi đọc file Excel.");
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    reader.readAsBinaryString(file);
   };
 
   const filteredDevices = React.useMemo(() => {
@@ -330,7 +365,7 @@ export const Devices: React.FC = () => {
           <div className="flex space-x-3">
             <input 
               type="file" 
-              accept=".csv,.xlsx,.xls,.CSV,.XLSX,.XLS" 
+              accept=".xlsx,.xls" 
               ref={fileInputRef} 
               onChange={handleFileUpload} 
               className="hidden" 
@@ -341,7 +376,7 @@ export const Devices: React.FC = () => {
               className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm font-medium disabled:opacity-50"
             >
               <Upload className="w-4 h-4 mr-2" />
-              {importing ? 'Đang import...' : 'Import CSV'}
+              {importing ? 'Đang import...' : 'Import Excel'}
             </button>
             <button 
               onClick={handleAddNew}

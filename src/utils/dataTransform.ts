@@ -65,10 +65,12 @@ export function itemToDatabase(item: Record<string, any>) {
     }
   }
   
-  // Remove undefined fields to avoid PostgreSQL issues
+  // Remove undefined fields and convert empty string ID fields to null to avoid UUID errors
   Object.keys(transformed).forEach(key => {
     if (transformed[key] === undefined) {
       delete transformed[key];
+    } else if (key.endsWith('_id') && transformed[key] === '') {
+      transformed[key] = null;
     }
   });
   

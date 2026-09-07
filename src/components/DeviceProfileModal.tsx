@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
 import { X, Plus, Trash2, Edit2, Check, Save, Upload } from 'lucide-react';
-import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface DeviceProfileModalProps {
   device?: any;
@@ -250,83 +250,89 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
     if (!file) return;
 
     setImporting(true);
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: 'greedy',
-      complete: (results) => {
-        try {
-          const newComponents: any[] = [];
-          for (const row of results.data as any[]) {
-            // Normalize row keys to lowercase for easier matching and remove BOM
-            const normalizedRow: any = {};
-            for (const key in row) {
-              if (row.hasOwnProperty(key)) {
-                const cleanKey = key.replace(/^\uFEFF/, '').trim().toLowerCase();
-                normalizedRow[cleanKey] = row[key];
-              }
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        const newComponents: any[] = [];
+        for (const row of data as any[]) {
+          // Normalize row keys to lowercase for easier matching and remove BOM
+          const normalizedRow: any = {};
+          for (const key in row) {
+            if (row.hasOwnProperty(key)) {
+              const cleanKey = key.replace(/^\uFEFF/, '').trim().toLowerCase();
+              normalizedRow[cleanKey] = row[key];
             }
-
-            // Expected CSV columns based on the image:
-            // (Empty header or 'Nhãn') -> Q1, Q2
-            // Tên MCB: -> NDB-1ST-01-L/01
-            // Hãng sản xuất/Model: -> Schneider / iC60H
-            // Số pha / số cực: -> 1 pha / 1 cực
-            // Dòng định mức: -> 50A
-            // Icu/ Ics: -> 10/10kA
-            // Điện áp định mức: -> 240V
-            // Cấp nguồn từ: -> MCCB 4P 250A
-            // Cấp nguồn cho: -> Tủ NDB-1ST-01-L/01
-            // Vị trí: -> Chiếu sáng khu vực Gate 4
-
-            const label = String(normalizedRow[''] || normalizedRow['nhãn'] || normalizedRow['stt'] || '').trim();
-            const name = String(normalizedRow['tên mcb:'] || normalizedRow['tên mcb'] || normalizedRow['name'] || '').trim();
-            const model = String(normalizedRow['hãng sản xuất/model:'] || normalizedRow['hãng sản xuất/model'] || normalizedRow['hãng/model'] || '').trim();
-            const poles = String(normalizedRow['số pha / số cực:'] || normalizedRow['số pha / số cực'] || normalizedRow['pha/cực'] || '').trim();
-            const current = String(normalizedRow['dòng định mức:'] || normalizedRow['dòng định mức'] || normalizedRow['dòng đm'] || '').trim();
-            const icu = String(normalizedRow['icu/ ics:'] || normalizedRow['icu/ ics'] || normalizedRow['icu/ics'] || '').trim();
-            const voltage = String(normalizedRow['điện áp định mức:'] || normalizedRow['điện áp định mức'] || normalizedRow['điện áp'] || '').trim();
-            const poweredFrom = String(normalizedRow['cấp nguồn từ:'] || normalizedRow['cấp nguồn từ'] || normalizedRow['cấp nguồn'] || '').trim();
-            const powersTo = String(normalizedRow['cấp nguồn cho:'] || normalizedRow['cấp nguồn cho'] || '').trim();
-            const location = String(normalizedRow['vị trí:'] || normalizedRow['vị trí'] || normalizedRow['location'] || '').trim();
-
-            if (!name && !label) continue; // Skip empty rows
-
-            newComponents.push({
-              id: `C_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-              label,
-              name,
-              model,
-              poles,
-              current,
-              icu,
-              voltage,
-              poweredFrom,
-              powersTo,
-              location
-            });
           }
 
-          if (newComponents.length === 0) {
-            alert('Không có dữ liệu nào được import. Vui lòng kiểm tra lại định dạng file CSV.');
-          } else {
-            setSubComponents(prev => [...prev, ...newComponents]);
-            alert(`Đã import thành công ${newComponents.length} thành phần!`);
-          }
-        } catch (error: any) {
-          console.error("Error importing components:", error);
-          alert(`Có lỗi xảy ra khi import dữ liệu: ${error.message || 'Lỗi không xác định'}`);
-        } finally {
-          setImporting(false);
-          if (fileInputRef.current) fileInputRef.current.value = '';
+          // Expected Excel columns based on the image:
+          // (Empty header or 'Nhãn') -> Q1, Q2
+          // Tên MCB: -> NDB-1ST-01-L/01
+          // Hãng sản xuất/Model: -> Schneider / iC60H
+          // Số pha / số cực: -> 1 pha / 1 cực
+          // Dòng định mức: -> 50A
+          // Icu/ Ics: -> 10/10kA
+          // Điện áp định mức: -> 240V
+          // Cấp nguồn từ: -> MCCB 4P 250A
+          // Cấp nguồn cho: -> Tủ NDB-1ST-01-L/01
+          // Vị trí: -> Chiếu sáng khu vực Gate 4
+
+          const label = String(normalizedRow[''] || normalizedRow['nhãn'] || normalizedRow['stt'] || '').trim();
+          const name = String(normalizedRow['tên mcb:'] || normalizedRow['tên mcb'] || normalizedRow['name'] || '').trim();
+          const model = String(normalizedRow['hãng sản xuất/model:'] || normalizedRow['hãng sản xuất/model'] || normalizedRow['hãng/model'] || '').trim();
+          const poles = String(normalizedRow['số pha / số cực:'] || normalizedRow['số pha / số cực'] || normalizedRow['pha/cực'] || '').trim();
+          const current = String(normalizedRow['dòng định mức:'] || normalizedRow['dòng định mức'] || normalizedRow['dòng đm'] || '').trim();
+          const icu = String(normalizedRow['icu/ ics:'] || normalizedRow['icu/ ics'] || normalizedRow['icu/ics'] || '').trim();
+          const voltage = String(normalizedRow['điện áp định mức:'] || normalizedRow['điện áp định mức'] || normalizedRow['điện áp'] || '').trim();
+          const poweredFrom = String(normalizedRow['cấp nguồn từ:'] || normalizedRow['cấp nguồn từ'] || normalizedRow['cấp nguồn'] || '').trim();
+          const powersTo = String(normalizedRow['cấp nguồn cho:'] || normalizedRow['cấp nguồn cho'] || '').trim();
+          const location = String(normalizedRow['vị trí:'] || normalizedRow['vị trí'] || normalizedRow['location'] || '').trim();
+
+          if (!name && !label) continue; // Skip empty rows
+
+          newComponents.push({
+            id: `C_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            label,
+            name,
+            model,
+            poles,
+            current,
+            icu,
+            voltage,
+            poweredFrom,
+            powersTo,
+            location
+          });
         }
-      },
-      error: (error) => {
-        console.error("Error parsing CSV:", error);
-        alert("Lỗi khi đọc file CSV.");
+
+        if (newComponents.length === 0) {
+          alert('Không có dữ liệu nào được import. Vui lòng kiểm tra lại định dạng file Excel.');
+        } else {
+          setSubComponents(prev => [...prev, ...newComponents]);
+          alert(`Đã import thành công ${newComponents.length} thành phần!`);
+        }
+      } catch (error: any) {
+        console.error("Error importing components:", error);
+        alert(`Có lỗi xảy ra khi import dữ liệu: ${error.message || 'Lỗi không xác định'}`);
+      } finally {
         setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
-    });
+    };
+    
+    reader.onerror = () => {
+      console.error("Error parsing Excel");
+      alert("Lỗi khi đọc file Excel.");
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    reader.readAsBinaryString(file);
   };
 
   // --- History Logic ---
@@ -458,7 +464,7 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
                   <div className="flex space-x-2">
                     <input 
                       type="file" 
-                      accept=".csv" 
+                      accept=".xlsx,.xls" 
                       ref={fileInputRef} 
                       onChange={handleFileUpload} 
                       className="hidden" 
@@ -468,7 +474,7 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
                       disabled={importing}
                       className="bg-white text-gray-700 border border-gray-300 px-3 py-1.5 rounded-md hover:bg-gray-50 flex items-center text-sm font-medium disabled:opacity-50"
                     >
-                      <Upload className="w-4 h-4 mr-1" /> {importing ? 'Đang import...' : 'Import CSV'}
+                      <Upload className="w-4 h-4 mr-1" /> {importing ? 'Đang import...' : 'Import Excel'}
                     </button>
                     <button onClick={handleAddComponent} className="bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 flex items-center text-sm font-medium">
                       <Plus className="w-4 h-4 mr-1" /> Thêm Line

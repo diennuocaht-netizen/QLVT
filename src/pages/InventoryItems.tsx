@@ -242,7 +242,7 @@ export const InventoryItems: React.FC = () => {
         });
         if (matchingItems.length === 0) return;
 
-        const sumQty = matchingItems.reduce((s: number, it: any) => s + (it.quantity || 0), 0);
+        const sumQty = matchingItems.reduce((s: number, it: any) => s + Number(it.quantity || 0), 0);
 
         if (slip.type === SlipType.Receipt) {
           if (slip.status === 'Đã đóng' || slip.status === 'Đã hoàn thành') {

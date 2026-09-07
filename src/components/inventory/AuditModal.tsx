@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Upload } from 'lucide-react';
+import { X, Save, Upload, Search, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,6 +28,8 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
   
   const [auditLines, setAuditLines] = useState<AuditItemLine[]>([]);
   const [notes, setNotes] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all'|'diff'|'not_found'>('all');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
             });
             if (matchingItems.length === 0) return;
 
-            const sumQty = matchingItems.reduce((s: number, it: any) => s + (it.quantity || 0), 0);
+            const sumQty = matchingItems.reduce((s: number, it: any) => s + Number(it.quantity || 0), 0);
 
             if (slip.type === SlipType.Receipt && (slip.status === 'Đã đóng' || slip.status === 'Đã hoàn thành')) {
               totalReceipts += sumQty;
@@ -236,6 +238,22 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
 
   if (!isOpen) return null;
 
+  const filteredLines = auditLines
+    .map((line, index) => ({ ...line, originalIndex: index }))
+    .filter(line => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch = !q || 
+        (line.item.code && line.item.code.toLowerCase().includes(q)) || 
+        (line.item.name && line.item.name.toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+
+      if (filterType === 'diff') return line.difference !== 0;
+      if (filterType === 'not_found') return line.isNotFound;
+      
+      return true;
+    });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -276,6 +294,32 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
             </div>
           </div>
 
+          <div className="mb-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full md:w-96">
+              <input
+                type="text"
+                placeholder="Tìm kiếm mã hoặc tên vật tư..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+              <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
+            </div>
+            
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <Filter className="text-gray-500" size={20} />
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as any)}
+                className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              >
+                <option value="all">Tất cả vật tư</option>
+                <option value="diff">Chỉ hiện có chênh lệch</option>
+                <option value="not_found">Chỉ hiện không có trên hệ thống</option>
+              </select>
+            </div>
+          </div>
+
           {loading ? (
             <div className="text-center py-10">Đang tải dữ liệu tồn kho hệ thống...</div>
           ) : (
@@ -292,41 +336,49 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
                   </tr>
                 </thead>
                 <tbody>
-                  {auditLines.map((line, index) => (
-                    <tr key={line.item.id || index} className={`border-b hover:bg-gray-50 ${line.isNotFound ? 'bg-red-50' : ''}`}>
-                      <td className="px-4 py-3 font-medium text-gray-900">{line.item.code}</td>
-                      <td className={`px-4 py-3 ${line.isNotFound ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
-                        {line.item.name}
-                        {line.isNotFound && <span className="block text-xs text-red-500">Chưa tạo mã</span>}
-                      </td>
-                      <td className="px-4 py-3 text-center text-gray-600 font-medium">
-                        {line.isNotFound ? '-' : line.systemStock}
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          className="w-full text-center px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
-                          value={line.actualStock}
-                          onChange={(e) => handleActualStockChange(index, e.target.value)}
-                        />
-                      </td>
-                      <td className={`px-4 py-3 text-center font-bold ${
-                        line.difference > 0 ? 'text-green-600' : line.difference < 0 ? 'text-red-600' : 'text-gray-400'
-                      }`}>
-                        {line.difference > 0 ? `+${line.difference}` : line.difference}
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          className={`w-full px-2 py-1 border rounded ${line.isNotFound ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200'}`}
-                          placeholder="Lý do chênh lệch..."
-                          value={line.notes}
-                          onChange={(e) => handleNotesChange(index, e.target.value)}
-                          readOnly={line.isNotFound}
-                        />
+                  {filteredLines.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                        Không tìm thấy vật tư nào phù hợp
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredLines.map((line) => (
+                      <tr key={line.item.id || line.originalIndex} className={`border-b hover:bg-gray-50 ${line.isNotFound ? 'bg-red-50' : ''}`}>
+                        <td className="px-4 py-3 font-medium text-gray-900">{line.item.code}</td>
+                        <td className={`px-4 py-3 ${line.isNotFound ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                          {line.item.name}
+                          {line.isNotFound && <span className="block text-xs text-red-500">Chưa tạo mã</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-600 font-medium">
+                          {line.isNotFound ? '-' : line.systemStock}
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            className="w-full text-center px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                            value={line.actualStock}
+                            onChange={(e) => handleActualStockChange(line.originalIndex, e.target.value)}
+                          />
+                        </td>
+                        <td className={`px-4 py-3 text-center font-bold ${
+                          line.difference > 0 ? 'text-green-600' : line.difference < 0 ? 'text-red-600' : 'text-gray-400'
+                        }`}>
+                          {line.difference > 0 ? `+${line.difference}` : line.difference}
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            className={`w-full px-2 py-1 border rounded ${line.isNotFound ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200'}`}
+                            placeholder="Lý do chênh lệch..."
+                            value={line.notes}
+                            onChange={(e) => handleNotesChange(line.originalIndex, e.target.value)}
+                            readOnly={line.isNotFound}
+                          />
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

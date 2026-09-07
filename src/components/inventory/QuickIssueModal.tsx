@@ -167,7 +167,10 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: name === 'quantity' ? Number(value) : value 
+    }));
   };
 
   const autoMatchCostCode = () => {
@@ -306,7 +309,9 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!item || !formData.handler || !formData.subsystem || !formData.purpose || !formData.method || formData.quantity <= 0) {
+    const handlerName = profile?.display_name || 'Unknown';
+
+    if (!item || !handlerName || !formData.subsystem || !formData.purpose || !formData.method || formData.quantity <= 0) {
       alert('Vui lòng điền đầy đủ thông tin bắt buộc.');
       return;
     }
@@ -351,7 +356,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
             itemId: item.id,
             quantity: formData.quantity,
             issueDate: formData.issueDate,
-            handler: formData.handler,
+            handler: handlerName,
             subsystem: formData.subsystem,
             purpose: formData.purpose,
             method: formData.method,
@@ -376,7 +381,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
             itemId: item.id,
             quantity: formData.quantity,
             issueDate: formData.issueDate,
-            handler: formData.handler,
+            handler: handlerName,
             subsystem: formData.subsystem,
             purpose: formData.purpose,
             method: formData.method,
@@ -519,18 +524,13 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Người xuất *</label>
-                <select
+                <input
+                  type="text"
                   name="handler"
-                  value={formData.handler}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                  required
-                >
-                  <option value="">-- Chọn người xuất --</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.name}>{u.name}</option>
-                  ))}
-                </select>
+                  value={profile?.display_name || ''}
+                  disabled={true}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500 outline-none transition-all"
+                />
               </div>
 
               <div>

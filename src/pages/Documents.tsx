@@ -286,7 +286,7 @@ export const Documents: React.FC = () => {
             <>
               <input 
                 type="file" 
-                accept=".csv" 
+                accept=".xlsx,.xls" 
                 ref={fileInputRef} 
                 onChange={handleFileUpload} 
                 className="hidden" 
@@ -297,7 +297,7 @@ export const Documents: React.FC = () => {
                 className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm font-medium disabled:opacity-50"
               >
                 <Upload className="w-4 h-4 mr-2" />
-                {importing ? 'Đang import...' : 'Import CSV'}
+                {importing ? 'Đang import...' : 'Import Excel'}
               </button>
               <button 
                 onClick={() => { setEditingDoc(null); setIsFormOpen(true); }}

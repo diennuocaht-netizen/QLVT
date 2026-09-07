@@ -163,7 +163,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
         return idKey === itemId;
       });
       if (matching.length === 0) return;
-      const sumQty = matching.reduce((sumi: number, it: any) => sumi + (it.quantity || 0), 0);
+      const sumQty = matching.reduce((sumi: number, it: any) => sumi + Number(it.quantity || 0), 0);
 
       if (s.type === SlipType.Receipt) {
         if (s.status === 'Đã đóng' || s.status === 'Đã hoàn thành') totalReceipts += sumQty;
@@ -951,18 +951,13 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Người lập</label>
-                <select
+                <input
+                  type="text"
                   name="createdBy"
-                  value={formData.createdBy}
-                  onChange={handleChange}
-                  disabled={isFormDisabled()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500"
-                >
-                  <option value="">-- Chọn người lập --</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.name}>{u.name}</option>
-                  ))}
-                </select>
+                  value={formData.createdBy || ''}
+                  disabled={true}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500 outline-none transition-all"
+                />
               </div>
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mục đích</label>
