@@ -14,6 +14,7 @@ export const Devices: React.FC = () => {
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   const [quickSearchTerm, setQuickSearchTerm] = useState('');
   const [quickFilters, setQuickFilters] = useState<{id: string, field: string, value: string}[]>([]);
   const [quickSearchResults, setQuickSearchResults] = useState<any[]>([]);
@@ -349,13 +350,32 @@ export const Devices: React.FC = () => {
     reader.readAsBinaryString(file);
   };
 
+  const getBaseLocation = (loc: string) => {
+    if (!loc || loc === 'Chưa xác định') return '';
+    // Xóa hậu tố như _1ST, _2ND, _GND, _B1, _ROOF...
+    return loc.trim().replace(/_(1ST|2ND|3RD|\d+TH|GND|B\d+|ROOF)$/i, '');
+  };
+
+  const uniqueLocations = React.useMemo(() => {
+    const locations = new Set<string>();
+    devices.forEach(d => {
+      const baseLoc = getBaseLocation(d.location);
+      if (baseLoc) {
+        locations.add(baseLoc);
+      }
+    });
+    return Array.from(locations).sort();
+  }, [devices]);
+
   const filteredDevices = React.useMemo(() => {
-    return devices.filter(device => 
-      device.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      device.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      device.location?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [devices, searchTerm]);
+    return devices.filter(device => {
+      const baseLoc = getBaseLocation(device.location);
+      return (locationFilter === '' || baseLoc === locationFilter) &&
+             (device.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              device.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              device.location?.toLowerCase().includes(searchTerm.toLowerCase()));
+    });
+  }, [devices, searchTerm, locationFilter]);
 
   return (
     <div className="space-y-6">
@@ -387,6 +407,28 @@ export const Devices: React.FC = () => {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Tổng số thiết bị/tủ</p>
+            <p className="text-2xl font-bold text-gray-900">{devices.length}</p>
+          </div>
+          <div className="p-3 bg-indigo-50 rounded-full text-indigo-600">
+            <Server className="w-6 h-6" />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Đang hoạt động</p>
+            <p className="text-2xl font-bold text-gray-900">{devices.filter(d => d.status === 'active').length}</p>
+          </div>
+          <div className="p-3 bg-green-50 rounded-full text-green-600">
+            <Zap className="w-6 h-6" />
+          </div>
+        </div>
       </div>
 
       {/* Quick Search Section */}
@@ -552,8 +594,8 @@ export const Devices: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 flex items-center">
-          <div className="relative flex-1 max-w-md">
+        <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="relative flex-1 w-full max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
@@ -564,6 +606,18 @@ export const Devices: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="w-full sm:w-64 shrink-0">
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-sm"
+            >
+              <option value="">Tất cả vị trí</option>
+              {uniqueLocations.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -583,6 +637,7 @@ export const Devices: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tên thiết bị</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vị trí / Line</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thay đổi gần nhất</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
@@ -599,6 +654,9 @@ export const Devices: React.FC = () => {
                           'bg-red-100 text-red-800'}`}>
                         {device.status === 'active' ? 'Hoạt động' : device.status === 'maintenance' ? 'Bảo trì' : 'Ngưng HĐ'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {device.updated_at ? new Date(device.updated_at).toLocaleString('vi-VN') : (device.created_at ? new Date(device.created_at).toLocaleString('vi-VN') : '')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-3">
