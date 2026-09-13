@@ -518,7 +518,7 @@ export const Documents: React.FC = () => {
                                           {doc.access_level === 'restricted' && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Bảo mật</span>}
                                         </div>
                                       </div>
-                                      <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex space-x-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => { setViewingDoc(doc); setIsDetailsOpen(true); }} className="p-1 text-gray-400 hover:text-blue-600 rounded">
                                           <Eye className="w-4 h-4" />
                                         </button>
