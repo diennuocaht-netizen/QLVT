@@ -101,10 +101,10 @@ export const MeasurementForms: React.FC = () => {
     }
   };
 
-  const handleUpdateChecklist = (id: string, label: string) => {
+  const handleUpdateChecklist = (id: string, updates: Partial<ChecklistItem>) => {
     setFormData(prev => ({
       ...prev,
-      checklist_items: prev.checklist_items.map(f => f.id === id ? { ...f, label } : f)
+      checklist_items: prev.checklist_items.map(f => f.id === id ? { ...f, ...updates } : f)
     }));
   };
 
@@ -311,19 +311,39 @@ export const MeasurementForms: React.FC = () => {
                     ) : (
                       <div className="space-y-3">
                         {formData.checklist_items.map((item, index) => (
-                          <div key={item.id} className="flex items-center space-x-2 bg-white p-3 border border-gray-200 rounded shadow-sm">
-                            <span className="text-sm font-bold text-gray-400 w-6">{index + 1}.</span>
-                            <input
-                              type="text"
-                              required
-                              value={item.label}
-                              onChange={e => handleUpdateChecklist(item.id, e.target.value)}
-                              placeholder="VD: Kiểm tra tình trạng rò rỉ"
-                              className="flex-1 border-0 border-b border-gray-200 focus:ring-0 focus:border-indigo-500 text-sm"
-                            />
-                            <button type="button" onClick={() => handleRemoveField(item.id, 'checklist')} className="text-red-400 hover:text-red-600">
+                          <div key={item.id} className="bg-white p-3 border border-gray-200 rounded shadow-sm relative">
+                            <button type="button" onClick={() => handleRemoveField(item.id, 'checklist')} className="absolute top-2 right-2 text-gray-400 hover:text-red-600">
                               <X className="w-5 h-5" />
                             </button>
+                            <div className="flex items-start space-x-2 mb-2 pr-6">
+                              <span className="text-sm font-bold text-gray-400 w-6 mt-2">{index + 1}.</span>
+                              <div className="flex-1 space-y-2">
+                                <input
+                                  type="text"
+                                  required
+                                  value={item.label}
+                                  onChange={e => handleUpdateChecklist(item.id, { label: e.target.value })}
+                                  placeholder="Tên mục (VD: Tủ điện, Bồn chứa)"
+                                  className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input
+                                    type="text"
+                                    value={item.description || ''}
+                                    onChange={e => handleUpdateChecklist(item.id, { description: e.target.value })}
+                                    placeholder="Miêu tả (Tùy chọn)"
+                                    className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.standard || ''}
+                                    onChange={e => handleUpdateChecklist(item.id, { standard: e.target.value })}
+                                    placeholder="Tiêu chuẩn so sánh (Tùy chọn)"
+                                    className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -383,8 +403,8 @@ export const MeasurementForms: React.FC = () => {
                               </div>
                             </div>
                             
-                            <div className="grid grid-cols-3 gap-3">
-                              <div>
+                            <div className="grid grid-cols-12 gap-3">
+                              <div className="col-span-4">
                                 <label className="block text-xs text-gray-500 mb-1">Loại dữ liệu</label>
                                 <select
                                   value={field.type}
@@ -396,24 +416,34 @@ export const MeasurementForms: React.FC = () => {
                                   <option value="boolean">Đạt/Không Đạt</option>
                                 </select>
                               </div>
-                              <div>
-                                <label className="block text-xs text-gray-500 mb-1">Đơn vị (Tuỳ chọn)</label>
+                              <div className="col-span-3">
+                                <label className="block text-xs text-gray-500 mb-1">Đơn vị</label>
                                 <input
                                   type="text"
                                   value={field.unit || ''}
                                   onChange={e => handleUpdateMeasurement(field.id, { unit: e.target.value })}
                                   className="w-full border-gray-300 rounded text-sm focus:ring-indigo-500"
-                                  placeholder="V, A, Ohm"
+                                  placeholder="VD: V, A"
                                   disabled={field.type === 'boolean'}
                                 />
                               </div>
-                              <div className="flex items-center justify-center pt-5">
-                                <label className="flex items-center text-sm text-gray-700">
+                              <div className="col-span-3">
+                                <label className="block text-xs text-gray-500 mb-1">Tiêu chuẩn</label>
+                                <input
+                                  type="text"
+                                  value={field.standardValue || ''}
+                                  onChange={e => handleUpdateMeasurement(field.id, { standardValue: e.target.value })}
+                                  className="w-full border-gray-300 rounded text-sm focus:ring-indigo-500"
+                                  placeholder="Giá trị chuẩn"
+                                />
+                              </div>
+                              <div className="col-span-2 flex items-center justify-center pt-5">
+                                <label className="flex items-center text-xs text-gray-700 font-medium">
                                   <input
                                     type="checkbox"
                                     checked={field.required}
                                     onChange={e => handleUpdateMeasurement(field.id, { required: e.target.checked })}
-                                    className="mr-2 text-indigo-600 focus:ring-indigo-500 rounded"
+                                    className="mr-1 text-indigo-600 focus:ring-indigo-500 rounded"
                                   />
                                   Bắt buộc
                                 </label>

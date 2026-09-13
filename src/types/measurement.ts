@@ -1,6 +1,8 @@
 export interface ChecklistItem {
   id: string;
   label: string;
+  description?: string;
+  standard?: string;
 }
 
 export interface MeasurementField {
@@ -10,6 +12,7 @@ export interface MeasurementField {
   unit?: string;
   required?: boolean;
   group?: string;
+  standardValue?: string;
 }
 
 export interface MeasurementForm {

@@ -131,20 +131,26 @@ export const exportMeasurementRecordToWord = async (
         <thead>
           <tr>
             <th style="width: 5%;">STT</th>
-            <th style="width: 45%;">Nội dung kiểm tra</th>
+            <th style="width: 30%;">Nội dung kiểm tra</th>
+            ${form.checklist_items.some((i: any) => i.description) ? '<th style="width: 15%;">Miêu tả</th>' : ''}
+            ${form.checklist_items.some((i: any) => i.standard) ? '<th style="width: 15%;">Tiêu chuẩn</th>' : ''}
             <th style="width: 10%;">Đạt</th>
             <th style="width: 10%;">Không đạt</th>
-            <th style="width: 30%;">Ghi chú</th>
+            <th style="width: 15%;">Ghi chú</th>
           </tr>
         </thead>
         <tbody>
           ${form.checklist_items.map((item: any, idx: number) => {
             const val = checklist[item.id]?.status;
             const note = checklist[item.id]?.note || '';
+            const hasDesc = form.checklist_items.some((i: any) => i.description);
+            const hasStd = form.checklist_items.some((i: any) => i.standard);
             return `
               <tr>
                 <td class="text-center">${idx + 1}</td>
                 <td>${item.label}</td>
+                ${hasDesc ? `<td>${item.description || ''}</td>` : ''}
+                ${hasStd ? `<td>${item.standard || ''}</td>` : ''}
                 <td class="text-center">${val === 'Đạt' ? 'X' : ''}</td>
                 <td class="text-center">${val === 'Không đạt' ? 'X' : ''}</td>
                 <td>${note}</td>
@@ -165,7 +171,7 @@ export const exportMeasurementRecordToWord = async (
             ${groupedColumns.map(g => `<th colspan="${g.fields.length}">${g.name || 'Thông số khác'}</th>`).join('')}
           </tr>
           <tr>
-            ${groupedColumns.flatMap(g => g.fields).map(f => `<th>${f.label} ${f.unit ? `(${f.unit})` : ''}</th>`).join('')}
+            ${groupedColumns.flatMap(g => g.fields).map(f => `<th>${f.label} ${f.unit ? `(${f.unit})` : ''}${f.standardValue ? `<br><span style="font-weight:normal;color:green;font-size:11pt">Chuẩn: ${f.standardValue}</span>` : ''}</th>`).join('')}
           </tr>
         </thead>
         <tbody>

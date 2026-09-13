@@ -276,6 +276,8 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                       <tr className="bg-gray-100 border border-gray-300">
                         <th className="border border-gray-300 p-2 w-12 text-center">STT</th>
                         <th className="border border-gray-300 p-2 text-left">Nội dung kiểm tra</th>
+                        {selectedForm.checklist_items.some(i => i.description) && <th className="border border-gray-300 p-2 text-left text-gray-500">Miêu tả</th>}
+                        {selectedForm.checklist_items.some(i => i.standard) && <th className="border border-gray-300 p-2 text-left text-gray-500">Tiêu chuẩn</th>}
                         <th className="border border-gray-300 p-2 w-24 text-center">Đạt</th>
                         <th className="border border-gray-300 p-2 w-24 text-center">Không đạt</th>
                         <th className="border border-gray-300 p-2 w-48 text-left">Ghi chú</th>
@@ -284,10 +286,14 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                     <tbody>
                       {selectedForm.checklist_items.map((item, index) => {
                         const val = checklistData[item.id]?.status;
+                        const hasDesc = selectedForm.checklist_items.some(i => i.description);
+                        const hasStd = selectedForm.checklist_items.some(i => i.standard);
                         return (
                           <tr key={item.id} className="border border-gray-300 hover:bg-gray-50">
                             <td className="border border-gray-300 p-2 text-center text-gray-600">{index + 1}</td>
                             <td className="border border-gray-300 p-2 font-medium text-gray-900">{item.label}</td>
+                            {hasDesc && <td className="border border-gray-300 p-2 text-gray-600 text-xs">{item.description || ''}</td>}
+                            {hasStd && <td className="border border-gray-300 p-2 text-green-700 text-xs font-medium">{item.standard || ''}</td>}
                             <td className="border border-gray-300 p-2 text-center">
                               <input
                                 type="radio"
@@ -344,8 +350,9 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                       <tr className="bg-gray-50 border border-gray-300 text-xs">
                         {groupedColumns.flatMap(g => g.fields).map(f => (
                           <th key={f.id} className="border border-gray-300 p-2 text-center font-medium">
-                            {f.label}
+                            <span className="block">{f.label}</span>
                             {f.unit && <span className="block text-gray-500 font-normal">({f.unit})</span>}
+                            {f.standardValue && <span className="block text-green-600 font-medium mt-1">Chuẩn: {f.standardValue}</span>}
                           </th>
                         ))}
                       </tr>
