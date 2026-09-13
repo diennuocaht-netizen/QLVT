@@ -106,10 +106,12 @@ export const SelectRequisitionItemsModal: React.FC<SelectRequisitionItemsModalPr
 
   if (!isOpen || !requisition) return null;
 
-  const itemsToDisplay = requisition.items.filter(reqItem => {
-    const remainingQuantity = reqItem.requestedQuantity - (reqItem.receivedQuantity || 0);
-    return remainingQuantity > 0;
-  });
+  const itemsToDisplay = requisition.items
+    .map((reqItem, originalIndex) => ({ reqItem, originalIndex }))
+    .filter(({ reqItem }) => {
+      const remainingQuantity = reqItem.requestedQuantity - (reqItem.receivedQuantity || 0);
+      return remainingQuantity > 0;
+    });
 
   const getItemName = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
@@ -126,8 +128,8 @@ export const SelectRequisitionItemsModal: React.FC<SelectRequisitionItemsModalPr
     return item?.unitPrice || 0;
   };
 
-  const totalValue = itemsToDisplay.reduce((sum, reqItem, idx) => {
-    const key = `${requisition.id}-item-${idx}`;
+  const totalValue = itemsToDisplay.reduce((sum, { reqItem, originalIndex }) => {
+    const key = `${requisition.id}-item-${originalIndex}`;
     const entry = selectedItems[key];
     if (entry?.isSelected) {
       return sum + (entry.quantity * getItemPrice(reqItem.itemId));
@@ -172,9 +174,9 @@ export const SelectRequisitionItemsModal: React.FC<SelectRequisitionItemsModalPr
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {itemsToDisplay.map((reqItem, idx) => {
+                  {itemsToDisplay.map(({ reqItem, originalIndex }) => {
                     const remainingQuantity = reqItem.requestedQuantity - (reqItem.receivedQuantity || 0);
-                    const key = `${requisition.id}-item-${idx}`;
+                    const key = `${requisition.id}-item-${originalIndex}`;
                     const currentQuantity = selectedItems[key]?.quantity || 0;
                     const isSelected = selectedItems[key]?.isSelected || false;
                     const unitPrice = getItemPrice(reqItem.itemId);
