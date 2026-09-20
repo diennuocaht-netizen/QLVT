@@ -186,6 +186,21 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
     return groups;
   }, [selectedForm]);
 
+  const groupedChecklist = useMemo(() => {
+    if (!selectedForm?.checklist_items) return [];
+    const groups: { name: string, items: any[] }[] = [];
+    selectedForm.checklist_items.forEach(item => {
+      const gName = item.group || '';
+      const existing = groups.find(g => g.name === gName);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        groups.push({ name: gName, items: [item] });
+      }
+    });
+    return groups;
+  }, [selectedForm]);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] flex flex-col">
@@ -284,49 +299,66 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedForm.checklist_items.map((item, index) => {
-                        const val = checklistData[item.id]?.status;
+                      {(() => {
                         const hasDesc = selectedForm.checklist_items.some(i => i.description);
                         const hasStd = selectedForm.checklist_items.some(i => i.standard);
-                        return (
-                          <tr key={item.id} className="border border-gray-300 hover:bg-gray-50">
-                            <td className="border border-gray-300 p-2 text-center text-gray-600">{index + 1}</td>
-                            <td className="border border-gray-300 p-2 font-medium text-gray-900">{item.label}</td>
-                            {hasDesc && <td className="border border-gray-300 p-2 text-gray-600 text-xs">{item.description || ''}</td>}
-                            {hasStd && <td className="border border-gray-300 p-2 text-green-700 text-xs font-medium">{item.standard || ''}</td>}
-                            <td className="border border-gray-300 p-2 text-center">
-                              <input
-                                type="radio"
-                                name={`check_${item.id}`}
-                                checked={val === 'Đạt'}
-                                onChange={() => handleChecklistChange(item.id, 'status', 'Đạt')}
-                                disabled={isViewOnly}
-                                className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300"
-                              />
-                            </td>
-                            <td className="border border-gray-300 p-2 text-center">
-                              <input
-                                type="radio"
-                                name={`check_${item.id}`}
-                                checked={val === 'Không đạt'}
-                                onChange={() => handleChecklistChange(item.id, 'status', 'Không đạt')}
-                                disabled={isViewOnly}
-                                className="w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
-                              />
-                            </td>
-                            <td className="border border-gray-300 p-0">
-                              <input
-                                type="text"
-                                value={checklistData[item.id]?.note || ''}
-                                onChange={e => handleChecklistChange(item.id, 'note', e.target.value)}
-                                disabled={isViewOnly}
-                                className="w-full h-full border-0 focus:ring-0 p-2 text-sm bg-transparent"
-                                placeholder={isViewOnly ? '' : 'Ghi chú...'}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
+                        const colSpanBase = 4 + (hasDesc ? 1 : 0) + (hasStd ? 1 : 0);
+                        let globalIndex = 0;
+
+                        return groupedChecklist.map((group, gIdx) => (
+                          <React.Fragment key={gIdx}>
+                            {group.name && (
+                              <tr className="bg-indigo-50 border border-gray-300">
+                                <td colSpan={colSpanBase} className="border border-gray-300 p-2 font-bold text-indigo-900 uppercase">
+                                  {group.name}
+                                </td>
+                              </tr>
+                            )}
+                            {group.items.map((item) => {
+                              globalIndex++;
+                              const val = checklistData[item.id]?.status;
+                              return (
+                                <tr key={item.id} className="border border-gray-300 hover:bg-gray-50">
+                                  <td className="border border-gray-300 p-2 text-center text-gray-600">{globalIndex}</td>
+                                  <td className="border border-gray-300 p-2 font-medium text-gray-900">{item.label}</td>
+                                  {hasDesc && <td className="border border-gray-300 p-2 text-gray-600 text-xs">{item.description || ''}</td>}
+                                  {hasStd && <td className="border border-gray-300 p-2 text-green-700 text-xs font-medium">{item.standard || ''}</td>}
+                                  <td className="border border-gray-300 p-2 text-center">
+                                    <input
+                                      type="radio"
+                                      name={`check_${item.id}`}
+                                      checked={val === 'Đạt'}
+                                      onChange={() => handleChecklistChange(item.id, 'status', 'Đạt')}
+                                      disabled={isViewOnly}
+                                      className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300"
+                                    />
+                                  </td>
+                                  <td className="border border-gray-300 p-2 text-center">
+                                    <input
+                                      type="radio"
+                                      name={`check_${item.id}`}
+                                      checked={val === 'Không đạt'}
+                                      onChange={() => handleChecklistChange(item.id, 'status', 'Không đạt')}
+                                      disabled={isViewOnly}
+                                      className="w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
+                                    />
+                                  </td>
+                                  <td className="border border-gray-300 p-0">
+                                    <input
+                                      type="text"
+                                      value={checklistData[item.id]?.note || ''}
+                                      onChange={e => handleChecklistChange(item.id, 'note', e.target.value)}
+                                      disabled={isViewOnly}
+                                      className="w-full h-full border-0 focus:ring-0 p-2 text-sm bg-transparent"
+                                      placeholder={isViewOnly ? '' : 'Ghi chú...'}
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>

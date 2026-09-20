@@ -317,32 +317,41 @@ export const MeasurementForms: React.FC = () => {
                             </button>
                             <div className="flex items-start space-x-2 mb-2 pr-6">
                               <span className="text-sm font-bold text-gray-400 w-6 mt-2">{index + 1}.</span>
-                              <div className="flex-1 space-y-2">
-                                <input
-                                  type="text"
-                                  required
-                                  value={item.label}
-                                  onChange={e => handleUpdateChecklist(item.id, { label: e.target.value })}
-                                  placeholder="Tên mục (VD: Tủ điện, Bồn chứa)"
-                                  className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                />
-                                <div className="grid grid-cols-2 gap-2">
-                                  <input
-                                    type="text"
-                                    value={item.description || ''}
-                                    onChange={e => handleUpdateChecklist(item.id, { description: e.target.value })}
-                                    placeholder="Miêu tả (Tùy chọn)"
-                                    className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={item.standard || ''}
-                                    onChange={e => handleUpdateChecklist(item.id, { standard: e.target.value })}
-                                    placeholder="Tiêu chuẩn so sánh (Tùy chọn)"
-                                    className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
-                                  />
+                                <div className="flex-1 space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                      type="text"
+                                      required
+                                      value={item.label}
+                                      onChange={e => handleUpdateChecklist(item.id, { label: e.target.value })}
+                                      placeholder="Tên mục (VD: Tủ điện, Bồn chứa)"
+                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={item.group || ''}
+                                      onChange={e => handleUpdateChecklist(item.id, { group: e.target.value })}
+                                      placeholder="Nhóm cột (Tùy chọn)"
+                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                      type="text"
+                                      value={item.description || ''}
+                                      onChange={e => handleUpdateChecklist(item.id, { description: e.target.value })}
+                                      placeholder="Miêu tả (Tùy chọn)"
+                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={item.standard || ''}
+                                      onChange={e => handleUpdateChecklist(item.id, { standard: e.target.value })}
+                                      placeholder="Tiêu chuẩn so sánh (Tùy chọn)"
+                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
+                                    />
+                                  </div>
                                 </div>
-                              </div>
                             </div>
                           </div>
                         ))}

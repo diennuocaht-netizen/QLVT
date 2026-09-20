@@ -1,6 +1,7 @@
 export interface ChecklistItem {
   id: string;
   label: string;
+  group?: string;
   description?: string;
   standard?: string;
 }

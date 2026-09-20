@@ -350,6 +350,134 @@ export const Devices: React.FC = () => {
     reader.readAsBinaryString(file);
   };
 
+  const bulkSubComponentsInputRef = useRef<HTMLInputElement>(null);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  
+  const handleBulkImportClick = () => {
+    bulkSubComponentsInputRef.current?.click();
+  };
+
+  const handleBulkSubComponentsUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setBulkImporting(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        // Map data by device code or name
+        const componentsByDevice: Record<string, any[]> = {};
+
+        for (const row of data as any[]) {
+          const normalizedRow: any = {};
+          for (const key in row) {
+            if (row.hasOwnProperty(key)) {
+              const cleanKey = key.replace(/^\uFEFF/, '').trim().toLowerCase();
+              normalizedRow[cleanKey] = row[key];
+            }
+          }
+
+          // Need a column to identify the parent device
+          const deviceCode = String(normalizedRow['mã tủ điện'] || normalizedRow['tên tủ điện'] || normalizedRow['tủ điện'] || '').trim();
+          
+          if (!deviceCode) continue;
+
+          const label = String(normalizedRow[''] || normalizedRow['nhãn'] || normalizedRow['stt'] || '').trim();
+          const name = String(normalizedRow['tên mcb:'] || normalizedRow['tên mcb'] || normalizedRow['name'] || '').trim();
+          const model = String(normalizedRow['hãng sản xuất/model:'] || normalizedRow['hãng sản xuất/model'] || normalizedRow['hãng/model'] || '').trim();
+          const poles = String(normalizedRow['số pha / số cực:'] || normalizedRow['số pha / số cực'] || normalizedRow['pha/cực'] || '').trim();
+          const current = String(normalizedRow['dòng định mức:'] || normalizedRow['dòng định mức'] || normalizedRow['dòng đm'] || '').trim();
+          const icu = String(normalizedRow['icu/ ics:'] || normalizedRow['icu/ ics'] || normalizedRow['icu/ics'] || '').trim();
+          const voltage = String(normalizedRow['điện áp định mức:'] || normalizedRow['điện áp định mức'] || normalizedRow['điện áp'] || '').trim();
+          const poweredFrom = String(normalizedRow['cấp nguồn từ:'] || normalizedRow['cấp nguồn từ'] || normalizedRow['cấp nguồn'] || '').trim();
+          const powersTo = String(normalizedRow['cấp nguồn cho:'] || normalizedRow['cấp nguồn cho'] || '').trim();
+          const location = String(normalizedRow['vị trí:'] || normalizedRow['vị trí'] || normalizedRow['location'] || '').trim();
+
+          if (!name && !label) continue;
+
+          const newComponent = {
+            id: `C_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            label,
+            name,
+            model,
+            poles,
+            current,
+            icu,
+            voltage,
+            poweredFrom,
+            powersTo,
+            location
+          };
+
+          if (!componentsByDevice[deviceCode]) {
+            componentsByDevice[deviceCode] = [];
+          }
+          componentsByDevice[deviceCode].push(newComponent);
+        }
+
+        let updatedCount = 0;
+        let notFoundCount = 0;
+
+        for (const [code, newComps] of Object.entries(componentsByDevice)) {
+          // Find device by code or name
+          const device = devices.find(d => d.code.toLowerCase() === code.toLowerCase() || d.name.toLowerCase() === code.toLowerCase());
+          
+          if (device) {
+            const currentComps = Array.isArray(device.sub_components) ? device.sub_components : [];
+            const updatedComps = [...currentComps, ...newComps];
+            
+            const { error } = await supabase.from('devices').update({ sub_components: updatedComps }).eq('id', device.id);
+            if (!error) {
+              updatedCount++;
+            }
+          } else {
+            notFoundCount++;
+            console.warn(`Device not found for code/name: ${code}`);
+          }
+        }
+
+        if (updatedCount === 0) {
+          if (notFoundCount > 0) {
+            alert(`Không tìm thấy tủ điện nào khớp với cột "Mã tủ điện" hoặc "Tên tủ điện" trong file Excel. Vui lòng kiểm tra lại.`);
+          } else {
+            alert('Không có dữ liệu chi tiết nào hợp lệ để import.');
+          }
+        } else {
+          let msg = `✅ Đã import chi tiết thành công cho ${updatedCount} tủ điện!`;
+          if (notFoundCount > 0) {
+            msg += `\n⚠️ Có ${notFoundCount} tủ điện không tìm thấy trong hệ thống.`;
+          }
+          alert(msg);
+          // Reload devices
+          const { data, error } = await supabase.from('devices').select('*').order('created_at', { ascending: false });
+          if (data && !error) setDevices(data);
+        }
+
+      } catch (error: any) {
+        console.error("Error bulk importing sub components:", error);
+        alert(`❌ Có lỗi xảy ra: ${error.message || 'Lỗi không xác định'}`);
+      } finally {
+        setBulkImporting(false);
+        if (bulkSubComponentsInputRef.current) bulkSubComponentsInputRef.current.value = '';
+      }
+    };
+
+    reader.onerror = () => {
+      alert("Lỗi khi đọc file Excel.");
+      setBulkImporting(false);
+      if (bulkSubComponentsInputRef.current) bulkSubComponentsInputRef.current.value = '';
+    };
+
+    reader.readAsBinaryString(file);
+  };
+
   const getBaseLocation = (loc: string) => {
     if (!loc || loc === 'Chưa xác định') return '';
     // Xóa hậu tố như _1ST, _2ND, _GND, _B1, _ROOF...
@@ -382,7 +510,7 @@ export const Devices: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý Thiết bị</h1>
         {canEdit && (
-          <div className="flex space-x-3">
+          <div className="flex gap-2">
             <input 
               type="file" 
               accept=".xlsx,.xls" 
@@ -390,13 +518,30 @@ export const Devices: React.FC = () => {
               onChange={handleFileUpload} 
               className="hidden" 
             />
+            <input 
+              type="file" 
+              accept=".xlsx,.xls" 
+              ref={bulkSubComponentsInputRef} 
+              onChange={handleBulkSubComponentsUpload} 
+              className="hidden" 
+            />
             <button 
               onClick={handleImportClick}
               disabled={importing}
               className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm font-medium disabled:opacity-50"
+              title="Import danh sách Tủ điện / Thiết bị từ file Excel"
             >
               <Upload className="w-4 h-4 mr-2" />
-              {importing ? 'Đang import...' : 'Import Excel'}
+              {importing ? 'Đang import...' : 'Import Tủ'}
+            </button>
+            <button 
+              onClick={handleBulkImportClick}
+              disabled={bulkImporting}
+              className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm font-medium disabled:opacity-50"
+              title="Import hàng loạt Chi tiết phụ tải cho nhiều Tủ điện cùng lúc từ file Excel (Yêu cầu có cột Mã tủ điện hoặc Tên tủ điện)"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {bulkImporting ? 'Đang import...' : 'Import Chi tiết'}
             </button>
             <button 
               onClick={handleAddNew}

@@ -38,75 +38,51 @@ export const exportMeasurementRecordToWord = async (
   const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   const userName = user?.raw_user_meta_data?.full_name || user?.email || 'Không rõ';
 
+  const groupedChecklist: { name: string, items: any[] }[] = [];
+  if (form.checklist_items) {
+    form.checklist_items.forEach((item: any) => {
+      const gName = item.group || '';
+      const existing = groupedChecklist.find(g => g.name === gName);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        groupedChecklist.push({ name: gName, items: [item] });
+      }
+    });
+  }
+
+  const hasDesc = form.checklist_items?.some((i: any) => i.description);
+  const hasStd = form.checklist_items?.some((i: any) => i.standard);
+  const colSpanBase = 4 + (hasDesc ? 1 : 0) + (hasStd ? 1 : 0);
+
   const htmlContent = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head>
       <meta charset="utf-8">
       <title>Export Word</title>
       <style>
-        body {
-          font-family: 'Times New Roman', serif;
-          font-size: 13pt;
-        }
-        .header-table {
-          width: 100%;
-          text-align: center;
-          font-weight: bold;
-          margin-bottom: 20px;
-        }
-        .header-table td {
-          vertical-align: top;
-        }
-        .title {
-          text-align: center;
-          font-size: 16pt;
-          font-weight: bold;
-          margin-top: 20px;
-          margin-bottom: 10px;
-          text-transform: uppercase;
-        }
-        .info {
-          margin-bottom: 10px;
-        }
-        .section-title {
-          font-weight: bold;
-          margin-top: 15px;
-          margin-bottom: 5px;
-          text-transform: uppercase;
-        }
-        table.data-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 15px;
-        }
-        table.data-table th, table.data-table td {
-          border: 1px solid black;
-          padding: 5px;
-        }
-        table.data-table th {
-          background-color: #f2f2f2;
-          text-align: center;
-          font-weight: bold;
-        }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; }
+        .header { text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 20px; }
+        .title { text-align: center; font-weight: bold; font-size: 16pt; margin: 20px 0; text-transform: uppercase; }
+        .section-title { font-weight: bold; margin: 15px 0 10px 0; font-size: 12pt; text-transform: uppercase; }
+        .info { margin-bottom: 15px; }
+        .data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11pt; }
+        .data-table th, .data-table td { border: 1px solid black; padding: 5px; }
+        .data-table th { background-color: #f2f2f2; font-weight: bold; text-align: center; }
         .text-center { text-align: center; }
-        .text-left { text-align: left; }
-        .signature-table {
-          width: 100%;
-          text-align: center;
-          margin-top: 30px;
-        }
-        .signature-table th {
-          font-weight: bold;
-        }
+        .text-right { text-align: right; }
+        .signature-section { margin-top: 40px; width: 100%; page-break-inside: avoid; }
+        .signature-table { width: 100%; border: none; }
+        .signature-table td { border: none; text-align: center; font-weight: bold; width: 50%; padding-bottom: 80px; }
       </style>
     </head>
     <body>
-      <table class="header-table">
+      <table style="width: 100%; border: none; margin-bottom: 10px;">
         <tr>
-          <td style="width: 40%; vertical-align: middle; text-align: left;">
-            ${logoBase64 ? `<img src="${logoBase64}" width="150" alt="AHT Logo" />` : 'AHT Logo'}
+          <td style="width: 25%; text-align: left; vertical-align: top;">
+            ${logoBase64 ? `<img src="${logoBase64}" width="120" alt="AHT Logo" />` : 'AHT Logo'}
           </td>
-          <td style="width: 60%; text-align: center; font-size: 11pt;">
+          <td style="width: 75%; text-align: center; font-size: 11pt;">
             CÔNG TY CỔ PHẦN ĐẦU TƯ KHAI THÁC NHÀ GA<br>
             QUỐC TẾ ĐÀ NẴNG<br>
             <b>PHÒNG KỸ THUẬT - ĐỘI ĐNCT</b>
@@ -132,31 +108,46 @@ export const exportMeasurementRecordToWord = async (
           <tr>
             <th style="width: 5%;">STT</th>
             <th style="width: 30%;">Nội dung kiểm tra</th>
-            ${form.checklist_items.some((i: any) => i.description) ? '<th style="width: 15%;">Miêu tả</th>' : ''}
-            ${form.checklist_items.some((i: any) => i.standard) ? '<th style="width: 15%;">Tiêu chuẩn</th>' : ''}
+            ${hasDesc ? '<th style="width: 15%;">Miêu tả</th>' : ''}
+            ${hasStd ? '<th style="width: 15%;">Tiêu chuẩn</th>' : ''}
             <th style="width: 10%;">Đạt</th>
             <th style="width: 10%;">Không đạt</th>
             <th style="width: 15%;">Ghi chú</th>
           </tr>
         </thead>
         <tbody>
-          ${form.checklist_items.map((item: any, idx: number) => {
-            const val = checklist[item.id]?.status;
-            const note = checklist[item.id]?.note || '';
-            const hasDesc = form.checklist_items.some((i: any) => i.description);
-            const hasStd = form.checklist_items.some((i: any) => i.standard);
-            return `
-              <tr>
-                <td class="text-center">${idx + 1}</td>
-                <td>${item.label}</td>
-                ${hasDesc ? `<td>${item.description || ''}</td>` : ''}
-                ${hasStd ? `<td>${item.standard || ''}</td>` : ''}
-                <td class="text-center">${val === 'Đạt' ? 'X' : ''}</td>
-                <td class="text-center">${val === 'Không đạt' ? 'X' : ''}</td>
-                <td>${note}</td>
-              </tr>
-            `;
-          }).join('')}
+          ${(() => {
+            let globalIndex = 0;
+            return groupedChecklist.map((group) => {
+              let groupHtml = '';
+              if (group.name) {
+                groupHtml += `
+                  <tr>
+                    <td colspan="${colSpanBase}" style="font-weight: bold; background-color: #f9f9f9; text-transform: uppercase;">
+                      ${group.name}
+                    </td>
+                  </tr>
+                `;
+              }
+              groupHtml += group.items.map((item: any) => {
+                globalIndex++;
+                const val = checklist[item.id]?.status;
+                const note = checklist[item.id]?.note || '';
+                return `
+                  <tr>
+                    <td class="text-center">${globalIndex}</td>
+                    <td>${item.label}</td>
+                    ${hasDesc ? `<td>${item.description || ''}</td>` : ''}
+                    ${hasStd ? `<td>${item.standard || ''}</td>` : ''}
+                    <td class="text-center">${val === 'Đạt' ? 'X' : ''}</td>
+                    <td class="text-center">${val === 'Không đạt' ? 'X' : ''}</td>
+                    <td>${note}</td>
+                  </tr>
+                `;
+              }).join('');
+              return groupHtml;
+            }).join('');
+          })()}
         </tbody>
       </table>
       ` : ''}

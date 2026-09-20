@@ -9,6 +9,7 @@ import { ItemModal } from '../components/inventory/ItemModal';
 import { QuickIssueModal } from '../components/inventory/QuickIssueModal';
 import { ItemTraceabilityModal } from '../components/inventory/ItemTraceabilityModal';
 import { PrintQRModal } from '../components/inventory/PrintQRModal';
+import { BulkPrintQRModal } from '../components/inventory/BulkPrintQRModal';
 import { QRScannerModal } from '../components/inventory/QRScannerModal';
 import { itemFromDatabase, slipFromDatabase, itemToDatabase } from '../utils/dataTransform';
 import { QrCode, ScanLine, X, ArrowUpFromLine, FileText } from 'lucide-react';
@@ -26,6 +27,8 @@ export const InventoryItems: React.FC = () => {
   const [quickIssueItem, setQuickIssueItem] = useState<Item | null>(null);
   const [isGlobalQRScannerOpen, setIsGlobalQRScannerOpen] = useState(false);
   const [scannedItemAction, setScannedItemAction] = useState<Item | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [bulkPrintQROpen, setBulkPrintQROpen] = useState(false);
   
   const hasAccess = profile?.role === 'admin' || profile?.role === 'manager';
   const [traceabilityOpen, setTraceabilityOpen] = useState(false);
@@ -275,6 +278,23 @@ export const InventoryItems: React.FC = () => {
     });
   }, [inventory, searchTerm, stockFilter]);
 
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedItemIds(filteredInventory.map(inv => inv.item.id));
+    } else {
+      setSelectedItemIds([]);
+    }
+  };
+
+  const handleSelectItem = (id: string) => {
+    setSelectedItemIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(item => item !== id);
+      }
+      return [...prev, id];
+    });
+  };
 
   const handleExportExcel = () => {
     const dataToExport = filteredInventory.map(inv => ({
@@ -549,6 +569,14 @@ export const InventoryItems: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Quản Lý Vật Tư</h1>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          {selectedItemIds.length > 0 && (
+            <button
+              onClick={() => setBulkPrintQROpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 shadow-sm"
+            >
+              <QrCode size={20} /> In {selectedItemIds.length} mã QR
+            </button>
+          )}
           <button
             onClick={() => setIsGlobalQRScannerOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"
@@ -627,6 +655,14 @@ export const InventoryItems: React.FC = () => {
             <table className="w-full relative">
               <thead className="bg-gray-100 border-b sticky top-0 z-10 shadow-sm">
                 <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedItemIds.length === filteredInventory.length && filteredInventory.length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Mã VT</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Tên Vật Tư</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Vị Trí</th>
@@ -643,13 +679,21 @@ export const InventoryItems: React.FC = () => {
               <tbody>
                 {filteredInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
                       Không có dữ liệu
                     </td>
                   </tr>
                 ) : (
                   filteredInventory.map((inv) => (
                     <tr key={inv.item.id} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.includes(inv.item.id)}
+                          onChange={() => handleSelectItem(inv.item.id)}
+                          className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                        />
+                      </td>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{inv.item.code}</td>
                       <td className={`px-6 py-4 text-sm ${inv.stock <= 0 ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>{inv.item.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
@@ -848,6 +892,12 @@ export const InventoryItems: React.FC = () => {
           setPrintQROpen(false);
           setPrintQRItem(null);
         }}
+      />
+
+      <BulkPrintQRModal
+        isOpen={bulkPrintQROpen}
+        items={items.filter(i => selectedItemIds.includes(i.id))}
+        onClose={() => setBulkPrintQROpen(false)}
       />
 
       <QRScannerModal
