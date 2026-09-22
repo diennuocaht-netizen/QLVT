@@ -138,47 +138,21 @@ export const Admin: React.FC = () => {
         return;
       }
 
-      // Create a temporary client that doesn't persist sessions
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      const { createClient } = await import('@supabase/supabase-js');
-      const tempSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        }
-      });
-
-      // 1. Sign up the user (this creates auth.users record)
-      const { data: authData, error: authError } = await tempSupabase.auth.signUp({
-        email: newUser.email,
-        password: newUser.password,
-      });
-
-      if (authError) {
-        throw new Error(`Lỗi tạo tài khoản: ${authError.message}`);
-      }
-
-      if (!authData.user) {
-        throw new Error("Tạo tài khoản thất bại (không trả về user).");
-      }
-
-      // 2. Insert the user profile via RPC to bypass RLS restrictions
-      const { data: rpcData, error: profileError } = await supabase.rpc('create_user_profile', {
-        p_id: authData.user.id,
+      // Use our bypass RPC to create the user directly in auth.users and public.users
+      const { data: rpcData, error: profileError } = await supabase.rpc('admin_create_user_bypass', {
         p_email: newUser.email,
+        p_password: newUser.password,
         p_display_name: newUser.displayName || newUser.email.split('@')[0],
         p_role: newUser.role
       });
 
       if (profileError) {
-        console.error("Lỗi cập nhật profile:", profileError);
-        throw new Error(`Tài khoản đã tạo nhưng lỗi lưu thông tin profile: ${profileError.message}`);
+        console.error("Lỗi tạo user (bỏ qua auth):", profileError);
+        throw new Error(`Lỗi hệ thống: ${profileError.message}`);
       }
       
       if (rpcData && rpcData.success === false) {
-        throw new Error(`Tài khoản đã tạo nhưng lỗi lưu thông tin profile: ${rpcData.error}`);
+        throw new Error(`Lỗi từ máy chủ: ${rpcData.error}`);
       }
 
       setCreateSuccess(
