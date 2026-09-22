@@ -12,7 +12,7 @@ export const MeasurementForms: React.FC = () => {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingForm, setEditingForm] = useState<MeasurementForm | null>(null);
-  const [formData, setFormData] = useState<{name: string, description: string, checklist_items: ChecklistItem[], measurement_fields: MeasurementField[]}>({
+  const [formData, setFormData] = useState<Partial<MeasurementForm>>({
     name: '',
     description: '',
     checklist_items: [],
@@ -46,6 +46,7 @@ export const MeasurementForms: React.FC = () => {
       setFormData({
         name: form.name,
         description: form.description || '',
+        checklist_metadata: form.checklist_metadata || undefined,
         checklist_items: JSON.parse(JSON.stringify(form.checklist_items || [])),
         measurement_fields: JSON.parse(JSON.stringify(form.measurement_fields || []))
       });
@@ -126,6 +127,7 @@ export const MeasurementForms: React.FC = () => {
       const formPayload = {
         name: formData.name,
         description: formData.description,
+        checklist_metadata: formData.checklist_metadata,
         checklist_items: formData.checklist_items,
         measurement_fields: formData.measurement_fields,
         updated_at: new Date().toISOString()
@@ -294,14 +296,89 @@ export const MeasurementForms: React.FC = () => {
                   {/* Checklist Items */}
                   <div>
                     <div className="flex justify-between items-center mb-4 border-b pb-2">
-                      <h4 className="text-lg font-semibold text-gray-900">1. Nội dung kiểm tra chung</h4>
-                      <button
-                        type="button"
-                        onClick={() => handleAddField('checklist')}
-                        className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center font-medium"
-                      >
-                        <PlusCircle className="w-4 h-4 mr-1" /> Thêm mục
-                      </button>
+                      <div className="flex flex-col">
+                        <h4 className="text-lg font-semibold text-gray-900">1. Nội dung kiểm tra chung</h4>
+                        <p className="text-xs text-gray-500">Tùy chỉnh các cột thông tin cho bảng kiểm tra</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentMeta = formData.checklist_metadata || { itemLabelHeader: 'Nội dung kiểm tra', customColumns: [] };
+                            const newCols = [...(currentMeta.customColumns || []), { id: `col_${Date.now()}`, name: `Cột ${currentMeta.customColumns?.length ? currentMeta.customColumns.length + 1 : 1}` }];
+                            setFormData({ ...formData, checklist_metadata: { ...currentMeta, customColumns: newCols } });
+                          }}
+                          className="text-sm text-green-600 hover:text-green-800 flex items-center font-medium px-2 py-1 bg-green-50 rounded"
+                        >
+                          <PlusCircle className="w-4 h-4 mr-1" /> Thêm cột phụ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddField('checklist')}
+                          className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center font-medium px-2 py-1 bg-indigo-50 rounded"
+                        >
+                          <PlusCircle className="w-4 h-4 mr-1" /> Thêm mục kiểm tra
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Cấu hình cột */}
+                    <div className="mb-4 bg-gray-50 p-3 rounded border border-gray-200">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Cấu hình tiêu đề cột:</h5>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-semibold w-24 text-gray-500">Cột chính:</span>
+                          <input
+                            type="text"
+                            value={formData.checklist_metadata?.itemLabelHeader || 'Nội dung kiểm tra'}
+                            onChange={e => setFormData({ 
+                              ...formData, 
+                              checklist_metadata: { 
+                                ...(formData.checklist_metadata || { customColumns: [] }), 
+                                itemLabelHeader: e.target.value 
+                              } 
+                            })}
+                            className="flex-1 border-gray-300 rounded text-sm focus:ring-indigo-500 h-8"
+                          />
+                        </div>
+                        {(formData.checklist_metadata?.customColumns || []).map((col, cIdx) => (
+                          <div key={col.id} className="flex items-center space-x-2">
+                            <span className="text-xs font-semibold w-24 text-gray-500">Cột phụ {cIdx + 1}:</span>
+                            <input
+                              type="text"
+                              value={col.name}
+                              onChange={e => {
+                                const newCols = [...(formData.checklist_metadata?.customColumns || [])];
+                                newCols[cIdx].name = e.target.value;
+                                setFormData({ 
+                                  ...formData, 
+                                  checklist_metadata: { 
+                                    ...(formData.checklist_metadata || {}), 
+                                    customColumns: newCols 
+                                  } 
+                                });
+                              }}
+                              className="flex-1 border-gray-300 rounded text-sm focus:ring-indigo-500 h-8"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newCols = (formData.checklist_metadata?.customColumns || []).filter((_, idx) => idx !== cIdx);
+                                setFormData({ 
+                                  ...formData, 
+                                  checklist_metadata: { 
+                                    ...(formData.checklist_metadata || {}), 
+                                    customColumns: newCols 
+                                  } 
+                                });
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     
                     {formData.checklist_items.length === 0 ? (
@@ -324,33 +401,43 @@ export const MeasurementForms: React.FC = () => {
                                       required
                                       value={item.label}
                                       onChange={e => handleUpdateChecklist(item.id, { label: e.target.value })}
-                                      placeholder="Tên mục (VD: Tủ điện, Bồn chứa)"
-                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                      placeholder={formData.checklist_metadata?.itemLabelHeader || "Nội dung kiểm tra"}
+                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium"
                                     />
                                     <input
                                       type="text"
                                       value={item.group || ''}
                                       onChange={e => handleUpdateChecklist(item.id, { group: e.target.value })}
-                                      placeholder="Nhóm cột (Tùy chọn)"
+                                      placeholder="Nhóm hiển thị (Tùy chọn)"
                                       className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                     />
                                   </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <input
-                                      type="text"
-                                      value={item.description || ''}
-                                      onChange={e => handleUpdateChecklist(item.id, { description: e.target.value })}
-                                      placeholder="Miêu tả (Tùy chọn)"
-                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={item.standard || ''}
-                                      onChange={e => handleUpdateChecklist(item.id, { standard: e.target.value })}
-                                      placeholder="Tiêu chuẩn so sánh (Tùy chọn)"
-                                      className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs"
-                                    />
-                                  </div>
+                                  
+                                  {/* Custom Columns Inputs */}
+                                  {(formData.checklist_metadata?.customColumns || []).length > 0 && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {(formData.checklist_metadata?.customColumns || []).map(col => (
+                                        <input
+                                          key={col.id}
+                                          type="text"
+                                          value={item.customValues?.[col.id] || (col.id === 'desc' ? item.description : col.id === 'std' ? item.standard : '') || ''}
+                                          onChange={e => {
+                                            const newCustomValues = { ...(item.customValues || {}) };
+                                            newCustomValues[col.id] = e.target.value;
+                                            
+                                            // Sync back to standard/description for backward compat if needed
+                                            const updates: any = { customValues: newCustomValues };
+                                            if (col.id === 'desc') updates.description = e.target.value;
+                                            if (col.id === 'std') updates.standard = e.target.value;
+                                            
+                                            handleUpdateChecklist(item.id, updates);
+                                          }}
+                                          placeholder={col.name}
+                                          className="w-full border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-xs text-gray-600"
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                             </div>
                           </div>

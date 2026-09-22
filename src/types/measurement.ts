@@ -2,8 +2,20 @@ export interface ChecklistItem {
   id: string;
   label: string;
   group?: string;
+  customValues?: Record<string, string>; // Maps column id -> value
+  // Backward compatibility:
   description?: string;
   standard?: string;
+}
+
+export interface ChecklistColumn {
+  id: string;
+  name: string;
+}
+
+export interface ChecklistMetadata {
+  itemLabelHeader?: string; // Tên cột chính (Default: "Nội dung kiểm tra")
+  customColumns?: ChecklistColumn[]; // Các cột phụ
 }
 
 export interface MeasurementField {
@@ -20,6 +32,7 @@ export interface MeasurementForm {
   id: string;
   name: string;
   description?: string;
+  checklist_metadata?: ChecklistMetadata;
   checklist_items: ChecklistItem[];
   measurement_fields: MeasurementField[];
   created_at: string;

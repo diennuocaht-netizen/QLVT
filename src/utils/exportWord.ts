@@ -4,7 +4,7 @@ export const exportMeasurementRecordToWord = async (
   user: any
 ) => {
   const { record_name, recorded_at, record_data } = record;
-  const { checklist = {}, equipments = [], post_maintenance_note = '' } = record_data;
+  const { checklist = {}, checklist_by_equipment, equipments = [], post_maintenance_note = '' } = record_data;
 
   // Fetch logo as base64
   let logoBase64 = '';
@@ -53,7 +53,12 @@ export const exportMeasurementRecordToWord = async (
 
   const hasDesc = form.checklist_items?.some((i: any) => i.description);
   const hasStd = form.checklist_items?.some((i: any) => i.standard);
-  const colSpanBase = 4 + (hasDesc ? 1 : 0) + (hasStd ? 1 : 0);
+  const customColsCount = form.checklist_metadata?.customColumns?.length || (hasDesc ? 1 : 0) + (hasStd ? 1 : 0);
+  
+  // Decide whether to use old format or new format
+  const isLegacy = !checklist_by_equipment && Object.keys(checklist).length > 0;
+  const eqColsCount = isLegacy ? 1 : equipments.length;
+  const colSpanBase = 2 + customColsCount + eqColsCount;
 
   const htmlContent = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -107,12 +112,15 @@ export const exportMeasurementRecordToWord = async (
         <thead>
           <tr>
             <th style="width: 5%;">STT</th>
-            <th style="width: 30%;">Nội dung kiểm tra</th>
-            ${hasDesc ? '<th style="width: 15%;">Miêu tả</th>' : ''}
-            ${hasStd ? '<th style="width: 15%;">Tiêu chuẩn</th>' : ''}
-            <th style="width: 10%;">Đạt</th>
-            <th style="width: 10%;">Không đạt</th>
-            <th style="width: 15%;">Ghi chú</th>
+            <th style="width: 25%;">${form.checklist_metadata?.itemLabelHeader || 'Nội dung kiểm tra'}</th>
+            ${form.checklist_metadata?.customColumns ? 
+              form.checklist_metadata.customColumns.map((c: any) => `<th>${c.name}</th>`).join('') 
+              : `
+              ${hasDesc ? '<th>Miêu tả</th>' : ''}
+              ${hasStd ? '<th>Tiêu chuẩn</th>' : ''}
+              `
+            }
+            ${isLegacy ? `<th>Tất cả thiết bị (Dữ liệu cũ)</th>` : equipments.map((eq: any) => `<th>${eq.equipment_name}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
@@ -131,17 +139,39 @@ export const exportMeasurementRecordToWord = async (
               }
               groupHtml += group.items.map((item: any) => {
                 globalIndex++;
-                const val = checklist[item.id]?.status;
-                const note = checklist[item.id]?.note || '';
+                
+                let customColsHtml = '';
+                if (form.checklist_metadata?.customColumns) {
+                  customColsHtml = form.checklist_metadata.customColumns.map((col: any) => {
+                    const val = item.customValues?.[col.id] || (col.id === 'desc' ? item.description : col.id === 'std' ? item.standard : '');
+                    return `<td>${val || ''}</td>`;
+                  }).join('');
+                } else {
+                  customColsHtml += hasDesc ? `<td>${item.description || ''}</td>` : '';
+                  customColsHtml += hasStd ? `<td>${item.standard || ''}</td>` : '';
+                }
+
+                let eqColsHtml = '';
+                if (isLegacy) {
+                  const val = checklist[item.id]?.status;
+                  const note = checklist[item.id]?.note;
+                  const resultText = val ? (val === 'Đạt' ? '<span style="color:green">Đạt</span>' : (val === 'Không đạt' ? '<span style="color:red">Không đạt</span>' : val)) : '-';
+                  eqColsHtml = `<td class="text-center"><b>${resultText}</b>${note ? `<br><i style="font-size: 10pt">${note}</i>` : ''}</td>`;
+                } else {
+                  eqColsHtml = equipments.map((eq: any) => {
+                    const val = checklist_by_equipment?.[eq.equipment_id]?.[item.id]?.status;
+                    const note = checklist_by_equipment?.[eq.equipment_id]?.[item.id]?.note;
+                    const resultText = val ? (val === 'Đạt' ? '<span style="color:green">Đạt</span>' : (val === 'Không đạt' ? '<span style="color:red">K.Đạt</span>' : val)) : '-';
+                    return `<td class="text-center"><b>${resultText}</b>${note ? `<br><i style="font-size: 10pt; color: #555;">${note}</i>` : ''}</td>`;
+                  }).join('');
+                }
+
                 return `
                   <tr>
                     <td class="text-center">${globalIndex}</td>
                     <td>${item.label}</td>
-                    ${hasDesc ? `<td>${item.description || ''}</td>` : ''}
-                    ${hasStd ? `<td>${item.standard || ''}</td>` : ''}
-                    <td class="text-center">${val === 'Đạt' ? 'X' : ''}</td>
-                    <td class="text-center">${val === 'Không đạt' ? 'X' : ''}</td>
-                    <td>${note}</td>
+                    ${customColsHtml}
+                    ${eqColsHtml}
                   </tr>
                 `;
               }).join('');

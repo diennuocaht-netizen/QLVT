@@ -25,7 +25,8 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
   
   // Step 2 data
   const [step, setStep] = useState<1 | 2>(1);
-  const [checklistData, setChecklistData] = useState<Record<string, { status: string, note: string }>>({});
+  const [checklistByEquipment, setChecklistByEquipment] = useState<Record<string, Record<string, { status: string, note: string }>>>({});
+  const [legacyChecklist, setLegacyChecklist] = useState<Record<string, { status: string, note: string }>>({}); // For backward compat
   const [equipmentsData, setEquipmentsData] = useState<Record<string, Record<string, any>>>({}); // equipmentId -> { fieldId: value }
   const [postMaintenanceNote, setPostMaintenanceNote] = useState('');
 
@@ -36,7 +37,13 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
         setSelectedFormId(initialRecord.form_id);
         const eqIds = initialRecord.record_data?.equipments?.map((e: any) => e.equipment_id) || [];
         setSelectedEquipmentIds(eqIds);
-        setChecklistData(initialRecord.record_data?.checklist || {});
+        
+        if (initialRecord.record_data?.checklist_by_equipment) {
+          setChecklistByEquipment(initialRecord.record_data.checklist_by_equipment);
+        } else if (initialRecord.record_data?.checklist) {
+          setLegacyChecklist(initialRecord.record_data.checklist);
+        }
+        
         setPostMaintenanceNote(initialRecord.record_data?.post_maintenance_note || '');
         
         // Reconstruct equipmentsData
@@ -102,12 +109,15 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
     }
   };
 
-  const handleChecklistChange = (checkId: string, field: 'status' | 'note', value: string) => {
-    setChecklistData(prev => ({
+  const handleChecklistChange = (eqId: string, checkId: string, field: 'status' | 'note', value: string) => {
+    setChecklistByEquipment(prev => ({
       ...prev,
-      [checkId]: {
-        ...prev[checkId],
-        [field]: value
+      [eqId]: {
+        ...(prev[eqId] || {}),
+        [checkId]: {
+          ...(prev[eqId]?.[checkId] || {}),
+          [field]: value
+        }
       }
     }));
   };
@@ -148,7 +158,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
         created_at: now,
         updated_at: now,
         record_data: {
-          checklist: checklistData,
+          checklist_by_equipment: checklistByEquipment,
           equipments: equipmentsArray,
           post_maintenance_note: postMaintenanceNote
         }
@@ -281,78 +291,131 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
             <div className="space-y-6">
               {/* Checklist Section */}
               {selectedForm?.checklist_items && selectedForm.checklist_items.length > 0 && (
-                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2 flex items-center">
                     <CheckSquare className="w-5 h-5 mr-2 text-indigo-600" />
                     BẢNG 1: NỘI DUNG KIỂM TRA CHUNG
                   </h3>
-                  <table className="w-full border-collapse text-sm">
+                  <table className="w-full border-collapse text-sm min-w-max">
                     <thead>
                       <tr className="bg-gray-100 border border-gray-300">
                         <th className="border border-gray-300 p-2 w-12 text-center">STT</th>
-                        <th className="border border-gray-300 p-2 text-left">Nội dung kiểm tra</th>
-                        {selectedForm.checklist_items.some(i => i.description) && <th className="border border-gray-300 p-2 text-left text-gray-500">Miêu tả</th>}
-                        {selectedForm.checklist_items.some(i => i.standard) && <th className="border border-gray-300 p-2 text-left text-gray-500">Tiêu chuẩn</th>}
-                        <th className="border border-gray-300 p-2 w-24 text-center">Đạt</th>
-                        <th className="border border-gray-300 p-2 w-24 text-center">Không đạt</th>
-                        <th className="border border-gray-300 p-2 w-48 text-left">Ghi chú</th>
+                        <th className="border border-gray-300 p-2 text-left w-64 min-w-[250px]">
+                          {selectedForm.checklist_metadata?.itemLabelHeader || 'Nội dung kiểm tra'}
+                        </th>
+                        
+                        {/* Render custom columns if defined, else fallback to standard/description */}
+                        {selectedForm.checklist_metadata?.customColumns ? (
+                          selectedForm.checklist_metadata.customColumns.map(col => (
+                            <th key={col.id} className="border border-gray-300 p-2 text-left text-gray-700 min-w-[120px]">
+                              {col.name}
+                            </th>
+                          ))
+                        ) : (
+                          <>
+                            {selectedForm.checklist_items.some(i => i.description) && <th className="border border-gray-300 p-2 text-left text-gray-500 min-w-[150px]">Miêu tả</th>}
+                            {selectedForm.checklist_items.some(i => i.standard) && <th className="border border-gray-300 p-2 text-left text-gray-500 min-w-[100px]">Tiêu chuẩn</th>}
+                          </>
+                        )}
+                        
+                        {/* Equipment Columns */}
+                        {isViewOnly && Object.keys(legacyChecklist).length > 0 ? (
+                          <th className="border border-gray-300 p-2 text-center bg-yellow-50 min-w-[200px]">Tất cả thiết bị (Dữ liệu cũ)</th>
+                        ) : (
+                          selectedEquipmentIds.map(eqId => {
+                            const eq = availableEquipments.find(e => e.id === eqId);
+                            return (
+                              <th key={eqId} className="border border-gray-300 p-2 text-center bg-indigo-50 min-w-[200px]">
+                                <div className="font-bold text-indigo-900">{eq?.name}</div>
+                              </th>
+                            );
+                          })
+                        )}
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const hasDesc = selectedForm.checklist_items.some(i => i.description);
-                        const hasStd = selectedForm.checklist_items.some(i => i.standard);
-                        const colSpanBase = 4 + (hasDesc ? 1 : 0) + (hasStd ? 1 : 0);
+                        // Calculate colSpan for group headers
+                        const customColsCount = selectedForm.checklist_metadata?.customColumns?.length 
+                          || (selectedForm.checklist_items.some(i => i.description) ? 1 : 0) + (selectedForm.checklist_items.some(i => i.standard) ? 1 : 0);
+                        
+                        const eqColsCount = (isViewOnly && Object.keys(legacyChecklist).length > 0) ? 1 : selectedEquipmentIds.length;
+                        const colSpanBase = 2 + customColsCount + eqColsCount;
                         let globalIndex = 0;
 
                         return groupedChecklist.map((group, gIdx) => (
                           <React.Fragment key={gIdx}>
                             {group.name && (
-                              <tr className="bg-indigo-50 border border-gray-300">
-                                <td colSpan={colSpanBase} className="border border-gray-300 p-2 font-bold text-indigo-900 uppercase">
+                              <tr className="bg-gray-200 border border-gray-300">
+                                <td colSpan={colSpanBase} className="border border-gray-300 p-2 font-bold text-gray-800 uppercase">
                                   {group.name}
                                 </td>
                               </tr>
                             )}
                             {group.items.map((item) => {
                               globalIndex++;
-                              const val = checklistData[item.id]?.status;
                               return (
                                 <tr key={item.id} className="border border-gray-300 hover:bg-gray-50">
                                   <td className="border border-gray-300 p-2 text-center text-gray-600">{globalIndex}</td>
                                   <td className="border border-gray-300 p-2 font-medium text-gray-900">{item.label}</td>
-                                  {hasDesc && <td className="border border-gray-300 p-2 text-gray-600 text-xs">{item.description || ''}</td>}
-                                  {hasStd && <td className="border border-gray-300 p-2 text-green-700 text-xs font-medium">{item.standard || ''}</td>}
-                                  <td className="border border-gray-300 p-2 text-center">
-                                    <input
-                                      type="radio"
-                                      name={`check_${item.id}`}
-                                      checked={val === 'Đạt'}
-                                      onChange={() => handleChecklistChange(item.id, 'status', 'Đạt')}
-                                      disabled={isViewOnly}
-                                      className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300"
-                                    />
-                                  </td>
-                                  <td className="border border-gray-300 p-2 text-center">
-                                    <input
-                                      type="radio"
-                                      name={`check_${item.id}`}
-                                      checked={val === 'Không đạt'}
-                                      onChange={() => handleChecklistChange(item.id, 'status', 'Không đạt')}
-                                      disabled={isViewOnly}
-                                      className="w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
-                                    />
-                                  </td>
-                                  <td className="border border-gray-300 p-0">
-                                    <input
-                                      type="text"
-                                      value={checklistData[item.id]?.note || ''}
-                                      onChange={e => handleChecklistChange(item.id, 'note', e.target.value)}
-                                      disabled={isViewOnly}
-                                      className="w-full h-full border-0 focus:ring-0 p-2 text-sm bg-transparent"
-                                      placeholder={isViewOnly ? '' : 'Ghi chú...'}
-                                    />
-                                  </td>
+                                  
+                                  {/* Custom Columns Data */}
+                                  {selectedForm.checklist_metadata?.customColumns ? (
+                                    selectedForm.checklist_metadata.customColumns.map(col => (
+                                      <td key={col.id} className="border border-gray-300 p-2 text-gray-600 text-xs">
+                                        {item.customValues?.[col.id] || (col.id === 'desc' ? item.description : col.id === 'std' ? item.standard : '')}
+                                      </td>
+                                    ))
+                                  ) : (
+                                    <>
+                                      {selectedForm.checklist_items.some(i => i.description) && <td className="border border-gray-300 p-2 text-gray-600 text-xs">{item.description || ''}</td>}
+                                      {selectedForm.checklist_items.some(i => i.standard) && <td className="border border-gray-300 p-2 text-green-700 text-xs font-medium">{item.standard || ''}</td>}
+                                    </>
+                                  )}
+                                  
+                                  {/* Equipment Evaluation Cells */}
+                                  {isViewOnly && Object.keys(legacyChecklist).length > 0 ? (
+                                    <td className="border border-gray-300 p-2">
+                                      <div className="flex flex-col space-y-1">
+                                        <div className="font-medium text-center">
+                                          {legacyChecklist[item.id]?.status === 'Đạt' && <span className="text-green-600">Đạt</span>}
+                                          {legacyChecklist[item.id]?.status === 'Không đạt' && <span className="text-red-600">Không đạt</span>}
+                                          {!legacyChecklist[item.id]?.status && <span className="text-gray-400">-</span>}
+                                        </div>
+                                        {legacyChecklist[item.id]?.note && <div className="text-xs text-gray-500 italic mt-1">{legacyChecklist[item.id]?.note}</div>}
+                                      </div>
+                                    </td>
+                                  ) : (
+                                    selectedEquipmentIds.map(eqId => {
+                                      const val = checklistByEquipment[eqId]?.[item.id]?.status;
+                                      const note = checklistByEquipment[eqId]?.[item.id]?.note || '';
+                                      return (
+                                        <td key={eqId} className="border border-gray-300 p-1">
+                                          <div className="flex flex-col space-y-1">
+                                            <select
+                                              value={val || ''}
+                                              onChange={e => handleChecklistChange(eqId, item.id, 'status', e.target.value)}
+                                              disabled={isViewOnly}
+                                              className={`w-full border border-gray-200 rounded text-sm p-1 focus:ring-indigo-500 ${val === 'Đạt' ? 'bg-green-50 text-green-700 font-medium' : val === 'Không đạt' ? 'bg-red-50 text-red-700 font-medium' : val === 'Không áp dụng' ? 'bg-gray-100 text-gray-600' : 'bg-transparent'}`}
+                                            >
+                                              <option value="">- Đánh giá -</option>
+                                              <option value="Đạt">Đạt</option>
+                                              <option value="Không đạt">Không đạt</option>
+                                              <option value="Không áp dụng">Không áp dụng</option>
+                                            </select>
+                                            <input
+                                              type="text"
+                                              value={note}
+                                              onChange={e => handleChecklistChange(eqId, item.id, 'note', e.target.value)}
+                                              disabled={isViewOnly}
+                                              className="w-full border border-gray-200 rounded text-xs p-1 focus:ring-indigo-500 bg-transparent placeholder-gray-300"
+                                              placeholder={isViewOnly ? '' : 'Ghi chú...'}
+                                            />
+                                          </div>
+                                        </td>
+                                      );
+                                    })
+                                  )}
                                 </tr>
                               );
                             })}

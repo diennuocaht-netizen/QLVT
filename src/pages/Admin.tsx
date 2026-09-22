@@ -98,23 +98,29 @@ export const Admin: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa người dùng ${userEmail}? Hành động này không thể hoàn tác.`)) {
+    if (!confirm(`Bạn có chắc muốn xóa hoàn toàn người dùng ${userEmail}? Hành động này không thể hoàn tác.`)) {
       return;
     }
 
     try {
-      // Delete from users table only (auth user should be deleted separately via Supabase dashboard or CLI)
-      const { error: deleteError } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId);
+      // Use bypass RPC to delete from auth.users directly
+      const { data: rpcData, error: deleteError } = await supabase.rpc('admin_delete_user_bypass', {
+        p_user_id: userId
+      });
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+      
+      if (rpcData && rpcData.success === false) {
+        throw new Error(rpcData.error);
+      }
+
       await loadUsers();
-      alert(`✅ Người dùng ${userEmail} đã bị xóa khỏi hệ thống`);
+      alert(`✅ Người dùng ${userEmail} đã bị xóa hoàn toàn khỏi hệ thống`);
     } catch (error) {
       console.error("Error deleting user:", error);
-      alert("Không thể xóa người dùng. Vui lòng thử lại.");
+      alert(error instanceof Error ? `Lỗi: ${error.message}` : "Không thể xóa người dùng. Vui lòng thử lại.");
     }
   };
 
