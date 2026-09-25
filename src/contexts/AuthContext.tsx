@@ -9,6 +9,7 @@ export interface UserProfile {
   email: string;
   display_name: string;
   role: Role;
+  job_title?: string;
   created_at: string;
 }
 

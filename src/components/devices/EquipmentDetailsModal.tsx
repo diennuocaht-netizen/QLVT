@@ -30,7 +30,30 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
   });
 
   const [documents, setDocuments] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
+
+  
+  const fetchActivityLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .eq('entity_type', 'measured_equipment')
+        .eq('entity_id', equipment.id)
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        setActivityLogs(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'measurements') {
@@ -39,6 +62,8 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
       fetchMaintenanceLogs();
     } else if (activeTab === 'documents') {
       fetchDocuments();
+    } else if (activeTab === 'changelog') {
+      fetchActivityLogs();
     }
   }, [activeTab]);
 
@@ -165,6 +190,12 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
             className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'documents' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             <FileText className="w-4 h-4 mr-2" /> Tài liệu kỹ thuật
+          </button>
+          <button
+            onClick={() => setActiveTab('changelog')}
+            className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'changelog' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            <FileText className="w-4 h-4 mr-2" /> Nhật ký thay đổi (Logfile)
           </button>
         </div>
 
@@ -318,6 +349,40 @@ export const EquipmentDetailsModal: React.FC<EquipmentDetailsModalProps> = ({ eq
                             Thực hiện bởi: {log.performed_by}
                           </div>
                         )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'changelog' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Nhật ký thay đổi thiết bị (Logfile)</h3>
+              {loadingLogs ? (
+                <div className="flex justify-center p-8"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
+              ) : activityLogs.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                  Chưa có lịch sử thay đổi nào được ghi nhận.
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto pr-2">
+                  {activityLogs.map((log: any) => (
+                    <div key={log.id} className="py-4 hover:bg-gray-50 transition-colors px-2 rounded-md">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="font-semibold text-gray-800 flex items-center">
+                          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded mr-2">{log.action || 'Cập nhật'}</span>
+                          {log.user_name || 'Hệ thống'}
+                        </div>
+                        <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          {new Date(log.created_at).toLocaleString('vi-VN')}
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600 mt-2 bg-white p-3 rounded border border-gray-200 break-words whitespace-pre-wrap shadow-sm">
+                        {log.details ? (
+                          typeof log.details === 'object' ? JSON.stringify(log.details, null, 2) : log.details
+                        ) : 'Không có chi tiết'}
                       </div>
                     </div>
                   ))}

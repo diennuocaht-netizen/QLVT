@@ -116,6 +116,23 @@ export const MeasuredEquipments: React.FC = () => {
           })
           .eq('id', editingItem.id);
         if (error) throw error;
+        // Log changes
+        const changes = [];
+        if (editingItem.name !== formData.name) changes.push(`Tên: ${editingItem.name} -> ${formData.name}`);
+        if (editingItem.code !== formData.code) changes.push(`Mã: ${editingItem.code} -> ${formData.code}`);
+        if (editingItem.location !== formData.location) changes.push(`Vị trí`);
+        if (editingItem.status !== formData.status) changes.push(`Trạng thái`);
+        if (editingItem.type !== formData.type) changes.push(`Loại`);
+        
+        if (changes.length > 0) {
+          import('../utils/activityLogger').then(m => m.logActivity({
+            action: 'update_measured_equipment',
+            entityType: 'measured_equipment',
+            entityId: editingItem.id,
+            details: 'Cập nhật thiết bị: ' + changes.join(', ')
+          }));
+        }
+  
       } else {
         const { error } = await supabase
           .from('measured_equipments')
@@ -287,9 +304,7 @@ export const MeasuredEquipments: React.FC = () => {
                       <button onClick={() => handleOpenModal(item)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900" title="Xóa">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      
                     </td>
                   </tr>
                 ))

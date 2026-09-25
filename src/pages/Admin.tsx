@@ -12,10 +12,11 @@ export const Admin: React.FC = () => {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<Role>('viewer');
+  const [editJobTitle, setEditJobTitle] = useState('');
   
   // Create User State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', role: 'viewer' as Role });
+  const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', role: 'viewer' as Role, jobTitle: '' });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
@@ -74,13 +75,14 @@ export const Admin: React.FC = () => {
     setEditingUserId(user.id);
     setEditName(user.display_name);
     setEditRole(user.role);
+    setEditJobTitle(user.job_title || '');
   };
 
   const saveName = async (userId: string) => {
     try {
       const { error } = await supabase
         .from('users')
-        .update({ display_name: editName, role: editRole })
+        .update({ display_name: editName, role: editRole, job_title: editJobTitle })
         .eq('id', userId);
 
       if (error) throw error;
@@ -151,6 +153,17 @@ export const Admin: React.FC = () => {
         p_display_name: newUser.displayName || newUser.email.split('@')[0],
         p_role: newUser.role
       });
+      
+      // Attempt to set job_title if RPC doesn't support it yet
+      if (!profileError && newUser.jobTitle) {
+        try {
+          // Find the new user's ID by email
+          const { data: createdUser } = await supabase.from('users').select('id').eq('email', newUser.email.toLowerCase()).single();
+          if (createdUser) {
+            await supabase.from('users').update({ job_title: newUser.jobTitle }).eq('id', createdUser.id);
+          }
+        } catch (e) {}
+      }
 
       if (profileError) {
         console.error("Lỗi tạo user (bỏ qua auth):", profileError);
@@ -170,7 +183,7 @@ export const Admin: React.FC = () => {
       );
       
       setIsCreateModalOpen(false);
-      setNewUser({ email: '', password: '', displayName: '', role: 'viewer' });
+      setNewUser({ email: '', password: '', displayName: '', role: 'viewer', jobTitle: '' });
       await loadUsers();
 
       setTimeout(() => setCreateSuccess(''), 10000);
@@ -240,6 +253,7 @@ export const Admin: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Người dùng</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chức danh</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày tham gia</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phân quyền</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
@@ -264,15 +278,13 @@ export const Admin: React.FC = () => {
                               placeholder="Nhập họ tên..."
                               autoFocus
                             />
-                            <select
-                              value={editRole}
-                              onChange={(e) => setEditRole(e.target.value as Role)}
-                              className="block border border-gray-300 rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            >
-                              <option value="viewer">Viewer</option>
-                              <option value="manager">Manager</option>
-                              <option value="admin">Admin</option>
-                            </select>
+                            <input
+                              type="text"
+                              value={editJobTitle}
+                              onChange={(e) => setEditJobTitle(e.target.value)}
+                              className="block w-32 border border-gray-300 rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                              placeholder="Chức danh..."
+                            />
                             <button onClick={() => saveName(user.id)} className="text-green-600 hover:text-green-900">
                               <Check className="w-4 h-4" />
                             </button>
@@ -292,6 +304,19 @@ export const Admin: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {editingUserId === user.id ? (
+                      <input
+                        type="text"
+                        value={editJobTitle}
+                        onChange={(e) => setEditJobTitle(e.target.value)}
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="Chức danh..."
+                      />
+                    ) : (
+                      user.job_title || <span className="text-gray-300 italic">Chưa có</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString('vi-VN')}
                   </td>

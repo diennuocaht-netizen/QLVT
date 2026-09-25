@@ -29,7 +29,7 @@ export const Devices: React.FC = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
+  const canEdit = true; // Allowed all users to edit
   const canDelete = profile?.role === 'admin';
 
   useEffect(() => {
