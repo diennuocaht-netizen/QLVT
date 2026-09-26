@@ -42,16 +42,22 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
                 setLoadingMulti(true);
                 setMultiVariants([]); // trigger UI change
                 try {
-                  const { data } = await supabase
-                    .from('inventory_items')
-                    .select('id, code, name, unit, category, specifications')
-                    .in('code', codes);
-                  if (data) {
-                    setMultiVariants(data);
-                  }
-                } catch (e) {
-                  console.error(e);
-                } finally {
+                    setDebugText(decodedText);
+                    const { data, error } = await supabase
+                      .from('inventory_items')
+                      .select('id, code, name, unit, category, specifications')
+                      .in('code', codes);
+                    if (error) {
+                      setDebugError(JSON.stringify(error));
+                      console.error(error);
+                    }
+                    if (data) {
+                      setMultiVariants(data);
+                    }
+                  } catch (e: any) {
+                    setDebugError(e.message || String(e));
+                    console.error(e);
+                  } finally {
                   setLoadingMulti(false);
                 }
               } else {
