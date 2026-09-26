@@ -45,7 +45,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
                     setDebugText(decodedText);
                     const { data, error } = await supabase
                       .from('inventory_items')
-                      .select('id, code, name, unit, category, specifications')
+                      .select('id, code, name, unit, category, notes')
                       .in('code', codes);
                     if (error) {
                       setDebugError(JSON.stringify(error));
@@ -177,8 +177,8 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
                       <span className="font-bold text-gray-900">{variant.name}</span>
                       <span className="text-xs font-semibold bg-gray-100 px-2 py-1 rounded text-gray-600">{variant.code}</span>
                     </div>
-                    {variant.specifications && (
-                      <span className="text-sm text-gray-500">{variant.specifications}</span>
+                    {variant.notes && (
+                      <span className="text-sm text-gray-500 line-clamp-1">{variant.notes}</span>
                     )}
                   </button>
                 ))}
