@@ -16,6 +16,8 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
   const scannerRegionId = "qr-reader";
   const [multiVariants, setMultiVariants] = useState<any[] | null>(null);
   const [loadingMulti, setLoadingMulti] = useState(false);
+  const [debugText, setDebugText] = useState("");
+  const [debugError, setDebugError] = useState("");
 
   const startScanner = async () => {
     try {
@@ -145,7 +147,14 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
                 <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : multiVariants.length === 0 ? (
-              <div className="text-center text-gray-500 mt-10">Không tìm thấy dữ liệu vật tư nào trong mã này.</div>
+              <div className="text-center text-gray-500 mt-10">
+                <p>Không tìm thấy dữ liệu vật tư nào trong mã này.</p>
+                <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-left overflow-auto break-all">
+                  <strong>Chuỗi quét được:</strong> {debugText}<br/>
+                  <strong>Mã trích xuất:</strong> {debugText.substring(6).split(',').map(c => c.trim()).join(' | ')}<br/>
+                  {debugError && <strong className="text-red-500">Lỗi: {debugError}</strong>}
+                </div>
+              </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-gray-600 mb-4 text-center">Hệ thống phát hiện {multiVariants.length} loại vật tư trong mã QR này. Vui lòng chọn một loại:</p>
