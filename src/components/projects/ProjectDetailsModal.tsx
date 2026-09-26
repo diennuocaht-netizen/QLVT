@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Phone, Mail, Building, User, FileText, Upload, AlertTriangle, Paperclip, Link as LinkIcon } from 'lucide-react';
+import { X, Calendar, Clock, Phone, Mail, Building, User, FileText, Upload, AlertTriangle, Paperclip, Link as LinkIcon , ListTodo, BarChart, History} from 'lucide-react';
+import { ProjectTasksTab } from './ProjectTasksTab';
+import { ProjectGanttChart } from './ProjectGanttChart';
+import { ProjectActivityLog } from './ProjectActivityLog';
 import { supabase } from '../../supabase-client';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,7 +15,7 @@ interface ProjectDetailsModalProps {
 
 export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ project, onClose }) => {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'documents'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'gantt' | 'tasks' | 'contacts' | 'documents' | 'logs'>('info');
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<any>(null);
@@ -66,7 +69,8 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             <h2 className="text-xl font-bold text-gray-900">{project.name}</h2>
             <p className="text-sm text-gray-500">Mã: {project.code}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+          
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -78,7 +82,19 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           >
             <Clock className="w-4 h-4 mr-2" /> Tổng quan
           </button>
+            <button
+              onClick={() => setActiveTab('gantt')}
+              className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'gantt' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              <BarChart className="w-4 h-4 mr-2" /> Gantt Chart
+            </button>
           <button
+              onClick={() => setActiveTab('tasks')}
+              className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'tasks' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              <ListTodo className="w-4 h-4 mr-2" /> Hạng mục ({project.tasks?.length || 0})
+            </button>
+            <button
             onClick={() => setActiveTab('contacts')}
             className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'contacts' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
@@ -90,6 +106,12 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
           >
             <FileText className="w-4 h-4 mr-2" /> Tài liệu ISO
           </button>
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center ${activeTab === 'logs' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              <History className="w-4 h-4 mr-2" /> Nhật ký
+            </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -140,6 +162,20 @@ export const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ projec
             </div>
           )}
 
+          
+          {activeTab === 'gantt' && (
+            <ProjectGanttChart project={project} />
+          )}
+
+{activeTab === 'tasks' && (
+            <ProjectTasksTab project={project} />
+          )}
+
+          {activeTab === 'logs' && (
+            <ProjectActivityLog projectId={project.id} />
+          )}
+
+          
           {activeTab === 'contacts' && (
             <div className="space-y-4">
               {project.contacts && project.contacts.length > 0 ? (

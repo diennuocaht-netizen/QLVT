@@ -162,10 +162,32 @@ export const Projects: React.FC = () => {
                     <div className="mt-4 space-y-2 text-sm text-gray-600">
                       <div className="flex items-center">
                         <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                        <span>Hoàn thành: {project.completion_date}</span>
+                          <span>Bắt đầu: {project.start_date || '--'}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>Kết thúc: {project.completion_date}</span>
                       </div>
-                      <div className="flex items-center">
-                        <ShieldAlert className={`w-4 h-4 mr-2 ${isExpired ? 'text-red-500' : isWarning ? 'text-yellow-500' : 'text-gray-400'}`} />
+                      
+                        {(() => {
+                          const tasks = project.tasks || [];
+                          if (tasks.length === 0) return null;
+                          const avg = Math.round(tasks.reduce((sum: number, t: any) => sum + (t.progress || 0), 0) / tasks.length);
+                          return (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-medium text-gray-500">Tiến độ tổng ({tasks.length} hạng mục)</span>
+                                <span className="text-xs font-bold text-indigo-600">{avg}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${avg}%` }}></div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        
+                        <div className="flex items-center">
+                          <ShieldAlert className={`w-4 h-4 mr-2 ${isExpired ? 'text-red-500' : isWarning ? 'text-yellow-500' : 'text-gray-400'}`} />
                         <span className={`${isExpired ? 'text-red-600 font-medium' : isWarning ? 'text-yellow-600 font-medium' : ''}`}>
                           Bảo hành: {project.warranty_date}
                           {isExpired ? ' (Hết hạn)' : isWarning ? ` (Còn ${warrantyDays} ngày)` : ''}

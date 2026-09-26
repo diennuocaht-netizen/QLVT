@@ -2,11 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { X, UserPlus, Trash2, Plus, Link as LinkIcon } from 'lucide-react';
+import { X, UserPlus, Trash2, Plus, Link as LinkIcon, ListTodo } from 'lucide-react';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+
+const taskSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(1, 'Nhập tên hạng mục'),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+  progress: z.number().min(0).max(100).default(0),
+  status: z.enum(['pending', 'in_progress', 'completed', 'delayed']).default('pending')
+});
 
 const contactSchema = z.object({
   name: z.string().min(1, 'Vui lòng nhập tên người liên hệ'),
@@ -25,6 +34,7 @@ const projectSchema = z.object({
   warranty_date: z.string().min(1, 'Vui lòng chọn ngày hết hạn bảo hành'),
   status: z.enum(['active', 'completed', 'archived']),
   contacts: z.array(contactSchema).default([]),
+  tasks: z.array(taskSchema).default([]),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -38,6 +48,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onClose }) =>
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [contacts, setContacts] = useState<any[]>(project?.contacts || []);
+  const [tasks, setTasks] = useState<any[]>(project?.tasks || []);
   const [attachments, setAttachments] = useState<any[]>(project?.attachments || []);
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<ProjectFormValues>({
@@ -45,11 +56,13 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onClose }) =>
     defaultValues: {
       code: project?.code || '',
       name: project?.name || '',
+      start_date: project?.start_date || '',
       description: project?.description || '',
       completion_date: project?.completion_date || '',
       warranty_date: project?.warranty_date || '',
       status: project?.status || 'active',
       contacts: project?.contacts || [],
+      tasks: project?.tasks || [],
     }
   });
 
@@ -58,6 +71,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onClose }) =>
       const payload: any = {
         ...data,
         contacts, // use state
+          tasks, // use state
         attachments, // use state
       };
 
@@ -103,6 +117,21 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onClose }) =>
     const newContacts = [...contacts];
     newContacts[index] = { ...newContacts[index], [field]: value };
     setContacts(newContacts);
+  };
+
+  
+  const addTask = () => {
+    setTasks([...tasks, { id: crypto.randomUUID(), name: '', start_date: '', end_date: '', progress: 0, status: 'pending' }]);
+  };
+
+  const removeTask = (index: number) => {
+    setTasks(tasks.filter((_, i) => i !== index));
+  };
+
+  const updateTask = (index: number, field: string, value: any) => {
+    const newTasks = [...tasks];
+    newTasks[index] = { ...newTasks[index], [field]: value };
+    setTasks(newTasks);
   };
 
   const addAttachment = () => {
@@ -166,15 +195,27 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onClose }) =>
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Ngày hoàn thành *</label>
-                <input
-                  type="date"
-                  {...register('completion_date')}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
-                {errors.completion_date && <p className="mt-1 text-xs text-red-600">{errors.completion_date.message}</p>}
-              </div>
+              
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Ngày bắt đầu</label>
+                    <input
+                      type="date"
+                      {...register('start_date')}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Ngày kết thúc *</label>
+                    <input
+                      type="date"
+                      {...register('completion_date')}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                    {errors.completion_date && <p className="mt-1 text-xs text-red-600">{errors.completion_date.message}</p>}
+                  </div>
+                </div>
+  
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">Ngày hết hạn bảo hành *</label>
@@ -281,7 +322,95 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onClose }) =>
             </div>
 
             <div className="border-t border-gray-200 pt-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
+              
+              {/* Thêm hạng mục công việc */}
+              <div className="pt-6 border-t border-gray-200 mt-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                    <ListTodo className="w-5 h-5 text-indigo-500" /> Hạng mục công việc
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={addTask}
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Thêm hạng mục
+                  </button>
+                </div>
+                
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-md text-center">Chưa có hạng mục công việc nào.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {tasks.map((task, index) => (
+                      <div key={task.id || index} className="bg-gray-50 p-4 rounded-md border border-gray-200 relative">
+                        <button
+                          type="button"
+                          onClick={() => removeTask(index)}
+                          className="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                          <div className="md:col-span-12">
+                            <label className="block text-xs font-medium text-gray-700">Tên hạng mục *</label>
+                            <input
+                              type="text"
+                              value={task.name}
+                              onChange={(e) => updateTask(index, 'name', e.target.value)}
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                              placeholder="Vd: Kéo cáp tầng 1"
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-gray-700">Ngày bắt đầu</label>
+                            <input
+                              type="date"
+                              value={task.start_date || ''}
+                              onChange={(e) => updateTask(index, 'start_date', e.target.value)}
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-gray-700">Ngày hoàn thành</label>
+                            <input
+                              type="date"
+                              value={task.end_date || ''}
+                              onChange={(e) => updateTask(index, 'end_date', e.target.value)}
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-gray-700">Tiến độ (%)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={task.progress}
+                              onChange={(e) => updateTask(index, 'progress', parseInt(e.target.value) || 0)}
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-gray-700">Trạng thái</label>
+                            <select
+                              value={task.status}
+                              onChange={(e) => updateTask(index, 'status', e.target.value)}
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            >
+                              <option value="pending">Chưa bắt đầu</option>
+                              <option value="in_progress">Đang thực hiện</option>
+                              <option value="completed">Đã hoàn thành</option>
+                              <option value="delayed">Đang chậm trễ</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+<div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium text-gray-900">Tài liệu đính kèm (Links)</h3>
                 <button
                   type="button"
