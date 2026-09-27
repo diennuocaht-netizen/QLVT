@@ -50,11 +50,12 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
                           .eq('group_code', decodedText)
                           .maybeSingle();
                         if (grpError) {
-                          setDebugError(JSON.stringify(grpError));
-                          console.error(grpError);
-                        }
-                        if (grpData && grpData.item_codes) {
+                          setDebugError("DB Error: " + JSON.stringify(grpError));
+                        } else if (!grpData) {
+                          setDebugError("Không tìm thấy mã nhóm " + decodedText + " trên database.");
+                        } else if (grpData && grpData.item_codes) {
                            codes = Array.isArray(grpData.item_codes) ? grpData.item_codes : JSON.parse(grpData.item_codes);
+                           if (!codes || codes.length === 0) setDebugError("Nhóm này không có mã vật tư nào bên trong.");
                         }
                       } else {
                         codes = decodedText.substring(6).split(',').map(c => c.trim());
@@ -174,7 +175,11 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
                 <p>Không tìm thấy dữ liệu vật tư nào trong mã này.</p>
                 <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-left overflow-auto break-all">
                   <strong>Chuỗi quét được:</strong> {debugText}<br/>
-                  <strong>Mã trích xuất:</strong> {debugText.substring(6).split(',').map(c => c.trim()).join(' | ')}<br/>
+                  {debugText.startsWith('GRP:') ? (
+                     <strong>Đang tải dữ liệu từ nhóm...</strong>
+                  ) : (
+                     <><strong>Mã trích xuất:</strong> {debugText.substring(6).split(',').map(c => c.trim()).join(' | ')}</>
+                  )}<br/>
                   {debugError && <strong className="text-red-500">Lỗi: {debugError}</strong>}
                 </div>
               </div>
