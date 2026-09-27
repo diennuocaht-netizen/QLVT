@@ -37,13 +37,30 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose,
           // Success callback
           if (scannerRef.current) {
             scannerRef.current.stop().then(async () => {
-              if (decodedText.startsWith('MULTI:')) {
-                const codes = decodedText.substring(6).split(',').map(c => c.trim());
-                setLoadingMulti(true);
-                setMultiVariants([]); // trigger UI change
-                try {
-                    setDebugText(decodedText);
-                    const { data, error } = await supabase
+              if (decodedText.startsWith('MULTI:') || decodedText.startsWith('GRP:')) {
+                  setLoadingMulti(true);
+                  setMultiVariants([]);
+                  setDebugText(decodedText);
+                  try {
+                      let codes = [];
+                      if (decodedText.startsWith('GRP:')) {
+                        const { data: grpData, error: grpError } = await supabase
+                          .from('qr_groups')
+                          .select('item_codes')
+                          .eq('group_code', decodedText)
+                          .maybeSingle();
+                        if (grpError) {
+                          setDebugError(JSON.stringify(grpError));
+                          console.error(grpError);
+                        }
+                        if (grpData && grpData.item_codes) {
+                           codes = Array.isArray(grpData.item_codes) ? grpData.item_codes : JSON.parse(grpData.item_codes);
+                        }
+                      } else {
+                        codes = decodedText.substring(6).split(',').map(c => c.trim());
+                      }
+                      
+                      const { data, error } = await supabase
                       .from('inventory_items')
                       .select('id, code, name, unit, category, notes')
                       .in('code', codes);

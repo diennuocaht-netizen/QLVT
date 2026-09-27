@@ -2,6 +2,7 @@
 import { X, Printer, Layers } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Item } from '../../types/inventory';
+import { supabase } from '../../supabase-client';
 import { useReactToPrint } from 'react-to-print';
 
 interface BulkPrintQRModalProps {
@@ -13,6 +14,8 @@ interface BulkPrintQRModalProps {
 export const BulkPrintQRModal: React.FC<BulkPrintQRModalProps> = ({ isOpen, items, onClose }) => {
   const printRef = useRef<HTMLDivElement>(null);
   const [isGrouped, setIsGrouped] = useState(false);
+  const [groupId] = useState(() => crypto.randomUUID().substring(0, 6).toUpperCase());
+  const [isSaving, setIsSaving] = useState(false);
   const [groupName, setGroupName] = useState('Nhóm vật tư gộp');
 
   const handlePrint = useReactToPrint({
@@ -23,9 +26,33 @@ export const BulkPrintQRModal: React.FC<BulkPrintQRModalProps> = ({ isOpen, item
   if (!isOpen || items.length === 0) return null;
 
   const groupedCodes = items.map(i => i.code).join(',');
-  const multiQrValue = `MULTI:${groupedCodes}`;
+  const multiQrValue = `GRP:${groupId}`;
+
+  
+  const executePrint = async () => {
+    if (isGrouped) {
+      setIsSaving(true);
+      try {
+        const itemCodes = items.map(i => i.code);
+        const { error } = await supabase.from('qr_groups').upsert({
+          group_code: multiQrValue,
+          item_codes: itemCodes
+        }, { onConflict: 'group_code' });
+        
+        if (error) throw error;
+      } catch (err) {
+        console.error('Lỗi lưu group QR:', err);
+        alert('Có lỗi xảy ra khi tạo nhóm QR trên hệ thống. Vui lòng thử lại!');
+        setIsSaving(false);
+        return; // Don't print if it fails
+      }
+      setIsSaving(false);
+    }
+    handlePrint();
+  };
 
   return (
+
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh]">
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
@@ -172,7 +199,8 @@ export const BulkPrintQRModal: React.FC<BulkPrintQRModalProps> = ({ isOpen, item
               Đóng
             </button>
             <button
-              onClick={() => handlePrint()}
+              onClick={executePrint}
+                disabled={isSaving}
               className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm"
             >
               <Printer size={18} />

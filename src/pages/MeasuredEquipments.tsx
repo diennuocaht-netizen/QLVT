@@ -304,6 +304,11 @@ export const MeasuredEquipments: React.FC = () => {
                       <button onClick={() => handleOpenModal(item)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa">
                         <Edit className="w-4 h-4" />
                       </button>
+                        {profile?.role === 'admin' && (
+                          <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900" title="Xóa">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       
                     </td>
                   </tr>
