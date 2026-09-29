@@ -1,8 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Search, Filter, Calendar as CalendarIcon, Clock, ArrowRight, User, CheckCircle, Edit3, Trash2, FileText, ChevronDown, ChevronUp, History, X } from 'lucide-react';
+import { Plus, Settings, Search, Filter, Calendar as CalendarIcon, Clock, ArrowRight, User, CheckCircle, Edit3, Trash2, FileText, ChevronDown, ChevronUp, History, X } from 'lucide-react';
 import { ShiftTaskModal } from '../components/hr/ShiftTaskModal';
+import { RoutineChecklistModal } from '../components/hr/RoutineChecklistModal';
 import { HandoverModal } from '../components/hr/HandoverModal';
 import { TaskTimelineModal } from '../components/hr/TaskTimelineModal';
 
@@ -20,6 +21,7 @@ export const HRTasks: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isRoutineModalOpen, setIsRoutineModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any | null>(null);
   
   const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
@@ -159,26 +161,35 @@ export const HRTasks: React.FC = () => {
     }
     setLoading(true);
     try {
-      const routines = [
-        { title: 'Kiểm tra thông số tủ điện chính', priority: 'high' },
-        { title: 'Vệ sinh phòng máy', priority: 'low' },
-        { title: 'Kiểm tra hệ thống báo cháy', priority: 'high' },
-        { title: 'Đọc và ghi sổ nhật ký ca trước', priority: 'medium' }
-      ];
+      const { data: routines, error: fetchErr } = await supabase
+        .from('shift_routine_tasks')
+        .select('*')
+        .eq('shift_type_id', selectedShiftId)
+        .eq('is_active', true);
+        
+      if (fetchErr) throw fetchErr;
+      
+      if (!routines || routines.length === 0) {
+        alert('Ca này chưa được cấu hình công việc định kỳ. Vui lòng vào Cấu hình để thiết lập.');
+        setLoading(false);
+        return;
+      }
       
       const inserts = routines.map(r => ({
         title: r.title,
-        description: 'Công việc định kỳ sinh tự động',
+        description: r.description || 'Công việc định kỳ sinh tự động',
         date: selectedDate,
         shift_id: selectedShiftId,
-        priority: r.priority,
+        priority: r.priority || 'medium',
         status: 'todo',
-        created_by: profile?.id || null
+        created_by: profile?.id || null,
+        group_id: crypto.randomUUID()
       }));
 
       const { error } = await supabase.from('hr_shift_tasks').insert(inserts);
       if (error) throw error;
       
+      alert('Đã sinh Checklist thành công!');
       fetchTasks();
     } catch (err: any) {
       alert('Lỗi: ' + err.message);
@@ -252,15 +263,25 @@ export const HRTasks: React.FC = () => {
         </div>
         <div className="flex gap-2">
           {canEdit && (
-            <button
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center shadow-sm font-medium transition-colors"
-              onClick={generateRoutineTasks}
-              title="Tự động tạo các công việc bắt buộc cho ca đã chọn"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Sinh Check-list
-            </button>
-          )}
+              <>
+                <button
+                  className="bg-gray-100 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-200 flex items-center shadow-sm font-medium transition-colors border border-gray-200"
+                  onClick={() => setIsRoutineModalOpen(true)}
+                  title="Cấu hình Checklist cho ca"
+                >
+                  <Settings className="w-4 h-4 mr-1.5" />
+                  Cấu hình
+                </button>
+                <button
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center shadow-sm font-medium transition-colors"
+                  onClick={generateRoutineTasks}
+                  title="Tự động tạo Checklist đã cấu hình cho ca"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Checklist
+                </button>
+              </>
+            )}
           <button
             className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center shadow-sm font-medium transition-colors"
             onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
@@ -439,6 +460,11 @@ export const HRTasks: React.FC = () => {
           }}
         />
       )}
+      <RoutineChecklistModal
+        isOpen={isRoutineModalOpen}
+        onClose={() => setIsRoutineModalOpen(false)}
+        shiftTypeId={selectedShiftId === 'all' ? '' : selectedShiftId}
+      />
       {isHandoverModalOpen && handoverTask && (
         <HandoverModal
           task={handoverTask}
@@ -515,3 +541,5 @@ export const HRTasks: React.FC = () => {
     </div>
   );
 };
+
+
