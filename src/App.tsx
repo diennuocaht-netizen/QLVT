@@ -25,6 +25,8 @@ import { MeasurementForms } from './pages/MeasurementForms';
 import { MeasurementRecords } from './pages/MeasurementRecords';
 import { MeasuredEquipments } from './pages/MeasuredEquipments';
 import { ShiftSchedule } from './pages/ShiftSchedule';
+import { HREvents } from './pages/HREvents';
+import { HRTasks } from './pages/HRTasks';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -76,6 +78,8 @@ export default function App() {
             
             {/* HR / Shift Scheduling */}
             <Route path="shift-schedule" element={<ShiftSchedule />} />
+          <Route path="events" element={<HREvents />} />
+          <Route path="hr-tasks" element={<HRTasks />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -117,36 +117,50 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
         if ((oldSpecs.protectionElement || '') !== (formData.protectionElement || '')) changes.push(`Phần tử bảo vệ`);
         
         // Diff subComponents
-        const oldSubs = device.sub_components || [];
-        const newSubs = subComponents;
-        
-        if (oldSubs.length !== newSubs.length) {
-          changes.push(`Số lượng phụ tải: ${oldSubs.length} -> ${newSubs.length}`);
-        } else {
-          let compChanges = 0;
-          let compDetails: string[] = [];
+          const oldSubs = device.sub_components || [];
+          const newSubs = subComponents || [];
+          
+          let added = 0;
+          let removed = 0;
+          let edited = 0;
+          let compDetails = [];
+
+          // Find added and edited
           for (let i = 0; i < newSubs.length; i++) {
-            const oldItem = oldSubs.find((o: any) => o.id === newSubs[i].id) || oldSubs[i];
-            if (oldItem) {
+            const newItem = newSubs[i];
+            const oldItem = oldSubs.find((o) => o.id === newItem.id);
+            if (!oldItem) {
+              added++;
+              compDetails.push(`Thêm [${newItem.label || 'Phụ tải'}]`);
+            } else {
               const itemChanges = [];
-              if (oldItem.label !== newSubs[i].label) itemChanges.push(`Nhãn`);
-              if (oldItem.name !== newSubs[i].name) itemChanges.push(`Tên MCB`);
-              if (oldItem.location !== newSubs[i].location) itemChanges.push(`Vị trí (${oldItem.location || 'Trống'} -> ${newSubs[i].location || 'Trống'})`);
-              if (oldItem.model !== newSubs[i].model) itemChanges.push(`Model`);
-              if (oldItem.current !== newSubs[i].current) itemChanges.push(`Dòng ĐM`);
+              if (oldItem.label !== newItem.label) itemChanges.push('Nhãn');
+              if (oldItem.name !== newItem.name) itemChanges.push('Tên MCB');
+              if (oldItem.location !== newItem.location) itemChanges.push('Vị trí');
+              if (oldItem.model !== newItem.model) itemChanges.push('Model');
+              if (oldItem.current !== newItem.current) itemChanges.push('Dòng ĐM');
+              if (oldItem.powersTo !== newItem.powersTo) itemChanges.push('Cấp nguồn cho');
               
               if (itemChanges.length > 0) {
-                compChanges++;
-                compDetails.push(`[${newSubs[i].label || 'Phụ tải'}] sửa ${itemChanges.join(', ')}`);
+                edited++;
+                compDetails.push(`Sửa [${newItem.label || 'Phụ tải'}]: ${itemChanges.join(', ')}`);
               }
             }
           }
-          if (compChanges > 0) {
-            changes.push(`Đã thay đổi ${compChanges} phụ tải: ${compDetails.join('; ')}`);
+          
+          // Find removed
+          for (let i = 0; i < oldSubs.length; i++) {
+            if (!newSubs.find((n) => n.id === oldSubs[i].id)) {
+              removed++;
+              compDetails.push(`Xóa [${oldSubs[i].label || 'Phụ tải'}]`);
+            }
           }
-        }
-        
-        if (changes.length > 0) {
+
+          if (added > 0 || removed > 0 || edited > 0) {
+            changes.push(`Thay đổi phụ tải (${added} thêm, ${removed} xóa, ${edited} sửa): ${compDetails.join('; ')}`);
+          }
+          
+          if (changes.length > 0) {
           const autoLog = {
             id: Date.now().toString(),
             timestamp: now,
@@ -183,7 +197,7 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
             action: 'update_device',
             entityType: 'device',
             entityId: device.id,
-            details: { name: formData.name, code: formData.code }
+            details: { name: formData.name, code: formData.code, changes: updatedChangeLogs[updatedChangeLogs.length - 1].details }
           })).catch(err => console.warn('Activity logger failed:', err));
         }
       } else {

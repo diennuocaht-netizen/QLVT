@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar } from 'lucide-react';
+import { LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
@@ -10,13 +10,19 @@ export const Layout: React.FC = () => {
   const [isDeviceOpen, setIsDeviceOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isHrOpen, setIsHrOpen] = useState(false);
 
   const navItems = [
     { path: '/', label: 'Tổng quan', icon: LayoutDashboard, roles: ['admin', 'manager', 'viewer'] },
     { path: '/projects', label: 'Quản lý Dự án', icon: Briefcase, roles: ['admin', 'manager', 'viewer'] },
     { path: '/documents', label: 'Tài liệu ISO', icon: FileText, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/shift-schedule', label: 'Phân ca làm việc', icon: Calendar, roles: ['admin', 'manager', 'viewer'] },
     { path: '/admin', label: 'Quản trị', icon: Users, roles: ['admin'] },
+  ];
+
+  const hrItems = [
+    { path: '/hr-tasks', label: 'Công việc & Giao ca', icon: ClipboardCheck, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/shift-schedule', label: 'Phân ca làm việc', icon: Calendar, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/events', label: 'Quản lý Sự kiện', icon: Calendar, roles: ['admin', 'manager', 'viewer'] },
   ];
 
   const deviceItems = [
@@ -108,6 +114,52 @@ export const Layout: React.FC = () => {
                 </li>
               );
             })}
+
+            {/* HR Section */}
+            {profile && hrItems.filter(i => i.roles.includes(profile.role)).length > 0 && (
+              <li className="pt-4 mt-4 border-t border-gray-100">
+                <button
+                  onClick={() => setIsHrOpen(!isHrOpen)}
+                  className={clsx(
+                    'flex items-center justify-between w-full px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    (location.pathname.startsWith('/shift-schedule') || location.pathname.startsWith('/events') || location.pathname.startsWith('/hr-tasks') || location.pathname.startsWith('/hr-tasks')) && !isHrOpen
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  <div className="flex items-center">
+                    <UserCheck className={clsx('mr-3 h-5 w-5', (location.pathname.startsWith('/shift-schedule') || location.pathname.startsWith('/events')) ? 'text-indigo-700' : 'text-gray-400')} />
+                    Quản lý Nhân sự
+                  </div>
+                  {isHrOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+                
+                {isHrOpen && (
+                  <ul className="mt-1 ml-6 space-y-1 border-l-2 border-gray-100 pl-2">
+                    {hrItems.filter(i => i.roles.includes(profile.role)).map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <li key={item.path}>
+                          <Link
+                            to={item.path}
+                            className={clsx(
+                              'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                              isActive
+                                ? 'bg-indigo-50 text-indigo-700'
+                                : 'text-gray-600 hover:bg-gray-100'
+                            )}
+                          >
+                            <Icon className={clsx('mr-3 h-4 w-4', isActive ? 'text-indigo-700' : 'text-gray-400')} />
+                            {item.label}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            )}
 
             {/* Device Section */}
             {profile && deviceItems.filter(i => i.roles.includes(profile.role)).length > 0 && (

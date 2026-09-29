@@ -574,7 +574,7 @@ export const ShiftSchedule: React.FC = () => {
     });
   }, [assignments, year, month]);
   
-  const isMonthCreated = hasDataThisMonth || monthCreatedState[monthKey];
+  const isMonthCreated = hasDataThisMonth || monthCreatedState[monthKey] || isCurrentMonth;
 
   
   const todaySummary = useMemo(() => {
