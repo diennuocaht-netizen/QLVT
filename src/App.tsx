@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -27,12 +27,13 @@ import { MeasuredEquipments } from './pages/MeasuredEquipments';
 import { ShiftSchedule } from './pages/ShiftSchedule';
 import { HREvents } from './pages/HREvents';
 import { HRTasks } from './pages/HRTasks';
+import { HRTaskLog } from './pages/HRTaskLog';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Đang tải...</div>;
+    return <div className="flex items-center justify-center h-screen">Äang táº£i...</div>;
   }
 
   if (!user) {
@@ -80,9 +81,11 @@ export default function App() {
             <Route path="shift-schedule" element={<ShiftSchedule />} />
           <Route path="events" element={<HREvents />} />
           <Route path="hr-tasks" element={<HRTasks />} />
+            <Route path="hr-task-log" element={<HRTaskLog />} />
           </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   );
 }
+

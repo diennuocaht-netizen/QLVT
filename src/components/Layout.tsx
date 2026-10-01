@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck } from 'lucide-react';
+import { ChangePasswordModal } from './ChangePasswordModal';
+import { Key, LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck, CheckCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
   const { profile, logout } = useAuth();
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const location = useLocation();
   const [isDeviceOpen, setIsDeviceOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -21,6 +23,7 @@ export const Layout: React.FC = () => {
 
   const hrItems = [
     { path: '/hr-tasks', label: 'Công việc & Giao ca', icon: ClipboardCheck, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/hr-task-log', label: 'Nhật ký công việc', icon: CheckCircle, roles: ['admin', 'manager', 'viewer'] },
     { path: '/shift-schedule', label: 'Phân ca làm việc', icon: Calendar, roles: ['admin', 'manager', 'viewer'] },
     { path: '/events', label: 'Quản lý Sự kiện', icon: Calendar, roles: ['admin', 'manager', 'viewer'] },
   ];
@@ -265,6 +268,14 @@ export const Layout: React.FC = () => {
               <p className="text-xs text-gray-500 truncate capitalize">{profile?.role}</p>
             </div>
           </div>
+          
+          <button
+            onClick={() => setShowChangePassword(true)}
+            className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors mb-2"
+          >
+            <Key className="mr-3 h-5 w-5 text-gray-500" />
+            Đổi mật khẩu
+          </button>
           <button
             onClick={logout}
             className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
@@ -281,6 +292,7 @@ export const Layout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
     </div>
   );
 };

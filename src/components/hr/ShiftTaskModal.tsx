@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
-import { X, Calendar as CalendarIcon, Clock, User, AlertCircle, FileText } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock, User, AlertCircle, FileText, Layers, CheckCircle } from 'lucide-react';
 import { logActivity } from '../../utils/activityLogger';
 
 interface ShiftTaskModalProps {
@@ -17,6 +17,7 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [shiftTypes, setShiftTypes] = useState<any[]>([]);
+  const [subsystems, setSubsystems] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     title: task?.title || '',
@@ -25,12 +26,14 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
     shift_id: task?.shift_id || (selectedShiftId !== 'all' ? selectedShiftId : ''),
     assignee_id: task?.assignee_id || profile?.id || '',
     priority: task?.priority || 'medium',
-    status: task?.status || 'todo'
+    status: task?.status || 'todo',
+    subsystem_id: task?.subsystem_id || ''
   });
 
   useEffect(() => {
     fetchUsers();
     fetchShiftTypes();
+    fetchSubsystems();
   }, []);
 
   const fetchUsers = async () => {
@@ -48,6 +51,14 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
     }
   };
 
+  const fetchSubsystems = async () => {
+    const { data } = await supabase.from('inventory_subsystems').select('*').order('name');
+    if (data) setSubsystems(data);
+  };
+
+  
+  const canEditTask = !task || profile?.role === 'admin' || profile?.id === task.created_by || profile?.id === task.assignee_id || (task.completers || []).includes(profile?.id);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -56,6 +67,7 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
         ...formData,
         assignee_id: formData.assignee_id || null,
         shift_id: formData.shift_id || null,
+        subsystem_id: formData.subsystem_id || null,
         updated_at: new Date().toISOString()
       };
 
@@ -125,6 +137,22 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
             </div>
           </div>
 
+                    <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Phân hệ</label>
+            <div className="relative">
+              <Layers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <select disabled={!canEditTask}                 value={formData.subsystem_id}
+                onChange={(e) => setFormData({ ...formData, subsystem_id: e.target.value })}
+                className="w-full pl-10 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all appearance-none"
+              >
+                <option value="">-- Thuộc phân hệ (Tùy chọn) --</option>
+                {subsystems.map(ss => (
+                  <option key={ss.id} value={ss.id}>{ss.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Ngày làm việc <span className="text-red-500">*</span></label>
@@ -144,8 +172,7 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
               <label className="block text-sm font-semibold text-gray-700 mb-1">Ca làm việc <span className="text-red-500">*</span></label>
               <div className="relative">
                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <select
-                  required
+                <select disabled={!canEditTask}                   required
                   value={formData.shift_id}
                   onChange={(e) => setFormData({ ...formData, shift_id: e.target.value })}
                   className="w-full pl-10 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all appearance-none"
@@ -163,8 +190,7 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
               <label className="block text-sm font-semibold text-gray-700 mb-1">Người phụ trách</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <select
-                  value={formData.assignee_id}
+                <select disabled={!canEditTask}                   value={formData.assignee_id}
                   onChange={(e) => setFormData({ ...formData, assignee_id: e.target.value })}
                   className="w-full pl-10 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all appearance-none"
                 >
@@ -180,8 +206,7 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
               <label className="block text-sm font-semibold text-gray-700 mb-1">Mức độ ưu tiên</label>
               <div className="relative">
                 <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <select
-                  value={formData.priority}
+                <select disabled={!canEditTask}                   value={formData.priority}
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                   className="w-full pl-10 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all appearance-none"
                 >
@@ -196,8 +221,7 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
           {task && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Trạng thái hiện tại</label>
-              <select
-                value={formData.status}
+              <select disabled={!canEditTask}                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               >
@@ -208,7 +232,29 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
               </select>
             </div>
           )}
-        </form>
+        
+            {task?.status === 'done' && (
+              <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-gray-100">
+                <h4 className="text-sm font-semibold text-green-700 mb-2 flex items-center"><CheckCircle className="w-4 h-4 mr-1"/> Kết quả hoàn thành</h4>
+                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                  <div className="mb-2">
+                    <span className="text-xs font-semibold text-gray-500 block mb-1">Người hoàn thành:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {(task.completers || []).map((id, idx) => {
+                        const user = users.find(u => u.id === id);
+                        return <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded bg-white text-green-700 text-xs font-medium border border-green-200">{user ? user.display_name : 'Unknown'}</span>
+                      })}
+                      {(!task.completers || task.completers.length === 0) && <span className="text-sm text-gray-500">Chưa ghi nhận</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-gray-500 block mb-1">Ghi chú / Kết quả:</span>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.completion_note || 'Không có ghi chú'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
 
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
           <button
@@ -218,7 +264,8 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
           >
             Hủy
           </button>
-          <button
+          {canEditTask && (
+            <button
             onClick={handleSubmit}
             disabled={loading}
             className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center"
@@ -226,8 +273,11 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
             {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : null}
             {task ? 'Cập nhật' : 'Tạo mới'}
           </button>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+

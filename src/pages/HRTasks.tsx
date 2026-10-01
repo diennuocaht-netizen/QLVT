@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Settings, Search, Filter, Calendar as CalendarIcon, Clock, ArrowRight, User, CheckCircle, Edit3, Trash2, FileText, ChevronDown, ChevronUp, History, X } from 'lucide-react';
+import { Plus, Settings, Layers, Search, Filter, Calendar as CalendarIcon, Clock, ArrowRight, User, CheckCircle, Edit3, Trash2, FileText, ChevronDown, ChevronUp, History, X } from 'lucide-react';
 import { ShiftTaskModal } from '../components/hr/ShiftTaskModal';
 import { RoutineChecklistModal } from '../components/hr/RoutineChecklistModal';
 import { HandoverModal } from '../components/hr/HandoverModal';
@@ -31,6 +31,8 @@ export const HRTasks: React.FC = () => {
   const [timelineGroupId, setTimelineGroupId] = useState<string | null>(null);
   const [completingTask, setCompletingTask] = useState<any | null>(null);
   const [completionNote, setCompletionNote] = useState('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedCompleters, setSelectedCompleters] = useState<string[]>([]);
 
 
   const toggleTaskExpand = (e: React.MouseEvent, taskId: string) => {
@@ -63,12 +65,14 @@ export const HRTasks: React.FC = () => {
 
   useEffect(() => {
     fetchShiftTypes();
+    fetchUsers();
   }, []);
 
   useEffect(() => {
     fetchTasks();
   }, [selectedDate, selectedShiftId]);
 
+  const fetchUsers = async () => { const { data } = await supabase.from('users').select('id, display_name, email'); if (data) setUsers(data); };
   const fetchShiftTypes = async () => {
     const { data } = await supabase.from('shift_types').select('*').order('order_index');
     if (data && data.length > 0) {
@@ -203,13 +207,12 @@ export const HRTasks: React.FC = () => {
     if (!completingTask) return;
     setLoading(true);
     try {
-      const newDescription = completionNote.trim() 
-        ? (completingTask.description ? completingTask.description + '\n\n[KẾT LUẬN XỬ LÝ]: ' + completionNote : '[KẾT LUẬN XỬ LÝ]: ' + completionNote)
-        : completingTask.description;
-        
+      // Don't append note to description anymore, use new columns
       const { error } = await supabase.from('hr_shift_tasks').update({ 
         status: 'done',
-        description: newDescription,
+        completion_note: completionNote.trim() || null,
+        completers: selectedCompleters,
+        completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }).eq('id', completingTask.id);
       
@@ -365,8 +368,9 @@ export const HRTasks: React.FC = () => {
                       colTasks.map(task => (
                         <div 
                           key={task.id} 
-                          className="bg-white border border-gray-200 rounded p-3 shadow-sm hover:shadow-md transition-shadow group relative cursor-grab active:cursor-grabbing"
-                          draggable
+                          className="bg-white border border-gray-200 rounded p-3 shadow-sm hover:shadow-md transition-shadow group relative cursor-grab active:cursor-grabbing hover:border-indigo-400"
+                            onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}
+                            draggable
                           onDragStart={(e) => handleDragStart(e, task.id)}
                         >
                           <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded px-1">
@@ -378,6 +382,7 @@ export const HRTasks: React.FC = () => {
                               {task.priority === 'high' ? 'Khẩn cấp' : task.priority === 'low' ? 'Thấp' : 'Thường'}
                             </span>
                             {task.shift && <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">{task.shift.code}</span>}
+                            {task.subsystem && <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded inline-flex items-center gap-0.5"><Layers className="w-3 h-3" /> {task.subsystem.name}</span>}
                           </div>
                           
                           <h4 className="font-bold text-sm text-gray-900 mb-1">{task.title}</h4>
@@ -427,7 +432,7 @@ export const HRTasks: React.FC = () => {
                             </div>
                             <div className="flex items-center space-x-1">
                                {task.status !== 'done' && task.status !== 'handover' && (
-                                 <button onClick={(e) => { e.stopPropagation(); setCompletionNote(''); setCompletingTask(task); }} title="Hoàn thành & Ghi chú" className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors">
+                                 <button onClick={(e) => { e.stopPropagation(); setCompletionNote(''); setSelectedCompleters(task.assignee_id ? [task.assignee_id] : []); setCompletingTask(task); }} title="Hoàn thành & Ghi chú" className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors">
                                    <CheckCircle size={16} />
                                  </button>
                                )}
@@ -485,7 +490,7 @@ export const HRTasks: React.FC = () => {
                 <CheckCircle className="w-5 h-5 mr-2" />
                 Hoàn thành công việc
               </h2>
-              <button onClick={() => setCompletingTask(null)} className="text-green-400 hover:text-green-600 transition-colors">
+              <button onClick={() => setCompletingTask(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -508,6 +513,37 @@ export const HRTasks: React.FC = () => {
                     placeholder="Ví dụ: Đã thay thế aptomat mới, thông số dòng ổn định 15A..."
                   />
                 </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Người hoàn thành (Có thể chọn nhiều)</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedCompleters.map(userId => {
+                    const user = users.find(u => u.id === userId);
+                    return (
+                      <span key={userId} className="inline-flex items-center px-2 py-1 rounded bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100">
+                        {user ? (user.display_name || user.email) : 'Unknown'}
+                        <button type="button" onClick={() => setSelectedCompleters(prev => prev.filter(id => id !== userId))} className="ml-1 text-indigo-400 hover:text-indigo-600">
+                          <X size={12} />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && !selectedCompleters.includes(val)) {
+                      setSelectedCompleters([...selectedCompleters, val]);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                >
+                  <option value="">-- Chọn thêm người hoàn thành --</option>
+                  {users.filter(u => !selectedCompleters.includes(u.id)).map(u => (
+                    <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -541,5 +577,7 @@ export const HRTasks: React.FC = () => {
     </div>
   );
 };
+
+
 
 

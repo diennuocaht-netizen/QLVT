@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabase-client';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { FileText, Server, Users, Clock, Plus, Edit, Trash, Activity, Calendar, ClipboardCheck, ArrowRight, User } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
@@ -10,6 +11,7 @@ export const Dashboard: React.FC = () => {
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [ongoingEvents, setOngoingEvents] = useState<any[]>([]);
   const [todayStaff, setTodayStaff] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
 
   useEffect(() => {
     fetchStats();
@@ -221,9 +223,13 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
+              
+      
+      
+      {/* MAIN 2-COLUMN LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* LEFT COLUMN - MAIN TASKS & EVENTS */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-2 space-y-6">
           {/* Today Tasks */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -256,13 +262,49 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
           </div>
-
+          {/* CHART SECTION */}
+        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Thống kê công việc theo phân hệ (Tháng này)</h2>
+          <div className="h-72 w-full">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={95}
+                    paddingAngle={3}
+                    dataKey="total"
+                  >
+                    {chartData.map((entry, index) => {
+                      const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8B5CF6', '#F43F5E', '#10B981', '#F59E0B'];
+                      return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />;
+                    })}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value, name, props) => {
+                      return [`${value} việc (Xong: ${props.payload.done}, Đang làm/Chưa làm: ${props.payload.in_progress})`, props.payload.name];
+                    }}
+                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
+                  />
+                  <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{fontSize: '11px', paddingTop: '10px'}} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                Không có dữ liệu công việc trong tháng này.
+              </div>
+            )}
+          </div>
+        </div>
           {/* Ongoing Events */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-50 bg-gray-50/50">
               <h2 className="text-base font-bold text-gray-800 flex items-center">
                 <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-                Sự kiện đang diễn ra
+                Sự kiện đang & sắp diễn ra (5 ngày tới)
               </h2>
             </div>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -288,9 +330,8 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN - STAFF & ACTIVITY */}
-        <div className="space-y-6">
-          
+        {/* RIGHT COLUMN */}
+        <div className="lg:col-span-1 space-y-6">
           {/* Active Staff Today */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-50 bg-gray-50/50">
@@ -344,7 +385,6 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
           </div>
-
           {/* Activity Log Compact */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-50 bg-gray-50/50">
@@ -387,7 +427,6 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
           </div>
-
         </div>
       </div>
     </div>
