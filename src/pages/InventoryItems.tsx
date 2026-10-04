@@ -48,9 +48,7 @@ export const InventoryItems: React.FC = () => {
       setLoading(true);
       try {
         // Fetch items
-        const { data: itemsData, error: itemsError } = await supabase
-          .from('inventory_items')
-          .select('*');
+        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').limit(10000);
 
         if (itemsError) throw itemsError;
         if (isMounted) {
@@ -182,7 +180,7 @@ export const InventoryItems: React.FC = () => {
     const handleRefresh = async () => {
       console.log('📣 [InventoryItems] Received inventory:refresh, reloading data...');
       try {
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*');
+        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').limit(10000);
         if (itemsError) throw itemsError;
         setItems((itemsData || []).map(item => itemFromDatabase(item)) as Item[]);
 

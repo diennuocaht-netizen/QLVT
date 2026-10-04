@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { InventoryAudit, InventoryLocation, Item, CalculatedInventoryItem, SlipType, InventorySlip } from '../types/inventory';
 import { Plus, Search, FileText } from 'lucide-react';
 import { AuditModal } from '../components/inventory/AuditModal';
+import { DetailAuditModal } from '../components/inventory/DetailAuditModal';
 
 export const InventoryAudits: React.FC = () => {
   const { profile } = useAuth();
@@ -13,6 +14,8 @@ export const InventoryAudits: React.FC = () => {
 
   // Future feature: create audit modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedAudit, setSelectedAudit] = useState<InventoryAudit | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -114,7 +117,7 @@ export const InventoryAudits: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{audit.notes}</td>
                     <td className="px-6 py-4 text-center">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Chi tiết">
+                      <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Chi tiết">
                         <FileText size={18} />
                       </button>
                     </td>
@@ -158,6 +161,12 @@ export const InventoryAudits: React.FC = () => {
         </div>
         </>
       )}
+
+      <DetailAuditModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        audit={selectedAudit}
+      />
 
       <AuditModal 
         isOpen={isModalOpen}

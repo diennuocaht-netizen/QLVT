@@ -42,9 +42,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     const loadData = async () => {
       try {
         // Fetch items
-        const { data: itemsData } = await supabase
-          .from('inventory_items')
-          .select('*');
+        const { data: itemsData } = await supabase.from('inventory_items').select('*').limit(10000);
         if (itemsData) setItems(itemsData.map(item => itemFromDatabase(item)) as Item[]);
 
         // Fetch subsystems

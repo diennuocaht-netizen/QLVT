@@ -38,7 +38,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
     const loadData = async () => {
       setLoading(true);
       try {
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*');
+        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').limit(10000);
         if (itemsError) throw itemsError;
         
         const { data: slipsData, error: slipsError } = await supabase.from('inventory_slips').select('*');
@@ -230,7 +230,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
       onClose();
     } catch (error) {
       console.error('Error saving audit:', error);
-      alert('❌ Có lỗi xảy ra khi lưu phiếu kiểm kê');
+      alert('❌ Lỗi: ' + (error?.message || error?.details || JSON.stringify(error)));
     } finally {
       setSaving(false);
     }

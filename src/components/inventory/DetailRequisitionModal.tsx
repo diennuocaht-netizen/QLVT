@@ -3,6 +3,7 @@ import { X, FileText, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Requisition, RequisitionItem, RequisitionItemStatus, Item } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
+import { itemFromDatabase } from '../../utils/dataTransform';
 
 interface DetailRequisitionModalProps {
   isOpen: boolean;
@@ -105,8 +106,13 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
     let channel: any;
     const loadAndSubscribe = async () => {
       // Load initial data
-      const { data } = await supabase.from('inventory_items').select('*');
-      if (data) setItems(data as Item[]);
+      
+        const itemIds = requisition?.items.map(i => i.itemId).filter(Boolean) || [];
+        if (itemIds.length === 0) return;
+        const { data, error } = await supabase.from('inventory_items').select('*').in('id', itemIds);
+          console.log('Fetched items for IDs', itemIds, 'Result:', data, 'Error:', error);
+
+      if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
 
       // Subscribe to changes
       channel = supabase
@@ -114,23 +120,29 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'inventory_items' },
           () => {
-            supabase.from('inventory_items').select('*').then(({ data }) => {
-              if (data) setItems(data as Item[]);
+            
+              const currentIds = requisition?.items.map(i => i.itemId).filter(Boolean) || [];
+              if (currentIds.length === 0) return;
+              supabase.from('inventory_items').select('*').in('id', currentIds).then
+(({ data }) => {
+              if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
             });
           }
         )
         .subscribe();
     };
     loadAndSubscribe();
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, []);
+      return () => {
+        if (channel) supabase.removeChannel(channel);
+      };
+    }, [requisition?.id]);
 
   if (!isOpen || !requisition) return null;
 
   const getItemName = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.name || itemId;
+      console.log('DetailRequisitionModal getting name for', itemId, 'from items:', items.map(i => i.id));
+
+    return items.find(i => i.id === itemId)?.name || `[Đã xóa] ${itemId}`;
   };
 
   const getItemCode = (itemId: string) => {
@@ -237,8 +249,7 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-600">Mã</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-600">Tên Vật Tư</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Vật Tư</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">Đơn Vị</th>
                     <th className="px-4 py-3 text-right font-medium text-gray-600">Yêu Cầu</th>
                     <th className="px-4 py-3 text-right font-medium text-gray-600">Đã Nhập</th>
@@ -258,8 +269,10 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
                     const remaining = item.requestedQuantity - item.receivedQuantity;
                     return (
                       <tr key={index} className={`hover:bg-gray-50 ${item.itemStatus === RequisitionItemStatus.Completed ? 'bg-green-50' : ''}`}>
-                        <td className="px-4 py-3 text-gray-900 font-medium">{getItemCode(item.itemId)}</td>
-                        <td className="px-4 py-3 text-gray-900">{getItemName(item.itemId)}</td>
+                        <td className="px-4 py-3 text-gray-900">
+                                <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId)}</span>
+                                <span className="text-sm text-gray-500">{getItemCode(item.itemId)}</span>
+                              </td>
                         <td className="px-4 py-3 text-gray-600">{getItemUnit(item.itemId)}</td>
                         <td className="px-4 py-3 text-right text-gray-900 font-medium">{item.requestedQuantity}</td>
                         <td className="px-4 py-3 text-right text-indigo-600 font-medium">{item.receivedQuantity}</td>

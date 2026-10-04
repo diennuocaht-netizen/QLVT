@@ -3,6 +3,7 @@ import { X, FileText, Download, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { InventorySlip, SlipType, Item, Requisition } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
+import { itemFromDatabase } from '../../utils/dataTransform';
 import { PrintCompletionReportModal } from './PrintCompletionReportModal';
 
 interface DetailSlipModalProps {
@@ -21,8 +22,13 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
     let channel: any;
     const loadAndSubscribe = async () => {
       // Load initial data
-      const { data } = await supabase.from('inventory_items').select('*');
-      if (data) setItems(data as Item[]);
+      
+        const itemIds = slip?.items.map(i => i.itemId).filter(Boolean) || [];
+        if (itemIds.length === 0) return;
+        const { data, error } = await supabase.from('inventory_items').select('*').in('id', itemIds);
+          console.log('Fetched items for IDs', itemIds, 'Result:', data, 'Error:', error);
+
+      if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
 
       // Subscribe to changes
       channel = supabase
@@ -30,18 +36,22 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
         .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'inventory_items' },
           () => {
-            supabase.from('inventory_items').select('*').then(({ data }) => {
-              if (data) setItems(data as Item[]);
+            
+              const currentIds = slip?.items.map(i => i.itemId).filter(Boolean) || [];
+              if (currentIds.length === 0) return;
+              supabase.from('inventory_items').select('*').in('id', currentIds).then
+(({ data }) => {
+              if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
             });
           }
         )
         .subscribe();
     };
     loadAndSubscribe();
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, []);
+      return () => {
+        if (channel) supabase.removeChannel(channel);
+      };
+    }, [slip?.id]);
 
   useEffect(() => {
     let channel: any;
@@ -64,15 +74,17 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
         .subscribe();
     };
     loadAndSubscribe();
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, []);
+      return () => {
+        if (channel) supabase.removeChannel(channel);
+      };
+    }, [slip?.id]);
 
   if (!isOpen || !slip) return null;
 
   const getItemName = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.name || itemId;
+      console.log('getting name for', itemId, 'from items:', items.map(i => i.id));
+
+    return items.find(i => i.id === itemId)?.name || `[Đã xóa] ${itemId}`;
   };
 
   const getItemCode = (itemId: string) => {
@@ -289,13 +301,13 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                   <tr>
                     {isReceipt ? (
                       <>
-                        <th className="px-4 py-3 text-left font-medium text-gray-600">Mã</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-600">Tên Vật Tư</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Vật Tư</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-600">Đơn Vị</th>
                         <th className="px-4 py-3 text-right font-medium text-gray-600">Số Lượng</th>
                         <th className="px-4 py-3 text-right font-medium text-gray-600">Đơn Giá</th>
                         <th className="px-4 py-3 text-right font-medium text-gray-600">Thành Tiền</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-600">Tờ Trình</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Ghi chú</th>
                       </>
                     ) : (
                       <>
@@ -310,6 +322,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                         <th className="px-4 py-3 text-left font-medium text-gray-600">Mục Đích</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-600">Phương Thức</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-600">Mã Chi Phí</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Ghi chú</th>
                       </>
                     )}
                   </tr>
@@ -322,20 +335,22 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                       <tr key={index} className="hover:bg-gray-50">
                         {isReceipt ? (
                           <>
-                            <td className="px-4 py-3 text-gray-900 font-medium">{getItemCode(item.itemId)}</td>
-                            <td className="px-4 py-3 text-gray-900">{getItemName(item.itemId)}</td>
+                            <td className="px-4 py-3 text-gray-900">
+                                <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId)}</span>
+                                <span className="text-sm text-gray-500">{getItemCode(item.itemId)}</span>
+                              </td>
                             <td className="px-4 py-3 text-gray-600">{getItemUnit(item.itemId)}</td>
                             <td className="px-4 py-3 text-right text-gray-900 font-medium">{item.quantity}</td>
                             <td className="px-4 py-3 text-right text-gray-600">{price.toLocaleString('vi-VN')} ₫</td>
                             <td className="px-4 py-3 text-right text-indigo-600 font-semibold">{totalPrice.toLocaleString('vi-VN')} ₫</td>
                             <td className="px-4 py-3 text-gray-600 text-sm">{item.requisitionId ? `Tờ trình: ${getRequisitionCode(item.requisitionId)}` : 'Nhận ngoài'}</td>
+                            <td className="px-4 py-3 text-gray-600">{item.notes || '-'}</td>
                           </>
                         ) : (
                           <>
                             <td className="px-4 py-3 text-gray-900">
-                              <span className="font-medium">{getItemCode(item.itemId)}</span>
-                              <br />
-                              <span className="text-sm text-gray-600">{getItemName(item.itemId)}</span>
+                              <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId)}</span>
+                                <span className="text-sm text-gray-500">{getItemCode(item.itemId)}</span>
                             </td>
                             <td className="px-4 py-3 text-right text-gray-900 font-medium">{item.quantity}</td>
                             <td className="px-4 py-3 text-center text-teal-600 font-semibold">{item.completedQuantity || 0} / {item.quantity}</td>
@@ -347,6 +362,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                             <td className="px-4 py-3 text-gray-600">{item.purpose || '-'}</td>
                             <td className="px-4 py-3 text-gray-600">{item.method || '-'}</td>
                             <td className="px-4 py-3 text-gray-600">{item.costCode || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{item.notes || '-'}</td>
                           </>
                         )}
                       </tr>

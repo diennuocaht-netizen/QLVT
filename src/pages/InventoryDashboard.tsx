@@ -22,7 +22,7 @@ export const InventoryDashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         const [itemsData, slipsData, requisitionsData] = await Promise.all([
-          supabase.from('inventory_items').select('*'),
+          supabase.from('inventory_items').select('*').limit(10000),
           supabase.from('inventory_slips').select('*'),
           supabase.from('inventory_requisitions').select('*')
         ]);

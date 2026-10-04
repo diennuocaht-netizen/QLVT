@@ -62,9 +62,7 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
     const loadData = async () => {
       try {
         // Fetch items
-        const { data: itemsData } = await supabase
-          .from('inventory_items')
-          .select('*');
+        const { data: itemsData } = await supabase.from('inventory_items').select('*').limit(10000);
         if (itemsData) setItems(itemsData as Item[]);
 
         // Fetch subsystems
