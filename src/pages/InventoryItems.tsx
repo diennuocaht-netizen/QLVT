@@ -3,7 +3,7 @@ import Papa from 'papaparse';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
 import { Item, CalculatedInventoryItem, SlipType, InventorySlip } from '../types/inventory';
-import { Plus, Search, Edit, Trash2, Download, Upload, ZapOff, Layers } from 'lucide-react';
+import {  Plus, Search, Edit, Trash2, Download, Upload, ZapOff, Layers , Filter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ItemModal } from '../components/inventory/ItemModal';
 import { QuickIssueModal } from '../components/inventory/QuickIssueModal';
@@ -20,6 +20,7 @@ export const InventoryItems: React.FC = () => {
   const [slips, setSlips] = useState<InventorySlip[]>([]);
   const [locations, setLocations] = useState<{id: string, code: string, name: string}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -621,19 +622,26 @@ export const InventoryItems: React.FC = () => {
       />
 
       {/* Search */}
-      <div className="flex gap-4 items-center">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-          <input
+      <div className="flex flex-col md:flex-row gap-4 md:items-center">
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+              <input
             type="text"
             placeholder="Tìm kiếm theo mã, tên hoặc danh mục..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+            />
+          </div>
+          <button 
+            onClick={() => setIsFilterOpen(!isFilterOpen)} 
+            className="md:hidden flex items-center justify-center p-2 bg-gray-100 text-gray-600 rounded-lg border border-gray-300 shrink-0"
+          >
+            <Filter className="w-6 h-6" />
+          </button>
         </div>
-
-        <div className="w-48">
+        <div className={`w-full md:w-48 ${isFilterOpen ? 'block' : 'hidden md:block'}`}>
           <label className="block text-xs text-gray-500 mb-1">Lọc tồn kho</label>
           <select
             value={stockFilter}
@@ -821,16 +829,16 @@ export const InventoryItems: React.FC = () => {
                   </div>
                   
                   <div className="flex justify-between gap-1 border-t pt-3">
-                    <button onClick={() => { setQuickIssueItem(inv.item); setQuickIssueOpen(true); }} className="flex-1 flex justify-center items-center gap-1 py-2 text-yellow-600 bg-yellow-50 hover:bg-yellow-100 rounded-md font-medium text-sm">
+                    <button onClick={() => { setQuickIssueItem(inv.item); setQuickIssueOpen(true); }} className="flex-1 flex justify-center items-center gap-1 py-3 text-yellow-600 bg-yellow-50 hover:bg-yellow-100 rounded-md font-medium text-sm">
                       <ZapOff size={16} /> Xuất
                     </button>
-                    <button onClick={() => { setPrintQRItem(inv.item); setPrintQROpen(true); }} className="flex-1 flex justify-center items-center py-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md text-sm">
+                    <button onClick={() => { setPrintQRItem(inv.item); setPrintQROpen(true); }} className="flex-1 flex justify-center items-center py-3 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md text-sm">
                       <QrCode size={16} />
                     </button>
-                    <button onClick={() => { setTraceabilityItem(inv.item); setTraceabilityOpen(true); }} className="flex-1 flex justify-center items-center py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md text-sm">
+                    <button onClick={() => { setTraceabilityItem(inv.item); setTraceabilityOpen(true); }} className="flex-1 flex justify-center items-center py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md text-sm">
                       <Layers size={16} />
                     </button>
-                    <button onClick={() => { setEditingItem(inv.item); setIsModalOpen(true); }} className="flex-1 flex justify-center items-center py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md text-sm">
+                    <button onClick={() => { setEditingItem(inv.item); setIsModalOpen(true); }} className="flex-1 flex justify-center items-center py-3 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md text-sm">
                       <Edit size={16} />
                     </button>
                   </div>
@@ -944,6 +952,15 @@ export const InventoryItems: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Action Button (FAB) for Mobile QR Scanning */}
+      <button
+        onClick={() => setIsGlobalQRScannerOpen(true)}
+        className="md:hidden fixed bottom-20 right-4 z-40 bg-indigo-600 text-white p-4 rounded-full shadow-lg shadow-indigo-600/30 flex items-center justify-center hover:bg-indigo-700 active:scale-95 transition-all"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <ScanLine className="w-6 h-6" />
+      </button>
     </div>
   );
 };

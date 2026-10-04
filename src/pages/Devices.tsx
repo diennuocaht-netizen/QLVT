@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, subscribeToTable } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Search, Server, Edit, Trash2, Upload, Eye, Zap, X, CheckCircle, CheckCircle2 } from 'lucide-react';
+import {  Plus, Search, Server, Edit, Trash2, Upload, Eye, Zap, X, CheckCircle, CheckCircle2 , Filter } from 'lucide-react';
 import { VerifyDevicesModal } from '../components/VerifyDevicesModal';
 import { DeviceProfileModal } from '../components/DeviceProfileModal';
 import { DeviceDetailsModal } from '../components/DeviceDetailsModal';
@@ -15,6 +15,8 @@ export const Devices: React.FC = () => {
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const [locationFilter, setLocationFilter] = useState('');
   const [quickSearchTerm, setQuickSearchTerm] = useState('');
   const [quickFilters, setQuickFilters] = useState<{id: string, field: string, value: string}[]>([]);
@@ -581,7 +583,19 @@ export const Devices: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Search Section */}
+      {/* Quick Search Toggle Mobile */}
+        <button 
+          onClick={() => setIsAdvancedSearchOpen(!isAdvancedSearchOpen)} 
+          className="md:hidden w-full flex justify-between items-center bg-indigo-50 text-indigo-700 p-3 rounded-lg border border-indigo-100 font-medium shadow-sm"
+        >
+          <div className="flex items-center">
+            <Zap className="w-5 h-5 mr-2" /> Tra cứu nhanh Line/Tủ
+          </div>
+          <span className="text-xl leading-none">{isAdvancedSearchOpen ? '−' : '+'}</span>
+        </button>
+        
+        {/* Quick Search Section */}
+        <div className={`${isAdvancedSearchOpen ? 'block' : 'hidden md:block'}`}>
       <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg shadow-sm border border-indigo-100 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
@@ -743,10 +757,13 @@ export const Devices: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative flex-1 w-full max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+      </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 md:items-center justify-between">
+          <div className="flex gap-2 w-full max-w-md">
+      <div className="relative flex-1">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
             <input
@@ -754,10 +771,17 @@ export const Devices: React.FC = () => {
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="Tìm kiếm theo mã, tên hoặc vị trí..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)} 
+              className="sm:hidden flex items-center justify-center p-2 bg-gray-100 text-gray-600 rounded-md border border-gray-300 shrink-0"
+            >
+              <Filter className="w-5 h-5" />
+            </button>
           </div>
-          <div className="w-full sm:w-64 shrink-0">
+          <div className={`w-full sm:w-64 shrink-0 ${isFilterOpen ? 'block' : 'hidden sm:block'}`}>
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
@@ -819,17 +843,17 @@ export const Devices: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-3">
-                        <button onClick={() => setSelectedDeviceForDetails(device)} className="text-indigo-600 hover:text-indigo-900" title="Xem chi tiết">
-                          <Eye className="w-4 h-4" />
+                        <button onClick={() => setSelectedDeviceForDetails(device)} className="p-2 -m-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded" title="Xem chi tiết">
+                          <Eye className="w-5 h-5" />
                         </button>
                         {canEdit && (
-                          <button onClick={() => handleEdit(device)} className="text-blue-600 hover:text-blue-900" title="Sửa">
-                            <Edit className="w-4 h-4" />
+                          <button onClick={() => handleEdit(device)} className="p-2 -m-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded" title="Sửa">
+                            <Edit className="w-5 h-5" />
                           </button>
                         )}
                         {canDelete && (
-                          <button onClick={() => handleDeleteClick(device.id)} className="text-red-600 hover:text-red-900" title="Xóa">
-                            <Trash2 className="w-4 h-4" />
+                          <button onClick={() => handleDeleteClick(device.id)} className="p-2 -m-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded" title="Xóa">
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         )}
                       </div>

@@ -207,7 +207,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({ isOpen, onClose, item, onS
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full h-full md:h-auto md:rounded-xl shadow-xl md:max-w-2xl md:max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex justify-between items-center p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900">
             {item ? 'Cập nhật Vật tư' : 'Thêm Vật tư mới'}
@@ -217,7 +217,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({ isOpen, onClose, item, onS
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col">
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Mã Vật tư</label>
@@ -352,7 +352,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({ isOpen, onClose, item, onS
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 shrink-0 mt-auto bg-white sticky bottom-0">
             <button
               type="button"
               onClick={onClose}

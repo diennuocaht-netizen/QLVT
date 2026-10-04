@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ChangePasswordModal } from './ChangePasswordModal';
-import { Key, LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck, CheckCircle } from 'lucide-react';
+import {   Key, LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck, CheckCircle , Package , ChevronLeft } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
@@ -52,6 +52,8 @@ export const Layout: React.FC = () => {
   const filteredInventoryItems = inventoryItems.filter(item => 
     profile && item.roles.includes(profile.role)
   );
+  const filteredHrItems = hrItems.filter(item => profile && item.roles.includes(profile.role));
+  const filteredDeviceItems = deviceItems.filter(item => profile && item.roles.includes(profile.role));
 
   const isInventoryActive = location.pathname.startsWith('/inventory');
 
@@ -287,12 +289,73 @@ export const Layout: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto w-full">
+      <main className="flex-1 overflow-y-auto w-full pb-16 md:pb-0">
         <div className="p-4 md:p-8">
           <Outlet />
         </div>
       </main>
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+
+      
+      
+      {/* Bottom Navigation for Mobile (Dynamic Contextual) */}
+      <div className="md:hidden flex items-center bg-white border-t border-gray-200 h-16 fixed bottom-0 left-0 right-0 z-40 overflow-x-auto hide-scrollbar snap-x px-2" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {(() => {
+          let itemsToRender = [];
+          
+          if (location.pathname.startsWith('/inventory')) {
+            itemsToRender = [
+              { path: '/', label: 'Trở về', icon: ChevronLeft, isAction: false, isBack: true },
+              ...filteredInventoryItems
+            ];
+          } else if (location.pathname.startsWith('/devices') || location.pathname.startsWith('/measured-equipments') || location.pathname.startsWith('/measurements')) {
+            itemsToRender = [
+              { path: '/', label: 'Trở về', icon: ChevronLeft, isAction: false, isBack: true },
+              ...filteredDeviceItems
+            ];
+          } else if (location.pathname.startsWith('/hr') || location.pathname.startsWith('/shift') || location.pathname.startsWith('/events')) {
+            itemsToRender = [
+              { path: '/', label: 'Trở về', icon: ChevronLeft, isAction: false, isBack: true },
+              ...filteredHrItems
+            ];
+          } else {
+            // Main navigation
+            itemsToRender = [
+              { path: '/', label: 'Tổng quan', icon: LayoutDashboard },
+              { path: '/inventory/items', label: 'Vật tư', icon: Package },
+              { path: '/devices', label: 'Thiết bị', icon: Server },
+              { path: '/hr-tasks', label: 'Công việc', icon: ClipboardCheck },
+              { path: 'menu', label: 'Menu', icon: Menu, isAction: true },
+            ];
+          }
+
+          return itemsToRender.map((item, index) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path || (!item.isBack && item.path !== '/' && !item.isAction && location.pathname.startsWith(item.path));
+            const isMenuAction = item.isAction && item.path === 'menu';
+            
+            const btnClass = `snap-center shrink-0 flex flex-col items-center justify-center min-w-[72px] px-2 h-full space-y-1 ${isActive ? 'text-indigo-600' : 'text-gray-500'}`;
+
+            if (isMenuAction) {
+              return (
+                <button key="menu-btn" onClick={() => setIsMobileMenuOpen(true)} className={btnClass}>
+                  <Icon className="w-6 h-6" />
+                  <span className="text-[10px] font-medium whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">{item.label}</span>
+                </button>
+              );
+            }
+
+            return (
+              <Link key={item.path + index} to={item.path} className={btnClass}>
+                <div className={`${item.isBack ? 'bg-gray-100 rounded-full p-1' : ''}`}>
+                  <Icon className={`${item.isBack ? 'w-5 h-5 text-gray-700' : 'w-6 h-6'}`} />
+                </div>
+                <span className="text-[10px] font-medium whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">{item.label}</span>
+              </Link>
+            );
+          });
+        })()}
+      </div>
     </div>
   );
 };
