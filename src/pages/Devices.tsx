@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, subscribeToTable } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Search, Server, Edit, Trash2, Upload, Eye, Zap, X } from 'lucide-react';
+import { Plus, Search, Server, Edit, Trash2, Upload, Eye, Zap, X, CheckCircle, CheckCircle2 } from 'lucide-react';
+import { VerifyDevicesModal } from '../components/VerifyDevicesModal';
 import { DeviceProfileModal } from '../components/DeviceProfileModal';
 import { DeviceDetailsModal } from '../components/DeviceDetailsModal';
 import { SiblingDevicesModal } from '../components/SiblingDevicesModal';
@@ -24,6 +25,7 @@ export const Devices: React.FC = () => {
   const [selectedComponentLabel, setSelectedComponentLabel] = useState<string | null>(null);
   const [siblingModalOpen, setSiblingModalOpen] = useState(false);
   const [siblingModalDevices, setSiblingModalDevices] = useState<any[]>([]);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [siblingModalCode, setSiblingModalCode] = useState<string>('');
   const [importing, setImporting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -543,8 +545,11 @@ export const Devices: React.FC = () => {
               <Upload className="w-4 h-4 mr-2" />
               {bulkImporting ? 'Đang import...' : 'Import Chi tiết'}
             </button>
-            <button 
-              onClick={handleAddNew}
+            <button onClick={() => setIsVerifyModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center text-sm font-medium shadow-sm mr-2">
+                <CheckCircle className="w-4 h-4 mr-2" /> Xác nhận đã kiểm tra
+              </button>
+              <button 
+                onClick={handleAddNew}
               className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center text-sm font-medium"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -789,7 +794,16 @@ export const Devices: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredDevices.map((device) => (
                   <tr key={device.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{device.code}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        {device.code}
+                        {device.last_verified_at && new Date().getTime() - new Date(device.last_verified_at).getTime() < 30 * 24 * 60 * 60 * 1000 && (
+                          <span title={`Đã kiểm tra lúc ${new Date(device.last_verified_at).toLocaleString('vi-VN')}`} className="text-green-500 flex items-center justify-center bg-green-50 rounded-full w-5 h-5">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{device.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{device.location}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -857,6 +871,15 @@ export const Devices: React.FC = () => {
         message="Bạn có chắc chắn muốn xóa thiết bị này? Hành động này không thể hoàn tác."
         onConfirm={confirmDelete}
         onCancel={() => setDeleteConfirmId(null)}
+      />
+    
+      <VerifyDevicesModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+        devices={devices}
+        onVerified={() => {
+          fetchDevices();
+        }}
       />
     </div>
   );

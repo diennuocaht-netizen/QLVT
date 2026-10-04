@@ -219,7 +219,12 @@ export const InventoryItems: React.FC = () => {
         } catch (e) {
           // ignore
         }
-        import('../utils/activityLogger').then(mod => mod.logActivity({ action: 'delete_item', entityType: 'inventory_item', entityId: id }));
+        const itemToDelete = items.find(i => i.id === id);
+          if (itemToDelete) {
+            import('../utils/activityLogger').then(mod => mod.logActivity({ action: 'delete_item', entityType: 'inventory_item', entityId: id, details: { code: itemToDelete.code, name: itemToDelete.name } }));
+          } else {
+            import('../utils/activityLogger').then(mod => mod.logActivity({ action: 'delete_item', entityType: 'inventory_item', entityId: id }));
+          }
       } catch (error) {
         console.error('Error deleting item:', error);
         alert('Lỗi xóa vật tư: ' + (error instanceof Error ? error.message : 'Unknown error'));

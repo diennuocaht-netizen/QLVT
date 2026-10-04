@@ -22,11 +22,11 @@ export const Dashboard: React.FC = () => {
   const fetchStats = async () => {
     try {
       const [docRes, devRes, userRes, taskRes, eventRes] = await Promise.all([
-        supabase.from('iso_documents').select('id', { count: 'exact', head: true }),
+        supabase.from('documents').select('id', { count: 'exact', head: true }),
         supabase.from('devices').select('id', { count: 'exact', head: true }),
         supabase.from('users').select('id', { count: 'exact', head: true }),
         supabase.from('hr_shift_tasks').select('id', { count: 'exact', head: true }).eq('date', new Date().toISOString().split('T')[0]),
-        supabase.from('hr_events').select('id', { count: 'exact', head: true }).eq('status', 'in_progress')
+        supabase.from('hr_events').select('id', { count: 'exact', head: true }).in('status', ['ongoing', 'upcoming'])
       ]);
 
       setStats({
@@ -155,12 +155,22 @@ export const Dashboard: React.FC = () => {
     }
 
     // Fetch Ongoing Events
-    const { data: events } = await supabase
+    const { data: eventsData, error: evError } = await supabase
       .from('hr_events')
-      .select('id, title, progress, status, end_date')
-      .eq('status', 'in_progress')
-      .order('end_date', { ascending: true })
+      .select('id, title, status, start_time, end_time, hr_event_tasks(id, status)')
+      .in('status', ['ongoing', 'upcoming'])
+      .order('start_time', { ascending: true })
       .limit(3);
+
+    let events = eventsData;
+    if (eventsData) {
+      events = eventsData.map(ev => {
+        const tasks = ev.hr_event_tasks || [];
+        const completedTasks = tasks.filter((t: any) => t.status === 'done').length;
+        const progress = tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
+        return { ...ev, progress };
+      });
+    }
 
     if (events) setOngoingEvents(events);
   };
@@ -322,7 +332,7 @@ export const Dashboard: React.FC = () => {
                     <div className="w-full bg-gray-100 rounded-full h-1.5 mb-3">
                       <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${event.progress}%` }}></div>
                     </div>
-                    <div className="text-xs text-red-600 font-medium">Hạn chót: {new Date(event.end_date).toLocaleDateString('vi-VN')}</div>
+                    <div className="text-xs text-red-600 font-medium">Hạn chót: {event.start_time ? new Date(event.start_time).toLocaleDateString('vi-VN') : 'Chưa xếp lịch'}</div>
                   </div>
                 ))
               )}
@@ -417,6 +427,9 @@ export const Dashboard: React.FC = () => {
                         <div>
                           <p className="text-xs text-gray-800 leading-snug">
                             <span className="font-semibold">{act.user_name || act.user_email?.split('@')[0] || 'Hệ thống'}</span> {actText} <span className="font-semibold">{entity}</span>
+                            {act.details && (act.details.name || act.details.title || act.details.code) && (
+                              <span className="text-gray-600 font-medium"> ({act.details.code ? act.details.code + ' - ' : ''}{act.details.name || act.details.title})</span>
+                            )}
                           </p>
                           <p className="text-[10px] text-gray-400 mt-1">{new Date(act.created_at).toLocaleString('vi-VN')}</p>
                         </div>
