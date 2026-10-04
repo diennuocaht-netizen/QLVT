@@ -151,7 +151,7 @@ export const InventoryAudits: React.FC = () => {
                   <span className="font-medium text-gray-800">{audit.notes || '-'}</span>
                 </div>
                 <div className="flex justify-end gap-2 border-t pt-3">
-                  <button className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md" title="Chi tiết">
+                  <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md" title="Chi tiết">
                     <FileText size={18} />
                   </button>
                 </div>
