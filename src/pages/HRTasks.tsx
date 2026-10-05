@@ -259,65 +259,60 @@ export const HRTasks: React.FC = () => {
 
   return (
     <div className="space-y-6 h-[calc(100vh-6rem)] flex flex-col">
-      <div className="flex justify-between items-center shrink-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Công việc & Giao ca</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 whitespace-nowrap">Công việc & Giao ca</h1>
           <p className="text-gray-500 text-sm mt-1">Quản lý công việc trong ngày và bàn giao cho ca tiếp theo.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 mt-2 md:mt-0">
           {canEdit && (
               <>
                 <button
-                  className="bg-gray-100 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-200 flex items-center shadow-sm font-medium transition-colors border border-gray-200"
+                  className="inline-flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 shadow-sm transition-colors border border-gray-200"
                   onClick={() => setIsRoutineModalOpen(true)}
                   title="Cấu hình Checklist cho ca"
                 >
-                  <Settings className="w-4 h-4 mr-1.5" />
-                  Cấu hình
-                </button>
+                  <Settings size={18} />
+                  <span className="hidden sm:inline">Cấu hình</span></button>
                 <button
-                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center shadow-sm font-medium transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium bg-green-600 text-white rounded-md hover:bg-green-700 shadow-sm transition-colors"
                   onClick={generateRoutineTasks}
                   title="Tự động tạo Checklist đã cấu hình cho ca"
                 >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Checklist
-                </button>
+                  <FileText size={18} />
+                  <span className="hidden sm:inline">Checklist</span></button>
               </>
             )}
           <button
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center shadow-sm font-medium transition-colors"
+            className="inline-flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors whitespace-nowrap"
             onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Tạo công việc
-          </button>
+            <Plus size={18} />
+            <span className="hidden sm:inline">Tạo công việc</span><span className="sm:hidden">Tạo mới</span></button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 shrink-0">
-        <div className="flex flex-col md:flex-row gap-4 items-end">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 md:p-4 shrink-0">
+        <div className="flex flex-wrap gap-2 md:gap-4 items-center">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Ngày làm việc</label>
             <div className="relative">
               <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-40"
+                className="pl-10 pr-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-36 md:w-40"
               />
             </div>
           </div>
           
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Ca làm việc</label>
             <div className="relative">
               <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <select
                 value={selectedShiftId}
                 onChange={(e) => setSelectedShiftId(e.target.value)}
-                className="pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-48 appearance-none"
+                className="pl-10 pr-8 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-40 md:w-48 appearance-none"
               >
                 <option value="all">Tất cả các ca</option>
                 {shiftTypes.map(st => (
@@ -327,14 +322,14 @@ export const HRTasks: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
               placeholder="Tìm kiếm công việc..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full pl-10 pr-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
         </div>
@@ -509,7 +504,7 @@ export const HRTasks: React.FC = () => {
                     value={completionNote}
                     onChange={(e) => setCompletionNote(e.target.value)}
                     rows={4}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-4 py-1.5 md:py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                     placeholder="Ví dụ: Đã thay thế aptomat mới, thông số dòng ổn định 15A..."
                   />
                 </div>
@@ -537,7 +532,7 @@ export const HRTasks: React.FC = () => {
                       setSelectedCompleters([...selectedCompleters, val]);
                     }
                   }}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="w-full px-3 py-1.5 md:py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 >
                   <option value="">-- Chọn thêm người hoàn thành --</option>
                   {users.filter(u => !selectedCompleters.includes(u.id)).map(u => (
@@ -551,14 +546,14 @@ export const HRTasks: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCompletingTask(null)}
-                className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-5 py-1.5 md:py-2 text-sm.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Hủy
               </button>
               <button
                 onClick={handleCompleteTask}
                 disabled={loading}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
+                className="px-5 py-1.5 md:py-2 text-sm.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
               >
                 {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : null}
                 Lưu & Hoàn thành

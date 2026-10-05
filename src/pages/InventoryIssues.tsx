@@ -221,36 +221,33 @@ export const InventoryIssues: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">Phiếu Xuất Kho</h1>
-        <div className="flex gap-2 flex-wrap">
-          {(profile?.role === 'admin' || profile?.role === 'manager') && (
+        <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Phiếu Xuất Kho</h1>
+          <div className="flex flex-wrap gap-2">
+            {(profile?.role === 'admin' || profile?.role === 'manager') && (
+              <button
+                onClick={() => setIsGlobalCompleteModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-sm"
+              >
+                <CheckCircle size={18} /> Hoàn Thành
+              </button>
+            )}
             <button
-              onClick={() => setIsGlobalCompleteModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+              onClick={() => { setEditingSlip(null); setIsModalOpen(true); }}
+              className="flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm"
             >
-              <CheckCircle size={20} /> Tạo Biên Bản Hoàn Thành
+              <Plus size={18} /> Thêm Phiếu
             </button>
-          )}
-          <button
-            onClick={() => {
-              setEditingSlip(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            <Plus size={20} /> Thêm Phiếu Xuất
-          </button>
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <Download size={20} /> Xuất Excel
-          </button>
+            <button
+              onClick={handleExportExcel}
+              className="hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm"
+            >
+              <Download size={18} /> Xuất Excel
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Search */}
+        {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-3 text-gray-400" size={20} />
         <input
@@ -375,7 +372,7 @@ export const InventoryIssues: React.FC = () => {
         </div>
 
         {/* Mobile View */}
-        <div className="md:hidden grid grid-cols-1 gap-4">
+        <div className="md:hidden grid grid-cols-1 gap-4 pb-24">
           {filteredSlips.length === 0 ? (
             <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow">Không có phiếu xuất nào</div>
           ) : (

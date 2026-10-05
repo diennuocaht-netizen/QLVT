@@ -882,7 +882,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-[90vw] max-h-[90vh] flex flex-col">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-[95vw] md:max-w-[90vw] max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-6 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-900">
             {slip ? (type === SlipType.Receipt ? 'Cập nhật Phiếu Nhập' : 'Cập nhật Phiếu Xuất') : (type === SlipType.Receipt ? 'Tạo Phiếu Nhập mới' : 'Tạo Phiếu Xuất mới')}
@@ -906,7 +906,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
             </div>
           )}
           <form id="slip-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mã Phiếu</label>
                 <input
@@ -957,7 +957,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500 outline-none transition-all"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mục đích</label>
                 <input
                   type="text"
@@ -986,9 +986,9 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                   </div>
                   
                   {formData.receiptType === 'Theo tờ trình' && (
-                    <div className="col-span-2 p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                    <div className="col-span-1 sm:col-span-2 p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
                       <label className="block text-sm font-medium text-indigo-900 mb-2">Chọn tờ trình mua sắm</label>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                         <select
                           value={selectedRequisitionId}
                           onChange={(e) => setSelectedRequisitionId(e.target.value)}
@@ -1017,7 +1017,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
             </div>
 
             <div className="mt-8">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                 <h3 className="text-lg font-medium text-gray-900">Danh sách Vật tư</h3>
                 <div className="flex gap-2">
                   <button

@@ -495,7 +495,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
           )}
 
           <form id="quick-issue-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ngày xuất *</label>
                 <input
@@ -581,7 +581,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
                 </select>
               </div>
 
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mã chi phí (tự động)</label>
                 <input
                   type="text"
@@ -594,7 +594,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
                 <p className="text-xs text-gray-500 mt-1">Trường này sẽ tự động điền dựa vào hệ thống, mục đích và phương thức</p>
               </div>
 
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
                 <textarea
                   name="notes"

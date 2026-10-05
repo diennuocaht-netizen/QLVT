@@ -75,9 +75,9 @@ export const MeasurementRecords: React.FC = () => {
 
   return (
     <div className="p-6 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center whitespace-nowrap">
             <ClipboardList className="w-6 h-6 mr-2 text-indigo-600" />
             Biên bản đo đạc định kỳ
           </h1>
@@ -86,7 +86,7 @@ export const MeasurementRecords: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+        <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-gray-50">
           <div className="relative w-64">
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
@@ -100,7 +100,7 @@ export const MeasurementRecords: React.FC = () => {
           
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
           >
             <Plus className="w-5 h-5 mr-2" />
             Thêm biên bản mới

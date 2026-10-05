@@ -464,28 +464,25 @@ export const InventoryReceipts: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Phiếu Nhập Kho</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setEditingSlip(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus size={20} /> Thêm Phiếu Nhập
-          </button>
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <Download size={20} /> Xuất Excel
-          </button>
+        <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Phiếu Nhập Kho</h1>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => { setEditingSlip(null); setIsModalOpen(true); }}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
+            >
+              <Plus size={18} /> Thêm Phiếu Nhập
+            </button>
+            <button
+              onClick={handleExportExcel}
+              className="hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm"
+            >
+              <Download size={18} /> Xuất Excel
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Search */}
+        {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-3 text-gray-400" size={20} />
         <input
@@ -594,7 +591,7 @@ export const InventoryReceipts: React.FC = () => {
         </div>
 
         {/* Mobile View */}
-        <div className="md:hidden grid grid-cols-1 gap-4">
+        <div className="md:hidden grid grid-cols-1 gap-4 pb-24">
           {filteredSlips.length === 0 ? (
             <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow">Không có phiếu nhập nào</div>
           ) : (

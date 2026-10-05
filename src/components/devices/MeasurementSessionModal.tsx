@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabase-client';
 import { MeasurementForm, MeasurementField, ChecklistItem } from '../../types/measurement';
-import { X, Save, ClipboardList, CheckSquare } from 'lucide-react';
+import { X, Save, ClipboardList, CheckSquare, Search } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface MeasurementSessionModalProps {
@@ -22,6 +22,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
   const [recordName, setRecordName] = useState('');
   const [selectedFormId, setSelectedFormId] = useState<string>('');
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<string[]>([]);
+  const [searchEqTerm, setSearchEqTerm] = useState('');
   
   // Step 2 data
   const [step, setStep] = useState<1 | 2>(1);
@@ -101,11 +102,25 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
     );
   };
 
+  const filteredAvailableEquipments = availableEquipments.filter(eq => 
+    eq.name.toLowerCase().includes(searchEqTerm.toLowerCase()) || 
+    eq.code.toLowerCase().includes(searchEqTerm.toLowerCase()) || 
+    (eq.location && eq.location.toLowerCase().includes(searchEqTerm.toLowerCase()))
+  );
+
   const handleSelectAllEq = () => {
-    if (selectedEquipmentIds.length === availableEquipments.length) {
-      setSelectedEquipmentIds([]);
+    const filteredIds = filteredAvailableEquipments.map(e => e.id);
+    const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedEquipmentIds.includes(id));
+    
+    if (allFilteredSelected) {
+      // Deselect all filtered items
+      setSelectedEquipmentIds(prev => prev.filter(id => !filteredIds.includes(id)));
     } else {
-      setSelectedEquipmentIds(availableEquipments.map(e => e.id));
+      // Select all filtered items (merge with currently selected)
+      setSelectedEquipmentIds(prev => {
+        const set = new Set([...prev, ...filteredIds]);
+        return Array.from(set);
+      });
     }
   };
 
@@ -228,7 +243,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
           {fetchingForms ? (
             <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
           ) : step === 1 ? (
-            <div className="space-y-6 max-w-2xl mx-auto bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <div className="space-y-6 max-w-2xl mx-auto bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Tên biên bản <span className="text-red-500">*</span></label>
                 <input
@@ -260,12 +275,26 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                   <label className="block text-sm font-semibold text-gray-700">Thiết bị/Máy móc cần kiểm tra <span className="text-red-500">*</span></label>
                   {!isViewOnly && (
                     <button type="button" onClick={handleSelectAllEq} className="text-xs text-indigo-600 hover:underline">
-                      {selectedEquipmentIds.length === availableEquipments.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                      {filteredAvailableEquipments.length > 0 && filteredAvailableEquipments.every(eq => selectedEquipmentIds.includes(eq.id)) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                     </button>
                   )}
                 </div>
+                {!isViewOnly && (
+                  <div className="mb-2 relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="Tìm kiếm máy móc, thiết bị..."
+                      value={searchEqTerm}
+                      onChange={(e) => setSearchEqTerm(e.target.value)}
+                    />
+                  </div>
+                )}
                 <div className="border border-gray-300 rounded-md max-h-60 overflow-y-auto bg-white divide-y divide-gray-100">
-                  {availableEquipments.map(eq => (
+                  {filteredAvailableEquipments.map(eq => (
                     <label key={eq.id} className={`flex items-center px-4 py-3 ${isViewOnly ? 'opacity-70' : 'hover:bg-gray-50 cursor-pointer'}`}>
                       <input
                         type="checkbox"
@@ -280,7 +309,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                       </div>
                     </label>
                   ))}
-                  {availableEquipments.length === 0 && (
+                  {filteredAvailableEquipments.length === 0 && (
                     <div className="p-4 text-sm text-gray-500 text-center">Chưa có thiết bị nào.</div>
                   )}
                 </div>
@@ -291,13 +320,16 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
             <div className="space-y-6">
               {/* Checklist Section */}
               {selectedForm?.checklist_items && selectedForm.checklist_items.length > 0 && (
-                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+                <div className="bg-white p-3 sm:p-6 rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2 flex items-center">
                     <CheckSquare className="w-5 h-5 mr-2 text-indigo-600" />
                     BẢNG 1: NỘI DUNG KIỂM TRA CHUNG
                   </h3>
-                  <table className="w-full border-collapse text-sm min-w-max">
-                    <thead>
+                  {(() => {
+    const equipmentColumnsForChecklist = selectedForm?.checklist_metadata?.isCombinedMode ? ['combined'] : selectedEquipmentIds;
+    return (
+      <table className="w-full border-collapse text-sm min-w-max">
+        <thead>
                       <tr className="bg-gray-100 border border-gray-300">
                         <th className="border border-gray-300 p-2 w-12 text-center">STT</th>
                         <th className="border border-gray-300 p-2 text-left w-64 min-w-[250px]">
@@ -322,14 +354,14 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                         {isViewOnly && Object.keys(legacyChecklist).length > 0 ? (
                           <th className="border border-gray-300 p-2 text-center bg-yellow-50 min-w-[200px]">Tất cả thiết bị (Dữ liệu cũ)</th>
                         ) : (
-                          selectedEquipmentIds.map(eqId => {
-                            const eq = availableEquipments.find(e => e.id === eqId);
-                            return (
-                              <th key={eqId} className="border border-gray-300 p-2 text-center bg-indigo-50 min-w-[200px]">
-                                <div className="font-bold text-indigo-900">{eq?.name}</div>
-                              </th>
-                            );
-                          })
+                          equipmentColumnsForChecklist.map(eqId => {
+    const eqName = eqId === 'combined' ? 'Kết quả chung' : availableEquipments.find(e => e.id === eqId)?.name;
+    return (
+      <th key={eqId} className="border border-gray-300 p-2 text-center bg-indigo-50 min-w-[200px]">
+        <div className="font-bold text-indigo-900">{eqName}</div>
+      </th>
+    );
+  })
                         )}
                       </tr>
                     </thead>
@@ -339,7 +371,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                         const customColsCount = selectedForm.checklist_metadata?.customColumns?.length 
                           || (selectedForm.checklist_items.some(i => i.description) ? 1 : 0) + (selectedForm.checklist_items.some(i => i.standard) ? 1 : 0);
                         
-                        const eqColsCount = (isViewOnly && Object.keys(legacyChecklist).length > 0) ? 1 : selectedEquipmentIds.length;
+                        const eqColsCount = (isViewOnly && Object.keys(legacyChecklist).length > 0) ? 1 : equipmentColumnsForChecklist.length;
                         const colSpanBase = 2 + customColsCount + eqColsCount;
                         let globalIndex = 0;
 
@@ -386,9 +418,9 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                                       </div>
                                     </td>
                                   ) : (
-                                    selectedEquipmentIds.map(eqId => {
-                                      const val = checklistByEquipment[eqId]?.[item.id]?.status;
-                                      const note = checklistByEquipment[eqId]?.[item.id]?.note || '';
+                                    equipmentColumnsForChecklist.map(eqId => {
+    const val = checklistByEquipment[eqId]?.[item.id]?.status;
+    const note = checklistByEquipment[eqId]?.[item.id]?.note || '';
                                       return (
                                         <td key={eqId} className="border border-gray-300 p-1">
                                           <div className="flex flex-col space-y-1">
@@ -422,17 +454,22 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                           </React.Fragment>
                         ));
                       })()}
-                    </tbody>
-                  </table>
-                </div>
+                          </tbody>
+      </table>
+    );
+  })()}
+</div>
               )}
 
               {/* Parameters Table Section */}
               {selectedForm?.measurement_fields && selectedForm.measurement_fields.length > 0 && (
-                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+                <div className="bg-white p-3 sm:p-6 rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">BẢNG 2: BẢNG THÔNG SỐ ĐO ĐẠC</h3>
-                  <table className="w-full border-collapse text-sm min-w-max">
-                    <thead>
+                  {(() => {
+    const equipmentColumnsForChecklist = selectedForm?.checklist_metadata?.isCombinedMode ? ['combined'] : selectedEquipmentIds;
+    return (
+      <table className="w-full border-collapse text-sm min-w-max">
+        <thead>
                       <tr className="bg-gray-100 border border-gray-300">
                         <th rowSpan={2} className="border border-gray-300 p-2 text-center w-12">STT</th>
                         <th rowSpan={2} className="border border-gray-300 p-2 text-left w-48">Tên thiết bị</th>
@@ -490,13 +527,15 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                          </tbody>
+      </table>
+    );
+  })()}
+</div>
               )}
 
               {/* Post Maintenance Notes */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <div className="bg-white p-3 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">ĐÁNH GIÁ SAU BẢO TRÌ</h3>
                 <textarea
                   value={postMaintenanceNote}
@@ -511,7 +550,7 @@ export const MeasurementSessionModal: React.FC<MeasurementSessionModalProps> = (
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex justify-end space-x-3 bg-white rounded-b-lg">
+        <div className="p-4 sm:p-6 border-t border-gray-200 flex justify-end space-x-3 bg-white rounded-b-lg">
           {step === 2 && !isViewOnly && (
             <button
               type="button"

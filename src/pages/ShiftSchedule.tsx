@@ -601,18 +601,18 @@ export const ShiftSchedule: React.FC = () => {
 
   return (
     <div className="p-6 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Phân ca làm việc</h1>
           <p className="text-sm text-gray-500 mt-1">Quản lý lịch trực của nhân sự theo tháng</p>
         </div>
-        <div className="flex space-x-3">
-          <div className="relative">
-            <Users className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          <div className="relative flex-1 min-w-[200px]">
+              <Users className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <select
               value={selectedEmpId}
               onChange={(e) => setSelectedEmpId(e.target.value)}
-              className="pl-9 pr-8 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white cursor-pointer"
+              className="w-full pl-9 pr-8 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white cursor-pointer"
             >
               <option value="">-- Tất cả nhân sự --</option>
               {employees.map(emp => (
@@ -661,8 +661,8 @@ export const ShiftSchedule: React.FC = () => {
             </div>
           )}
           
-          <div className="flex space-x-2 text-xs">
-            {canEdit && (
+          <div className="flex flex-wrap gap-2 text-xs">
+              {canEdit && (
               <>
                 <input 
                   type="file" 
@@ -673,31 +673,31 @@ export const ShiftSchedule: React.FC = () => {
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                  className="px-2 md:px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
                   title="Nhập lịch từ file Excel"
                 >
-                  <Upload className="w-4 h-4 mr-1.5" />
-                  Nhập Excel
+                  <Upload className="w-4 h-4 lg:mr-1.5" />
+                    <span className="hidden lg:inline">Nhập Excel</span>
                 </button>
                 
                 <button
                   onClick={handleSyncEmployees}
                   disabled={syncing}
-                  className="px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                  className="px-2 md:px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
                   title="Đồng bộ lại nhân sự mới từ hệ thống"
                 >
-                  <Users className="w-4 h-4 mr-1.5" />
-                  Đồng bộ NS
+                  <Users className="w-4 h-4 lg:mr-1.5" />
+                    <span className="hidden lg:inline">Đồng bộ NS</span>
                 </button>
                 
                 <button
                   onClick={handleDiscard}
                   disabled={!hasUnsavedChanges || saving}
-                  className={`px-3 py-1.5 rounded-md flex items-center text-sm font-medium ${hasUnsavedChanges ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed hidden'}`}
+                  className={`px-2 md:px-3 py-1.5 rounded-md flex items-center text-sm font-medium ${hasUnsavedChanges ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed hidden'}`}
                   title="Bỏ qua các thay đổi chưa lưu"
                 >
-                  <RotateCcw className="w-4 h-4 mr-1.5" />
-                  Hủy thay đổi
+                  <RotateCcw className="w-4 h-4 lg:mr-1.5" />
+                    <span className="hidden lg:inline">Hủy thay đổi</span>
                 </button>
                 
                 <button
@@ -706,17 +706,17 @@ export const ShiftSchedule: React.FC = () => {
                   className={`px-4 py-1.5 rounded-md flex items-center text-sm shadow-sm font-medium ${hasUnsavedChanges ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
                 >
                   {saving ? <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-4 h-4 mr-1.5" />}
-                  Lưu thay đổi
-                </button>
+                  <span className="hidden lg:inline">Lưu thay đổi</span>
+                  </button>
             </>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
         <div className="flex items-center space-x-4">
           <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft className="w-5 h-5" /></button>
-          <h2 className="text-lg font-bold text-gray-800 w-32 text-center">Tháng {currentDate.getMonth() + 1} / {currentDate.getFullYear()}</h2>
+          <h2 className="text-base md:text-lg font-bold text-gray-800 w-auto px-2 text-center">Tháng {currentDate.getMonth() + 1} / {currentDate.getFullYear()}</h2>
           <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded-full"><ChevronRight className="w-5 h-5" /></button>
         </div>
         
@@ -744,8 +744,8 @@ export const ShiftSchedule: React.FC = () => {
               </button>
             </div>
           )}
-          <div className="flex space-x-2 text-xs">
-          {shiftTypes.map(st => (
+          <div className="hidden xl:flex flex-wrap gap-2 text-xs">
+            {shiftTypes.map(st => (
             <div key={st.id} className="flex items-center space-x-1 border px-2 py-1 rounded" style={{ backgroundColor: st.bg_color === 'transparent' ? '#fff' : st.bg_color }}>
               <span className="font-bold" style={{ color: st.text_color }}>{st.code}</span>
               <span className="text-gray-600">: {st.name}</span>
@@ -789,20 +789,20 @@ export const ShiftSchedule: React.FC = () => {
                         />
                       )}
                     </th>
-                    <th className="border border-gray-300 p-2 text-center bg-gray-50 w-8">STT</th>
-                  <th className="border border-gray-300 p-2 text-left bg-gray-50 w-48 sticky left-0 z-20">Họ và tên</th>
-                  <th className="border border-gray-300 p-2 text-left bg-gray-50 w-40">Chức danh</th>
+                    <th className="hidden md:table-cell border border-gray-300 p-2 text-center bg-gray-50 w-8">STT</th>
+                  <th className="border border-gray-300 p-2 text-left bg-gray-50 min-w-[120px] w-32 md:w-48 sticky left-0 z-20 shadow-[1px_0_0_0_rgba(209,213,219,1)] md:shadow-none">Họ và tên</th>
+                  <th className="hidden md:table-cell border border-gray-300 p-2 text-left bg-gray-50 w-40">Chức danh</th>
                   {days.map(d => (
                     <th key={d.dateStr} className={`border border-gray-300 p-1 text-center min-w-[32px] ${d.dayOfWeek === 0 || d.dayOfWeek === 6 ? 'bg-orange-50' : 'bg-gray-50'}`}>
                       <div className="text-[10px] text-gray-500">{getDayLabel(d.dayOfWeek)}</div>
                       <div className={`font-bold ${d.dayOfWeek === 0 ? 'text-red-500' : ''}`}>{d.dayNum}</div>
                     </th>
                   ))}
-                  <th className="border border-gray-300 p-2 text-center bg-gray-100 w-12 text-xs">Nghỉ OFF</th>
-                  <th className="border border-gray-300 p-2 text-center bg-gray-100 w-12 text-xs">Nghỉ Phép</th>
-                  <th className="border border-gray-300 p-2 text-center bg-red-100 text-red-800 w-12 text-xs font-bold">Ca N</th>
-                  <th className="border border-gray-300 p-2 text-center bg-gray-50 w-16">RMIT</th>
-                  {canEdit && <th className="border border-gray-300 p-2 text-center bg-gray-50 w-10"></th>}
+                  <th className="hidden md:table-cell border border-gray-300 p-2 text-center bg-gray-100 w-12 text-xs">Nghỉ OFF</th>
+                  <th className="hidden md:table-cell border border-gray-300 p-2 text-center bg-gray-100 w-12 text-xs">Nghỉ Phép</th>
+                  <th className="hidden md:table-cell border border-gray-300 p-2 text-center bg-red-100 text-red-800 w-12 text-xs font-bold">Ca N</th>
+                  <th className="hidden md:table-cell border border-gray-300 p-2 text-center bg-gray-50 w-16">RMIT</th>
+                  {canEdit && <th className="hidden md:table-cell border border-gray-300 p-2 text-center bg-gray-50 w-10"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -847,7 +847,7 @@ export const ShiftSchedule: React.FC = () => {
                               />
                             )}
                           </td>
-                          <td className="border border-gray-300 p-2 text-center font-medium">{idx + 1}</td>
+                          <td className="hidden md:table-cell border border-gray-300 p-2 text-center font-medium">{idx + 1}</td>
                         <td className="border border-gray-300 p-0 font-bold sticky left-0 z-10 bg-white" style={{ backgroundColor: teamColor !== 'transparent' ? teamColor : '#fff' }}>
                           <input 
                             type="text" 
@@ -857,7 +857,7 @@ export const ShiftSchedule: React.FC = () => {
                             readOnly={!canEdit}
                           />
                         </td>
-                        <td className="border border-gray-300 p-0 text-xs" style={{ backgroundColor: teamColor !== 'transparent' ? teamColor : '#fff' }}>
+                        <td className="hidden md:table-cell border border-gray-300 p-0 text-xs" style={{ backgroundColor: teamColor !== 'transparent' ? teamColor : '#fff' }}>
                           <input 
                             type="text" 
                             className="w-full h-full border-0 bg-transparent px-2 py-2 focus:ring-1 focus:ring-indigo-500 text-xs"
@@ -894,10 +894,10 @@ export const ShiftSchedule: React.FC = () => {
                           );
                         })}
                         
-                        <td className="border border-gray-300 p-2 text-center font-bold bg-gray-50">{stats.offDays}</td>
-                        <td className="border border-gray-300 p-2 text-center font-bold bg-gray-50">{stats.leaveDays}</td>
-                        <td className="border border-gray-300 p-2 text-center font-bold bg-red-50 text-red-600">{stats.nightShifts}</td>
-                        <td className="border border-gray-300 p-1 text-center">
+                        <td className="hidden md:table-cell border border-gray-300 p-2 text-center font-bold bg-gray-50">{stats.offDays}</td>
+                        <td className="hidden md:table-cell border border-gray-300 p-2 text-center font-bold bg-gray-50">{stats.leaveDays}</td>
+                        <td className="hidden md:table-cell border border-gray-300 p-2 text-center font-bold bg-red-50 text-red-600">{stats.nightShifts}</td>
+                        <td className="hidden md:table-cell border border-gray-300 p-1 text-center">
                           <input 
                             type="text" 
                             className="w-full h-full border-0 bg-transparent text-center text-xs font-bold focus:ring-0" 
@@ -906,7 +906,7 @@ export const ShiftSchedule: React.FC = () => {
                             title="Cột này cần cập nhật qua form riêng (tương lai)"
                           />
                         </td>
-                        <td className="border border-gray-300 p-1 text-center bg-gray-50">
+                        <td className="hidden md:table-cell border border-gray-300 p-1 text-center bg-gray-50">
                           {canEdit && (
                             <button 
                               onClick={() => handleDeleteEmployee(emp.id, emp.full_name)}
@@ -927,7 +927,7 @@ export const ShiftSchedule: React.FC = () => {
         ) : (
           <div className="flex-1 p-4 overflow-auto bg-gray-50">
             {/* Calendar View Implementation */}
-            <div className="grid grid-cols-7 gap-4">
+            <div className="grid grid-cols-7 gap-2 md:gap-4 min-w-[800px] md:min-w-0">
               {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((day, idx) => (
                 <div key={day} className={`text-center font-bold py-2 ${idx === 0 ? 'text-red-500' : 'text-gray-700'}`}>{day}</div>
               ))}

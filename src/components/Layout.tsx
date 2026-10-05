@@ -322,6 +322,8 @@ export const Layout: React.FC = () => {
             // Main navigation
             itemsToRender = [
               { path: '/', label: 'Tổng quan', icon: LayoutDashboard },
+              { path: '/projects', label: 'Dự án', icon: Briefcase },
+              { path: '/documents', label: 'Tài liệu', icon: FileText },
               { path: '/inventory/items', label: 'Vật tư', icon: Package },
               { path: '/devices', label: 'Thiết bị', icon: Server },
               { path: '/hr-tasks', label: 'Công việc', icon: ClipboardCheck },

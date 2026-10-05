@@ -228,8 +228,8 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
                 : "Không có vật tư nào đang chờ hoàn thành trong các phiếu đã chọn."}
             </div>
           ) : (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border border-gray-200 rounded-lg overflow-x-auto">
+              <table className="w-full text-sm whitespace-nowrap">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">Nguồn (Mã Phiếu)</th>

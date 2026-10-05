@@ -185,7 +185,7 @@ export const DetailAuditModal: React.FC<DetailAuditModalProps> = ({ isOpen, onCl
               <div className="text-center py-8 text-gray-500">Đang tải dữ liệu...</div>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full text-sm text-left">
+                <table className="w-full text-sm text-left whitespace-nowrap">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
                       <th className="px-4 py-3 font-semibold w-12 text-center">STT</th>

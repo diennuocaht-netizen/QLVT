@@ -153,40 +153,37 @@ export const HRTaskLog: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 shrink-0 flex flex-wrap gap-4 items-end justify-between">
-        <div className="flex flex-wrap gap-4 items-end">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 md:p-4 shrink-0 flex flex-wrap gap-2 md:gap-4 items-center justify-between">
+        <div className="flex flex-wrap gap-2 md:gap-4 items-center">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Từ ngày</label>
           <div className="relative">
             <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-40"
+              className="pl-10 pr-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-36 md:w-40"
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Đến ngày</label>
           <div className="relative">
             <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-40"
+              className="pl-10 pr-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-36 md:w-40"
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Lọc phân hệ</label>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <select
               value={selectedSubsystem}
               onChange={(e) => setSelectedSubsystem(e.target.value)}
-              className="pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-48 appearance-none bg-white"
+              className="pl-10 pr-8 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-900 w-40 md:w-48 appearance-none bg-white"
             >
               <option value="all">Tất cả phân hệ</option>
               {uniqueSubsystems.map((ss, i) => (
@@ -195,8 +192,7 @@ export const HRTaskLog: React.FC = () => {
             </select>
           </div>
         </div>
-        <div className="w-64">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Tìm kiếm</label>
+        <div className="flex-1 min-w-[200px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
@@ -204,14 +200,14 @@ export const HRTaskLog: React.FC = () => {
               placeholder="Tìm theo tên việc, người làm..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              className="pl-10 pr-4 py-1.5 md:py-2 text-sm w-full border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
         </div>
         </div>
         <button
           onClick={handleExportExcel}
-          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-sm font-medium"
+          className="flex items-center px-4 py-1.5 md:py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-sm font-medium"
         >
           <Download className="w-4 h-4 mr-2" />
           Xuất Excel

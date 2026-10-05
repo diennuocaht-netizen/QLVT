@@ -293,7 +293,7 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
 
             {/* Records Table */}
             <div className="border border-gray-200 rounded-lg overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left whitespace-nowrap">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-4 py-3 text-sm font-medium text-gray-600">Mã Phiếu</th>

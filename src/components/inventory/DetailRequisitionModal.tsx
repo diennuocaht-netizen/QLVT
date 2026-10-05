@@ -246,7 +246,7 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Danh Sách Vật Tư Yêu Cầu</h3>
             <div className="border border-gray-200 rounded-lg overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm whitespace-nowrap">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">Vật Tư</th>

@@ -570,9 +570,10 @@ export const InventoryItems: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Quản Lý Vật Tư</h1>
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Quản Lý Vật Tư</h1>
+        <div className="flex flex-wrap gap-2 mt-2 md:mt-0">
+            {/* Mobile Actions */}
           {selectedItemIds.length > 0 && (
             <button
               onClick={() => setBulkPrintQROpen(true)}
@@ -583,7 +584,7 @@ export const InventoryItems: React.FC = () => {
           )}
           <button
             onClick={() => setIsGlobalQRScannerOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"
+            className="hidden md:flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"
           >
             <ScanLine size={20} /> Quét mã QR
           </button>
@@ -592,20 +593,20 @@ export const InventoryItems: React.FC = () => {
               setEditingItem(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center justify-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
           >
             <Plus size={20} /> Thêm Vật Tư
           </button>
           <button
             onClick={handleImportClick}
             disabled={importing}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400"
+            className="hidden md:flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400"
           >
             <Upload size={20} /> {importing ? 'Đang nhập...' : 'Nhập Excel'}
           </button>
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="hidden md:flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             <Download size={20} /> Xuất Excel
           </button>
@@ -623,7 +624,7 @@ export const InventoryItems: React.FC = () => {
 
       {/* Search */}
       <div className="flex flex-col md:flex-row gap-4 md:items-center">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-3 text-gray-400" size={20} />
               <input
@@ -790,7 +791,7 @@ export const InventoryItems: React.FC = () => {
           </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden space-y-4">
+          <div className="md:hidden space-y-4 pb-24">
             {filteredInventory.length === 0 ? (
               <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow">Không có dữ liệu</div>
             ) : (
@@ -828,23 +829,26 @@ export const InventoryItems: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="flex justify-between gap-1 border-t pt-3">
-                    <button onClick={() => { setQuickIssueItem(inv.item); setQuickIssueOpen(true); }} className="flex-1 flex justify-center items-center gap-1 py-3 text-yellow-600 bg-yellow-50 hover:bg-yellow-100 rounded-md font-medium text-sm">
-                      <ZapOff size={16} /> Xuất
-                    </button>
-                    <button onClick={() => { setPrintQRItem(inv.item); setPrintQROpen(true); }} className="flex-1 flex justify-center items-center py-3 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md text-sm">
-                      <QrCode size={16} />
-                    </button>
-                    <button onClick={() => { setTraceabilityItem(inv.item); setTraceabilityOpen(true); }} className="flex-1 flex justify-center items-center py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md text-sm">
-                      <Layers size={16} />
-                    </button>
-                    <button onClick={() => { setEditingItem(inv.item); setIsModalOpen(true); }} className="flex-1 flex justify-center items-center py-3 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md text-sm">
-                      <Edit size={16} />
-                    </button>
+                  <div className="flex gap-2 border-t pt-3">
+                      <button onClick={() => { setQuickIssueItem(inv.item); setQuickIssueOpen(true); }} className="flex-1 flex justify-center items-center gap-2 py-2.5 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg font-medium text-sm transition-colors border border-yellow-200">
+                        <ZapOff size={18} /> Xuất
+                      </button>
+                      <button onClick={() => { setPrintQRItem(inv.item); setPrintQROpen(true); }} className="flex-1 flex justify-center items-center py-2.5 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200">
+                        <QrCode size={18} />
+                      </button>
+                      <button onClick={() => { setTraceabilityItem(inv.item); setTraceabilityOpen(true); }} className="flex-1 flex justify-center items-center py-2.5 text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
+                        <Layers size={18} />
+                      </button>
+                      <button onClick={() => { setEditingItem(inv.item); setIsModalOpen(true); }} className="flex-1 flex justify-center items-center py-2.5 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
+                        <Edit size={18} />
+                      </button>
+                      <button onClick={() => handleDeleteClick(inv.item.id)} className="flex-1 flex justify-center items-center py-2.5 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
           </div>
         </>
       )}

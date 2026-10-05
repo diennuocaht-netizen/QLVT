@@ -169,9 +169,9 @@ export const MeasurementForms: React.FC = () => {
 
   return (
     <div className="p-6 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center whitespace-nowrap">
             <ClipboardList className="w-6 h-6 mr-2 text-indigo-600" />
             Biểu mẫu đo đạc & kiểm tra
           </h1>
@@ -179,7 +179,7 @@ export const MeasurementForms: React.FC = () => {
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center shadow-sm"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
         >
           <Plus className="w-5 h-5 mr-2" />
           Tạo biểu mẫu mới
@@ -325,6 +325,24 @@ export const MeasurementForms: React.FC = () => {
                     {/* Cấu hình cột */}
                     <div className="mb-4 bg-gray-50 p-3 rounded border border-gray-200">
                       <h5 className="text-sm font-medium text-gray-700 mb-2">Cấu hình tiêu đề cột:</h5>
+                      <div className="mb-3 flex items-center">
+                        <input
+                          type="checkbox"
+                          id="isCombinedMode"
+                          checked={formData.checklist_metadata?.isCombinedMode || false}
+                          onChange={e => setFormData({ 
+                            ...formData, 
+                            checklist_metadata: { 
+                              ...(formData.checklist_metadata || { customColumns: [] }), 
+                              isCombinedMode: e.target.checked 
+                            } 
+                          })}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="isCombinedMode" className="ml-2 block text-sm text-gray-900 font-medium">
+                          Gộp chung kết quả kiểm tra (không chia theo từng thiết bị)
+                        </label>
+                      </div>
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
                           <span className="text-xs font-semibold w-24 text-gray-500">Cột chính:</span>

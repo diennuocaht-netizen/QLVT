@@ -89,44 +89,44 @@ export const HREvents: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Sự kiện</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 whitespace-nowrap">Quản lý Sự kiện</h1>
           <p className="text-gray-500 text-sm mt-1">Lên kế hoạch, tổ chức và phân công hạng mục sự kiện nội bộ.</p>
         </div>
         {canEdit && (
           <button
             onClick={openNewModal}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center shadow-sm font-medium transition-colors"
+            className="bg-indigo-600 text-white px-4 py-1.5 md:py-2 text-sm rounded-md hover:bg-indigo-700 flex items-center shadow-sm font-medium transition-colors"
           >
-            <Plus className="w-5 h-5 mr-2" />
+            <Plus size={18} />
             Tạo sự kiện
           </button>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 md:p-4 shrink-0">
+        <div className="flex flex-wrap gap-2 md:gap-4 mb-4 md:mb-6">
+          <div className="flex-1 relative min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
               placeholder="Tìm kiếm tên sự kiện, địa điểm..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full pl-10 pr-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
-          <button className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center text-gray-700 font-medium">
+          <button className="px-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center text-gray-700 font-medium">
             <Filter className="w-4 h-4 mr-2" />
             Lọc sự kiện
           </button>
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center py-20">
+          <div className="flex justify-center items-center py-1.5 md:py-2 text-sm0">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="text-center py-20 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+          <div className="text-center py-1.5 md:py-2 text-sm0 bg-gray-50 rounded-lg border border-dashed border-gray-300">
             <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">Chưa có sự kiện nào. Hãy tạo sự kiện mới để bắt đầu.</p>
           </div>

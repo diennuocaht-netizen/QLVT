@@ -511,10 +511,10 @@ export const Devices: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Quản lý Thiết bị</h1>
-        {canEdit && (
-          <div className="flex gap-2">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 whitespace-nowrap">Quản lý Thiết bị</h1>
+          {canEdit && (
+            <div className="flex flex-wrap gap-2 mt-2 md:mt-0">
             <input 
               type="file" 
               accept=".xlsx,.xls" 
@@ -532,7 +532,7 @@ export const Devices: React.FC = () => {
             <button 
               onClick={handleImportClick}
               disabled={importing}
-              className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm font-medium disabled:opacity-50"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm disabled:opacity-50"
               title="Import danh sách Tủ điện / Thiết bị từ file Excel"
             >
               <Upload className="w-4 h-4 mr-2" />
@@ -541,18 +541,18 @@ export const Devices: React.FC = () => {
             <button 
               onClick={handleBulkImportClick}
               disabled={bulkImporting}
-              className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm font-medium disabled:opacity-50"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm disabled:opacity-50"
               title="Import hàng loạt Chi tiết phụ tải cho nhiều Tủ điện cùng lúc từ file Excel (Yêu cầu có cột Mã tủ điện hoặc Tên tủ điện)"
             >
               <Upload className="w-4 h-4 mr-2" />
               {bulkImporting ? 'Đang import...' : 'Import Chi tiết'}
             </button>
-            <button onClick={() => setIsVerifyModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center text-sm font-medium shadow-sm mr-2">
-                <CheckCircle className="w-4 h-4 mr-2" /> Xác nhận đã kiểm tra
+            <button onClick={() => setIsVerifyModalOpen(true)} className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded-md hover:bg-green-700 shadow-sm">
+                <CheckCircle size={18} /> Xác nhận đã kiểm tra
               </button>
               <button 
                 onClick={handleAddNew}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center text-sm font-medium"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
             >
               <Plus className="w-4 h-4 mr-2" />
               Thêm thiết bị

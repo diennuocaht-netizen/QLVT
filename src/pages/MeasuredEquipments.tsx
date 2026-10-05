@@ -172,9 +172,9 @@ export const MeasuredEquipments: React.FC = () => {
 
   return (
     <div className="p-6 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center whitespace-nowrap">
             <Box className="w-6 h-6 mr-2 text-indigo-600" />
             Quản lý Máy móc & Thiết bị
           </h1>
@@ -182,7 +182,7 @@ export const MeasuredEquipments: React.FC = () => {
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center shadow-sm"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
         >
           <Plus className="w-5 h-5 mr-2" />
           Thêm máy móc

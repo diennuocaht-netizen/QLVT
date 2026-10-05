@@ -489,7 +489,7 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
 
         <div className="flex-1 overflow-y-auto p-6">
           <form id="req-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mã Tờ Trình</label>
                 <input
@@ -566,7 +566,7 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
                   ))}
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mục đích</label>
                 <input
                   type="text"
@@ -578,7 +578,7 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
                   placeholder="Nhập mục đích..."
                 />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú chung</label>
                 <textarea
                   name="notes"

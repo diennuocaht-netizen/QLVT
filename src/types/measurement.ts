@@ -14,6 +14,7 @@ export interface ChecklistColumn {
 }
 
 export interface ChecklistMetadata {
+  isCombinedMode?: boolean; // Tùy chọn gộp chung thiết bị thành 1 cột đánh giá duy nhất
   itemLabelHeader?: string; // Tên cột chính (Default: "Nội dung kiểm tra")
   customColumns?: ChecklistColumn[]; // Các cột phụ
 }

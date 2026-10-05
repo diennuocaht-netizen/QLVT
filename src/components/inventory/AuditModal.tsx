@@ -324,7 +324,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
             <div className="text-center py-10">Đang tải dữ liệu tồn kho hệ thống...</div>
           ) : (
             <div className="border rounded-lg overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm whitespace-nowrap">
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Mã VT</th>

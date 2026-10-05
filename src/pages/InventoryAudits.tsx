@@ -56,13 +56,13 @@ export const InventoryAudits: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Kiểm Kê Kho</h1>
+      <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Kiểm Kê Kho</h1>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
         >
-          <Plus size={20} /> Tạo Phiếu Kiểm Kê
+          <Plus size={18} /> Tạo Phiếu Kiểm Kê
         </button>
       </div>
 
@@ -129,7 +129,7 @@ export const InventoryAudits: React.FC = () => {
         </div>
 
         {/* Mobile View */}
-        <div className="md:hidden grid grid-cols-1 gap-4">
+        <div className="md:hidden grid grid-cols-1 gap-4 pb-24">
           {filteredAudits.length === 0 ? (
             <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow">Không có phiếu kiểm kê nào</div>
           ) : (
