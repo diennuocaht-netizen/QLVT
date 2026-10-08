@@ -148,7 +148,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
   // Auto-match cost code when subsystem, purpose, or method changes
   useEffect(() => {
-    if (item && formData.subsystem && formData.purpose && formData.method) {
+    if (item) {
       autoMatchCostCode();
     } else {
       // Clear cost code if any required field is empty
@@ -468,6 +468,7 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
   if (!isOpen || !item) return null;
 
   const uniquePurposes = Array.from(new Set(costCodes.map(c => c.purpose).filter(Boolean)));
+  const combinedSubsystems = Array.from(new Set(costCodes.map(c => c.subsystem).filter(Boolean)));
   const uniqueMethods = Array.from(new Set(costCodes.map(c => c.method).filter(Boolean)));
 
   return (

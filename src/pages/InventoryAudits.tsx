@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
 import { InventoryAudit, InventoryLocation, Item, CalculatedInventoryItem, SlipType, InventorySlip } from '../types/inventory';
-import { Plus, Search, FileText } from 'lucide-react';
+import { Plus, Search, FileText, Edit2, Trash2 } from 'lucide-react';
 import { AuditModal } from '../components/inventory/AuditModal';
 import { DetailAuditModal } from '../components/inventory/DetailAuditModal';
 
@@ -11,6 +11,20 @@ export const InventoryAudits: React.FC = () => {
   const [audits, setAudits] = useState<InventoryAudit[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editAudit, setEditAudit] = useState<InventoryAudit | null>(null);
+
+  const handleDeleteAudit = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa phiếu kiểm kê này?')) return;
+    try {
+      const { error } = await supabase.from('inventory_audits').delete().eq('id', id);
+      if (error) throw error;
+      setAudits(audits.filter(a => a.id !== id));
+    } catch (error) {
+      console.error('Error deleting audit:', error);
+      alert('Không thể xóa phiếu kiểm kê.');
+    }
+  };
 
   // Future feature: create audit modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -116,11 +130,25 @@ export const InventoryAudits: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{audit.notes}</td>
-                    <td className="px-6 py-4 text-center">
-                      <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Chi tiết">
-                        <FileText size={18} />
-                      </button>
-                    </td>
+                    
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center items-center gap-2">
+                          <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Chi tiết">
+                            <FileText size={18} />
+                          </button>
+                          {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                            <>
+                              <button onClick={() => { setEditAudit(audit); setIsEditModalOpen(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded" title="Chỉnh sửa">
+                                <Edit2 size={18} />
+                              </button>
+                              <button onClick={() => handleDeleteAudit(audit.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Xóa">
+                                <Trash2 size={18} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+
                   </tr>
                 ))
               )}

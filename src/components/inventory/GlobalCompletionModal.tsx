@@ -56,7 +56,7 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
       });
 
       if (itemIds.size > 0) {
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').limit(10000)
+        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999)
           .in('id', Array.from(itemIds));
 
         if (itemsError) throw itemsError;

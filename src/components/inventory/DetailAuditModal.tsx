@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { X, FileText, Download } from 'lucide-react';
+import { X, FileText, Download, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { InventoryAudit, InventoryAuditItem, Item } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
@@ -13,6 +13,7 @@ interface DetailAuditModalProps {
 
 export const DetailAuditModal: React.FC<DetailAuditModalProps> = ({ isOpen, onClose, audit }) => {
   const [items, setItems] = useState<Item[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [auditItems, setAuditItems] = useState<InventoryAuditItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +49,7 @@ export const DetailAuditModal: React.FC<DetailAuditModalProps> = ({ isOpen, onCl
             const { data: invData, error: invError } = await supabase
               .from('inventory_items')
               .select('*')
-              .limit(10000); // Fetch all to avoid URI Too Long error with .in()
+              .limit(999999); // Fetch all to avoid URI Too Long error with .in()
 
             if (invError) throw invError;
             if (invData) {
@@ -105,7 +106,15 @@ export const DetailAuditModal: React.FC<DetailAuditModalProps> = ({ isOpen, onCl
     ];
 
     // Prepare item rows
-    const itemRows = auditItems.map(item => ({
+    const filteredAuditItems = auditItems.filter(item => {
+        if (!searchTerm) return true;
+        const s = searchTerm.toLowerCase();
+        const code = (getItemCode(item.itemId) || '').toLowerCase();
+        const name = (getItemName(item.itemId) || '').toLowerCase();
+        return code.includes(s) || name.includes(s);
+    });
+    
+    const itemRows = filteredAuditItems.map(item => ({
       A: getItemCode(item.itemId),
       B: getItemName(item.itemId),
       C: getItemUnit(item.itemId),
@@ -184,7 +193,25 @@ export const DetailAuditModal: React.FC<DetailAuditModalProps> = ({ isOpen, onCl
             {loading ? (
               <div className="text-center py-8 text-gray-500">Đang tải dữ liệu...</div>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+            <h3 className="font-semibold text-gray-800 text-lg mb-4 sm:mb-0 flex items-center gap-2">
+              <span className="w-1.5 h-6 bg-indigo-500 rounded-full"></span>
+              Chi tiết vật tư kiểm kê
+            </h3>
+            <div className="w-full sm:w-64 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Tìm kiếm vật tư..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+
                 <table className="w-full text-sm text-left whitespace-nowrap">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
@@ -198,7 +225,15 @@ export const DetailAuditModal: React.FC<DetailAuditModalProps> = ({ isOpen, onCl
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {auditItems.map((item, index) => (
+                    {auditItems
+                      .filter(item => {
+                        if (!searchTerm) return true;
+                        const s = searchTerm.toLowerCase();
+                        const code = (getItemCode(item.itemId) || '').toLowerCase();
+                        const name = (getItemName(item.itemId) || '').toLowerCase();
+                        return code.includes(s) || name.includes(s);
+                      })
+                      .map((item, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-center text-gray-500">{index + 1}</td>
                         <td className="px-4 py-3 text-gray-900">
@@ -216,7 +251,8 @@ export const DetailAuditModal: React.FC<DetailAuditModalProps> = ({ isOpen, onCl
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>

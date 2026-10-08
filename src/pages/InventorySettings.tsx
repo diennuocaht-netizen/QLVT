@@ -311,7 +311,7 @@ export const InventorySettings: React.FC = () => {
       setNewCostCode({});
       setIsAddingCostCode(false);
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'inventory_cost_codes');
+      alert(`Lỗi thêm mã: ${(err as any).message || JSON.stringify(err)}`); handleFirestoreError(err, OperationType.CREATE, 'inventory_cost_codes');
     }
   };
 

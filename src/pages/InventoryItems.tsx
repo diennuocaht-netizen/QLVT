@@ -49,7 +49,7 @@ export const InventoryItems: React.FC = () => {
       setLoading(true);
       try {
         // Fetch items
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').limit(10000);
+        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
 
         if (itemsError) throw itemsError;
         if (isMounted) {
@@ -119,7 +119,7 @@ export const InventoryItems: React.FC = () => {
                   console.log('⚠️ [InventoryItems] Item already exists, skipping duplicate:', newItem.id);
                   return prev;
                 }
-                return [...prev, newItem];
+                return [newItem, ...prev];
               });
             } else if (payload.eventType === 'UPDATE') {
               console.log('✏️ Item updated, updating state...');
@@ -181,11 +181,11 @@ export const InventoryItems: React.FC = () => {
     const handleRefresh = async () => {
       console.log('📣 [InventoryItems] Received inventory:refresh, reloading data...');
       try {
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').limit(10000);
+        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
         if (itemsError) throw itemsError;
         setItems((itemsData || []).map(item => itemFromDatabase(item)) as Item[]);
 
-        const { data: slipsData, error: slipsError } = await supabase.from('inventory_slips').select('*');
+        const { data: slipsData, error: slipsError } = await supabase.from('inventory_slips').select('*').order('created_at', { ascending: false });
         if (slipsError) throw slipsError;
         setSlips((slipsData || []).map(slip => slipFromDatabase(slip)) as InventorySlip[]);
         console.log('✅ [InventoryItems] Manual refresh complete');
@@ -269,7 +269,7 @@ export const InventoryItems: React.FC = () => {
 
   const filteredInventory = React.useMemo(() => {
     return inventory.filter(inv => {
-      const q = searchTerm.toLowerCase();
+      const q = searchTerm.toLowerCase().trim();
       const matchesQuery = inv.item.name.toLowerCase().includes(q) ||
         inv.item.code.toLowerCase().includes(q) ||
         (inv.item.category && inv.item.category.toLowerCase().includes(q));
@@ -872,7 +872,7 @@ export const InventoryItems: React.FC = () => {
               return updated;
             }
             // Otherwise add new item
-            return [...prev, savedItem];
+            return [savedItem, ...prev];
           });
         }}
       />

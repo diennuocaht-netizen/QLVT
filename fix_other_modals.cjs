@@ -1,24 +1,51 @@
 ﻿const fs = require('fs');
 
-const files = [
-  'src/components/inventory/QuickIssueModal.tsx',
-  'src/components/inventory/RequisitionModal.tsx'
-];
-
-files.forEach(filename => {
-  if (fs.existsSync(filename)) {
+function fixAutoMatch(filename) {
     let content = fs.readFileSync(filename, 'utf8');
+    let original = content;
 
-    // 1. Fix grid layout for the form
-    content = content.replace(/<div className="grid grid-cols-2 gap-6">/g, '<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">');
-    // Also handle gap-4 cases
-    content = content.replace(/<div className="grid grid-cols-2 gap-4">/g, '<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">');
+    // 1. Fix auto-match condition
+    content = content.replace(
+      /if \(currentItem\.itemId && currentItem\.subsystem && currentItem\.purpose && currentItem\.method\) \{/g,
+      "if (currentItem.itemId) {"
+    );
 
-    // 2. Fix col-span-2
-    content = content.replace(/className="col-span-2/g, 'className="col-span-1 sm:col-span-2');
+    // 2. Add combinedSubsystems
+    if (content.includes("const uniqueMethods = Array.from(new Set(costCodes.map")) {
+        content = content.replace(
+          /const uniqueMethods = Array\.from\(new Set\(costCodes\.map/g,
+          "const combinedSubsystems = Array.from(new Set([...subsystems.map(s => s.name), ...costCodes.map(c => c.subsystem)].filter(Boolean)));\n  const uniqueMethods = Array.from(new Set(costCodes.map"
+        );
 
-    fs.writeFileSync(filename, content, 'utf8');
-  }
-});
+        // 3. Update the dropdown for subsystem
+        content = content.replace(
+          /\{subsystems\.map\(sub => \(\s*<option key=\{sub\.id\} value=\{sub\.name\}>\{sub\.name\}<\/option>\s*\)\)\}/g,
+          "{combinedSubsystems.map(sub => (\n                                    <option key={sub} value={sub}>{sub}</option>\n                                  ))}"
+        );
+    }
+    
+    // For QuickIssueModal, it might not use array mapping or different variable names
+    if (filename.includes('QuickIssueModal')) {
+        // QuickIssueModal uses item state instead of currentItem? Let's check it manually if needed, or just replace the specific string
+        content = content.replace(
+          /if \(item\.subsystem && item\.purpose && item\.method\) \{/g,
+          "if (true) {"
+        );
+        content = content.replace(
+          /if \(itemId && subsystem && purpose && method\) \{/g,
+          "if (itemId) {"
+        );
+        content = content.replace(
+          /\{subsystems\.map\(sub => \(\s*<option key=\{sub\.id\} value=\{sub\.name\}>\{sub\.name\}<\/option>\s*\)\)\}/g,
+          "{combinedSubsystems.map(sub => (\n                                    <option key={sub} value={sub}>{sub}</option>\n                                  ))}"
+        );
+    }
 
-console.log('Fixed other inventory modals');
+    if (content !== original) {
+        fs.writeFileSync(filename, content, 'utf8');
+        console.log('Fixed', filename);
+    }
+}
+
+['src/components/inventory/QuickIssueModal.tsx', 'src/components/inventory/RequisitionModal.tsx'].forEach(fixAutoMatch);
+

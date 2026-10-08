@@ -26,7 +26,7 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
     const loadData = async () => {
       setLoading(true);
       try {
-        const { data: itemsData } = await supabase.from('inventory_items').select('*').limit(10000);
+        const { data: itemsData } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
         if (itemsData) setItems(itemsData.map(item => itemFromDatabase(item) as Item));
 
         const { data: slipsData } = await supabase.from('inventory_slips').select('*');

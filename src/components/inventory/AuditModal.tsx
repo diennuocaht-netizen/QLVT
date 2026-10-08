@@ -21,7 +21,7 @@ interface AuditItemLine {
   isNotFound?: boolean;
 }
 
-export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSuccess, audit }) => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -48,7 +48,15 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
         const slips = (slipsData || []).map(slip => slipFromDatabase(slip)) as InventorySlip[];
 
         // Calculate system stock
-        const lines: AuditItemLine[] = items.map(item => {
+        let existingAuditItems: any[] = [];
+          if (audit) {
+            const { data: aData } = await supabase.from('inventory_audit_items').select('*').eq('audit_id', audit.id);
+            if (aData) existingAuditItems = aData;
+            setNotes(audit.notes || '');
+          } else {
+            setNotes('');
+          }
+          const lines: AuditItemLine[] = items.map(item => {
           let totalReceipts = 0;
           let totalIssues = 0;
 
@@ -70,14 +78,16 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
           });
 
           const stock = (item.initialStock || 0) + totalReceipts - totalIssues;
-
-          return {
-            item,
-            systemStock: stock,
-            actualStock: stock, // Default to system stock
-            difference: 0,
-            notes: ''
-          };
+            
+            const existingItem = existingAuditItems.find(ei => ei.item_id === item.id);
+  
+            return {
+              item,
+              systemStock: existingItem ? existingItem.system_stock : stock,
+              actualStock: existingItem ? (existingItem.actual_stock ?? stock) : stock,
+              difference: existingItem ? (existingItem.difference ?? 0) : 0,
+              notes: existingItem ? (existingItem.notes || '') : ''
+            };
         });
 
         setAuditLines(lines);
@@ -187,25 +197,35 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
       setSaving(true);
       const code = `KK-${new Date().getFullYear()}${(new Date().getMonth()+1).toString().padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
       
-      const { data: audit, error: auditError } = await supabase
-        .from('inventory_audits')
-        .insert({
-          code,
-          date: new Date().toISOString().split('T')[0],
-          created_by: profile?.displayName || profile?.email || 'Unknown',
-          status: 'Hoàn thành',
-          notes: notes
-        })
-        .select()
-        .single();
+      let newAuditId = '';
+        if (audit) {
+          const { error: auditError } = await supabase.from('inventory_audits').update({ notes }).eq('id', audit.id);
+          
+          newAuditId = audit.id;
+          await supabase.from('inventory_audit_items').delete().eq('audit_id', audit.id);
+        } else {
+          const { data: newAudit, error: auditError } = await supabase
+            .from('inventory_audits')
+            .insert({
+              code,
+              date: new Date().toISOString().split('T')[0],
+              created_by: profile?.displayName || profile?.email || 'Unknown',
+              status: 'Hoàn thành',
+              notes: notes
+            })
+            .select()
+            .single();
+          
+          newAuditId = newAudit.id;
+        }
 
-      if (auditError) throw auditError;
+      
 
       // Only save items that exist in the system
       const validLines = auditLines.filter(line => !line.isNotFound && line.item.id);
       
       const auditItemsToInsert = validLines.map(line => ({
-        audit_id: audit.id,
+        audit_id: newAuditId,
         item_id: line.item.id,
         system_stock: line.systemStock,
         actual_stock: line.actualStock === '' ? 0 : line.actualStock,
@@ -258,7 +278,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex justify-between items-center p-6 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">Tạo Phiếu Kiểm Kê Mới</h2>
+          <h2 className="text-xl font-bold text-gray-900">{audit ? `Chỉnh sửa Phiếu Kiểm Kê: ${audit.code}` : "Tạo Phiếu Kiểm Kê Mới"}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={24} />
           </button>

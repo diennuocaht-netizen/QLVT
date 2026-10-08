@@ -42,7 +42,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     const loadData = async () => {
       try {
         // Fetch items
-        const { data: itemsData } = await supabase.from('inventory_items').select('*').limit(10000);
+        const { data: itemsData } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
         if (itemsData) setItems(itemsData.map(item => itemFromDatabase(item)) as Item[]);
 
         // Fetch subsystems
@@ -362,7 +362,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
       // Auto-match cost code for Issue slips
       if (type === SlipType.Issue && ['itemId', 'subsystem', 'purpose', 'method'].includes(field)) {
         const currentItem = newItems[index];
-        if (currentItem.itemId && currentItem.subsystem && currentItem.purpose && currentItem.method) {
+        if (currentItem.itemId) {
           const selectedInventoryItem = items.find(i => i.id === currentItem.itemId);
           if (selectedInventoryItem) {
             let bestMatch = null;
@@ -844,6 +844,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     }
   };
 
+  const combinedSubsystems = Array.from(new Set(costCodes.map(c => c.subsystem).filter(Boolean)));
   const uniqueMethods = Array.from(new Set(costCodes.map(c => c.method).filter(Boolean)));
   const uniquePurposes = Array.from(new Set(costCodes.map(c => c.purpose).filter(Boolean)));
 
@@ -1203,9 +1204,9 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
                               >
                                 <option value="">-- Chọn phân hệ --</option>
-                                {subsystems.map(sub => (
-                                  <option key={sub.id} value={sub.name}>{sub.name}</option>
-                                ))}
+                                {combinedSubsystems.map(sub => (
+                                    <option key={sub} value={sub}>{sub}</option>
+                                  ))}
                               </select>
                             </td>
                             <td className="p-3">
