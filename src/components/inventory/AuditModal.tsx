@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Upload, Search, Filter } from 'lucide-react';
+import Select from 'react-select';
+import { X, Save, Upload, Search, Filter, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,7 +28,9 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
   const [saving, setSaving] = useState(false);
   
   const [auditLines, setAuditLines] = useState<AuditItemLine[]>([]);
+  const [allItems, setAllItems] = useState<AuditItemLine[]>([]);
   const [notes, setNotes] = useState('');
+  const [templates, setTemplates] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all'|'diff'|'not_found'>('all');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -42,6 +45,8 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
         if (itemsError) throw itemsError;
         
         const { data: slipsData, error: slipsError } = await supabase.from('inventory_slips').select('*');
+        const { data: tData } = await supabase.from('inventory_audit_templates').select('*');
+        if (tData) setTemplates(tData);
         if (slipsError) throw slipsError;
 
         const items = (itemsData || []).map(item => itemFromDatabase(item)) as Item[];
@@ -57,40 +62,46 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
             setNotes('');
           }
           const lines: AuditItemLine[] = items.map(item => {
-          let totalReceipts = 0;
-          let totalIssues = 0;
-
-          slips.forEach(slip => {
-            const items_array = Array.isArray(slip.items) ? slip.items : [];
-            const matchingItems = items_array.filter((i: any) => {
-              const idKey = i.itemId ?? i.item_id ?? i.itemId;
-              return idKey === item.id;
+            let totalReceipts = 0;
+            let totalIssues = 0;
+  
+            slips.forEach(slip => {
+              const items_array = Array.isArray(slip.items) ? slip.items : [];
+              const matchingItems = items_array.filter((i: any) => {
+                const idKey = i.itemId ?? i.item_id ?? i.itemId;
+                return idKey === item.id;
+              });
+              if (matchingItems.length === 0) return;
+  
+              const sumQty = matchingItems.reduce((s: number, it: any) => s + Number(it.quantity || 0), 0);
+  
+              if (slip.type === SlipType.Receipt && (slip.status === 'Đã đóng' || slip.status === 'Đã hoàn thành' || slip.status === 'Đã đA³ng' || slip.status.includes('ng'))) {
+                totalReceipts += sumQty;
+              } else if (slip.type === SlipType.Issue) {
+                totalIssues += sumQty;
+              }
             });
-            if (matchingItems.length === 0) return;
-
-            const sumQty = matchingItems.reduce((s: number, it: any) => s + Number(it.quantity || 0), 0);
-
-            if (slip.type === SlipType.Receipt && (slip.status === 'Đã đóng' || slip.status === 'Đã hoàn thành')) {
-              totalReceipts += sumQty;
-            } else if (slip.type === SlipType.Issue) {
-              totalIssues += sumQty;
-            }
-          });
-
-          const stock = (item.initialStock || 0) + totalReceipts - totalIssues;
+  
+            const stock = (item.initialStock || 0) + totalReceipts - totalIssues;
             
             const existingItem = existingAuditItems.find(ei => ei.item_id === item.id);
   
             return {
               item,
-              systemStock: existingItem ? existingItem.system_stock : stock,
+              systemStock: stock,
               actualStock: existingItem ? (existingItem.actual_stock ?? stock) : stock,
               difference: existingItem ? (existingItem.difference ?? 0) : 0,
               notes: existingItem ? (existingItem.notes || '') : ''
             };
-        });
+          });
 
-        setAuditLines(lines);
+          setAllItems(lines);
+          
+          if (audit) {
+            setAuditLines(lines.filter(l => existingAuditItems.some(ei => ei.item_id === l.item.id)));
+          } else {
+            setAuditLines([]); // Start empty for new audit
+          }
       } catch (err) {
         console.error('Error calculating stock for audit:', err);
       } finally {
@@ -101,6 +112,11 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
     loadData();
   }, [isOpen]);
 
+  
+  const handleRemoveLine = (index: number) => {
+    setAuditLines(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleActualStockChange = (index: number, value: string) => {
     const newLines = [...auditLines];
     const actual = value === '' ? '' : parseInt(value, 10);
@@ -108,9 +124,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
     
     if (typeof actual === 'number') {
       newLines[index].difference = actual - newLines[index].systemStock;
-    } else {
-      newLines[index].difference = 0;
-    }
+    } else { newLines[index].difference = 0; }
     
     setAuditLines(newLines);
   };
@@ -239,12 +253,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
 
       if (itemsError) throw itemsError;
 
-      const notFoundItems = auditLines.filter(line => line.isNotFound);
-      if (notFoundItems.length > 0) {
-        alert(`✅ Lưu phiếu kiểm kê thành công!\n⚠️ Đã bỏ qua ${notFoundItems.length} vật tư không tồn tại trên app.`);
-      } else {
-        alert('✅ Lưu phiếu kiểm kê thành công!');
-      }
+      alert(`Lưu phiếu kiểm kê thành công với ${validLines.length} vật tư!`);
       
       onSuccess();
       onClose();
@@ -257,6 +266,14 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
   };
 
   if (!isOpen) return null;
+
+  
+  const itemOptions = allItems
+    .filter(l => !auditLines.some(al => al.item.id === l.item.id))
+    .map(l => ({
+      value: l.item.id,
+      label: `${l.item.code} - ${l.item.name} (Tồn HT: ${l.systemStock})`
+    }));
 
   const filteredLines = auditLines
     .map((line, index) => ({ ...line, originalIndex: index }))
@@ -285,7 +302,34 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto">
-          <div className="mb-6 flex gap-4">
+          
+            {/* Template Selector */}
+            {!audit && (
+              <div className="mb-6 border border-indigo-100 bg-indigo-50/50 p-4 rounded-lg">
+                <label className="block text-sm font-medium text-indigo-900 mb-2">Tải danh sách từ mẫu cài đặt (Tùy chọn)</label>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <Select
+                      options={templates.map(t => ({ value: t.item_ids, label: t.name + (t.description ? ` - ${t.description}` : '') }))}
+                      onChange={(selected: any) => {
+                        if (!selected || !selected.value) return;
+                        const ids = selected.value as string[];
+                        const newLines = ids.map(id => allItems.find(x => x.item.id === id)).filter(Boolean) as AuditItemLine[];
+                        // Merge with existing but avoid duplicates
+                        const currentIds = auditLines.map(x => x.item.id);
+                        const linesToAdd = newLines.filter(x => !currentIds.includes(x.item.id));
+                        setAuditLines([...auditLines, ...linesToAdd]);
+                      }}
+                      placeholder="Chọn danh sách mẫu..."
+                      isClearable
+                      value={null}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mb-6 flex gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú đợt kiểm kê</label>
               <input
@@ -314,7 +358,29 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
             </div>
           </div>
 
-          <div className="mb-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+          
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Thêm vật tư vào phiếu kiểm kê</label>
+              <Select
+                options={itemOptions}
+                onChange={(selected: any) => {
+                  if (selected) {
+                    const line = allItems.find(l => l.item.id === selected.value);
+                    if (line) {
+                      setAuditLines([...auditLines, { ...line, actualStock: line.systemStock, difference: 0 }]);
+                    }
+                  }
+                }}
+                value={null}
+                placeholder="-- Tìm và chọn vật tư... --"
+                isSearchable
+                noOptionsMessage={() => 'Không tìm thấy vật tư'}
+                styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                menuPortalTarget={document.body}
+              />
+            </div>
+
+            <div className="mb-4 flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="relative w-full md:w-96">
               <input
                 type="text"
@@ -353,12 +419,13 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
                     <th className="px-4 py-3 text-center font-semibold text-indigo-700 w-32">Tồn Thực Tế</th>
                     <th className="px-4 py-3 text-center font-semibold text-gray-700">Chênh Lệch</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Ghi Chú</th>
-                  </tr>
+                      <th className="px-4 py-3 text-center w-12"></th>
+                    </tr>
                 </thead>
                 <tbody>
                   {filteredLines.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                         Không tìm thấy vật tư nào phù hợp
                       </td>
                     </tr>
@@ -395,9 +462,20 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
                             onChange={(e) => handleNotesChange(line.originalIndex, e.target.value)}
                             readOnly={line.isNotFound}
                           />
-                        </td>
-                      </tr>
-                    ))
+                        
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveLine(line.originalIndex)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 rounded"
+                              title="Loại bỏ khỏi phiếu"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
                   )}
                 </tbody>
               </table>

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase-client';
 import { Plus, Trash2, Save, ListTodo, AlertCircle, Clock, User } from 'lucide-react';
 import { logActivity } from '../../utils/activityLogger';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ProjectTasksTabProps {
   project: any;
 }
 
 export const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ project }) => {
+  const queryClient = useQueryClient();
   const [tasks, setTasks] = useState<any[]>(project.tasks || []);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -25,6 +27,7 @@ export const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ project }) => 
 useEffect(() => {
     setTasks(project.tasks || []);
     setHasChanges(false);
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
   }, [project]);
 
   const addTask = () => {

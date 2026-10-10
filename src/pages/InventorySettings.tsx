@@ -4,9 +4,10 @@ import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHand
 import { Plus, Edit, Trash2, Save, X, Upload, Link2, AlertCircle } from 'lucide-react';
 import { CostCode, DriveSettings } from '../types/inventory';
 import * as XLSX from 'xlsx';
+import Select from 'react-select';
 
 export const InventorySettings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'subsystems' | 'requisitionTypes' | 'costCodes' | 'driveSettings' | 'locations'>('locations');
+  const [activeTab, setActiveTab] = useState<'subsystems' | 'requisitionTypes' | 'costCodes' | 'driveSettings' | 'locations' | 'auditTemplates'>('locations');
 
   // Subsystems State
   const [subsystems, setSubsystems] = useState<{ id: string; name: string }[]>([]);
@@ -31,6 +32,14 @@ export const InventorySettings: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
 
+
+  // Audit Templates State
+  const [auditTemplates, setAuditTemplates] = useState<{ id: string; name: string; description: string; item_ids: string[] }[]>([]);
+  const [newAuditTemplate, setNewAuditTemplate] = useState({ name: '', description: '', item_ids: [] as string[] });
+  const [selectedItemsToAdd, setSelectedItemsToAdd] = useState<any[]>([]);
+    const [editingTemplate, setEditingTemplate] = useState<{ id: string; name: string; description: string; item_ids: string[] } | null>(null);
+  const [items, setItems] = useState<any[]>([]); // To lookup items
+
   // Drive Settings State
   const [driveSettings, setDriveSettings] = useState<DriveSettings[]>([]);
   const [editingDriveSetting, setEditingDriveSetting] = useState<DriveSettings | null>(null);
@@ -43,12 +52,14 @@ export const InventorySettings: React.FC = () => {
       try {
         console.log('📥 [InventorySettings] Loading initial data...');
         
-        const [subsystemsRes, reqTypesRes, costCodesRes, driveSettingsRes, locationsRes] = await Promise.all([
+        const [subsystemsRes, reqTypesRes, costCodesRes, driveSettingsRes, locationsRes, auditTemplatesRes, itemsRes] = await Promise.all([
           supabase.from('inventory_subsystems').select('*'),
           supabase.from('inventory_requisition_types').select('*'),
           supabase.from('inventory_cost_codes').select('*'),
           supabase.from('inventory_drive_settings').select('*'),
-          supabase.from('inventory_locations').select('*'),
+          supabase.from('inventory_locations').select('*').order('code'),
+          supabase.from('inventory_audit_templates').select('*'),
+          supabase.from('inventory_items').select('id, code, name'),
         ]);
 
         if (!isMounted) return;
@@ -67,6 +78,14 @@ export const InventorySettings: React.FC = () => {
           setCostCodes(costCodesRes.data as CostCode[]);
         }
         if (costCodesRes.error) throw costCodesRes.error;
+
+        if (auditTemplatesRes.data) {
+          setAuditTemplates(auditTemplatesRes.data);
+        }
+        if (itemsRes.data) {
+          setItems(itemsRes.data);
+        }
+
 
         if (driveSettingsRes.data) {
           setDriveSettings(driveSettingsRes.data as DriveSettings[]);
@@ -582,6 +601,12 @@ export const InventorySettings: React.FC = () => {
           >
             Quản lý Folder Google Drive
           </button>
+          <button
+            className={`px-6 py-3 text-sm font-medium ${activeTab === 'auditTemplates' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('auditTemplates')}
+          >
+            DS Kiểm kê mẫu
+          </button>
         </div>
 
         <div className="p-6">
@@ -960,8 +985,316 @@ export const InventorySettings: React.FC = () => {
               )}
             </div>
           )}
+
+        {activeTab === 'auditTemplates' && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Thêm Danh Sách Mẫu</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Tên danh sách (Vd: Kiểm kê dụng cụ...)"
+                  value={newAuditTemplate.name}
+                  onChange={(e) => setNewAuditTemplate({ ...newAuditTemplate, name: e.target.value })}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Mô tả..."
+                  value={newAuditTemplate.description}
+                  onChange={(e) => setNewAuditTemplate({ ...newAuditTemplate, description: e.target.value })}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  onClick={async () => {
+                    if (!newAuditTemplate.name) return;
+                    const { error } = await supabase.from('inventory_audit_templates').insert([newAuditTemplate]);
+                    if (!error) {
+                      setNewAuditTemplate({ name: '', description: '', item_ids: [] });
+                      const { data } = await supabase.from('inventory_audit_templates').select('*');
+                      if (data) setAuditTemplates(data);
+                    }
+                  }}
+                  className="w-32 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                  <Plus size={18} /> Thêm
+                </button>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên danh sách</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mô tả</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số lượng VT</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {auditTemplates.map(t => (
+                    <tr key={t.id}>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{t.name}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{t.description}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{t.item_ids?.length || 0} mã</td>
+                      <td className="px-6 py-4 text-right text-sm flex justify-end gap-3">
+                        <button
+                          onClick={() => setEditingTemplate(t)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                          title="Sửa danh sách vật tư"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm('Xóa template này?')) return;
+                            await supabase.from('inventory_audit_templates').delete().eq('id', t.id);
+                            setAuditTemplates(auditTemplates.filter(x => x.id !== t.id));
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                          title="Xóa template"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+      {editingTemplate && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold">Quản lý vật tư: {editingTemplate.name}</h2>
+              <button onClick={() => { setEditingTemplate(null); setSelectedItemsToAdd([]); }} className="p-2 text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="p-6 flex-1 overflow-auto">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Thêm vật tư vào mẫu</label>
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select
+                        isMulti
+                        menuPosition="fixed"
+                        options={items.filter(i => !editingTemplate.item_ids?.includes(i.id)).map(i => ({ value: i.id, label: `${i.code} - ${i.name}` }))}
+                        onChange={(selected: any) => setSelectedItemsToAdd(selected || [])}
+                        placeholder="Tìm kiếm và chọn nhiều vật tư..."
+                        isSearchable
+                        value={selectedItemsToAdd}
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (selectedItemsToAdd.length === 0) return;
+                        const selectedIds = selectedItemsToAdd.map((opt: any) => opt.value);
+                        const newIds = [...(editingTemplate.item_ids || []), ...selectedIds];
+                        const { error } = await supabase.from('inventory_audit_templates').update({ item_ids: newIds }).eq('id', editingTemplate.id);
+                        if (!error) {
+                          setEditingTemplate({ ...editingTemplate, item_ids: newIds });
+                          setAuditTemplates(auditTemplates.map(t => t.id === editingTemplate.id ? { ...t, item_ids: newIds } : t));
+                          setSelectedItemsToAdd([]);
+                        }
+                      }}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 whitespace-nowrap"
+                    >
+                      Thêm vào mẫu
+                    </button>
+
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        id="import-template-excel"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          const reader = new FileReader();
+                          reader.onload = async (evt) => {
+                            try {
+                              const bstr = evt.target?.result;
+                              const wb = XLSX.read(bstr, { type: 'binary' });
+                              const wsname = wb.SheetNames[0];
+                              const ws = wb.Sheets[wsname];
+                              const rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+                              
+                              const allCells = new Set<string>();
+                              rawData.forEach(row => {
+                                row.forEach(cell => {
+                                  if (cell !== null && cell !== undefined) {
+                                    allCells.add(cell.toString().trim());
+                                  }
+                                });
+                              });
+                              
+                              const matchedItems = items.filter(i => allCells.has(i.code));
+                              const matchedIds = matchedItems.map(i => i.id);
+                              
+                              if (matchedIds.length === 0) {
+                                alert('Không tìm thấy mã vật tư nào hợp lệ trong file Excel.');
+                                return;
+                              }
+                              
+                              const currentIds = editingTemplate.item_ids || [];
+                              const newIdsToAppend = matchedIds.filter(id => !currentIds.includes(id));
+                              
+                              if (newIdsToAppend.length === 0) {
+                                alert('Các vật tư trong file Excel đều đã có trong danh sách mẫu này.');
+                                return;
+                              }
+                              
+                              const newIds = [...currentIds, ...newIdsToAppend];
+                              
+                              const { error } = await supabase.from('inventory_audit_templates').update({ item_ids: newIds }).eq('id', editingTemplate.id);
+                              if (!error) {
+                                setEditingTemplate({ ...editingTemplate, item_ids: newIds });
+                                setAuditTemplates(auditTemplates.map(t => t.id === editingTemplate.id ? { ...t, item_ids: newIds } : t));
+                                alert(`Đã thêm thành công ${newIdsToAppend.length} vật tư từ file Excel.`);
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              alert('Lỗi khi đọc file Excel');
+                            }
+                          };
+                          reader.readAsBinaryString(file);
+                          e.target.value = '';
+                        }}
+                      />
+                      <button
+                        onClick={() => document.getElementById('import-template-excel')?.click()}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap flex items-center gap-2"
+                        title="Import file Excel chứa Mã VT"
+                      >
+                        <Upload size={18} /> Nhập Excel
+                      </button>
+                    </div>
+
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        id="import-template-excel"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          const reader = new FileReader();
+                          reader.onload = async (evt) => {
+                            try {
+                              const bstr = evt.target?.result;
+                              const wb = XLSX.read(bstr, { type: 'binary' });
+                              const wsname = wb.SheetNames[0];
+                              const ws = wb.Sheets[wsname];
+                              const rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+                              
+                              // Flatten all cells to a set of strings to find matching codes
+                              const allCells = new Set<string>();
+                              rawData.forEach(row => {
+                                row.forEach(cell => {
+                                  if (cell !== null && cell !== undefined) {
+                                    allCells.add(cell.toString().trim());
+                                  }
+                                });
+                              });
+                              
+                              // Find matching items
+                              const matchedItems = items.filter(i => allCells.has(i.code));
+                              const matchedIds = matchedItems.map(i => i.id);
+                              
+                              if (matchedIds.length === 0) {
+                                alert('Không tìm thấy mã vật tư nào hợp lệ trong file Excel.');
+                                return;
+                              }
+                              
+                              // Avoid duplicates
+                              const currentIds = editingTemplate.item_ids || [];
+                              const newIdsToAppend = matchedIds.filter(id => !currentIds.includes(id));
+                              
+                              if (newIdsToAppend.length === 0) {
+                                alert('Các vật tư trong file Excel đều đã có trong danh sách mẫu này.');
+                                return;
+                              }
+                              
+                              const newIds = [...currentIds, ...newIdsToAppend];
+                              
+                              const { error } = await supabase.from('inventory_audit_templates').update({ item_ids: newIds }).eq('id', editingTemplate.id);
+                              if (!error) {
+                                setEditingTemplate({ ...editingTemplate, item_ids: newIds });
+                                setAuditTemplates(auditTemplates.map(t => t.id === editingTemplate.id ? { ...t, item_ids: newIds } : t));
+                                alert(`Đã thêm thành công ${newIdsToAppend.length} vật tư từ file Excel.`);
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              alert('Lỗi khi đọc file Excel');
+                            }
+                          };
+                          reader.readAsBinaryString(file);
+                          e.target.value = ''; // Reset input
+                        }}
+                      />
+                      <button
+                        onClick={() => document.getElementById('import-template-excel')?.click()}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap flex items-center gap-2"
+                        title="Import file Excel chứa Mã VT"
+                      >
+                        <Upload size={18} /> Nhập từ Excel
+                      </button>
+
+              </div>
+              
+              <div className="mt-6 border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-3 font-semibold text-gray-900 border-b">Mã VT</th>
+                      <th className="p-3 font-semibold text-gray-900 border-b">Tên vật tư</th>
+                      <th className="p-3 font-semibold text-gray-900 border-b text-center w-20">Xóa</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(editingTemplate.item_ids || []).map(id => {
+                      const item = items.find(i => i.id === id);
+                      if (!item) return null;
+                      return (
+                        <tr key={id} className="hover:bg-gray-50">
+                          <td className="p-3 font-medium text-indigo-600">{item.code}</td>
+                          <td className="p-3 text-gray-700">{item.name}</td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={async () => {
+                                const newIds = editingTemplate.item_ids.filter(i => i !== id);
+                                await supabase.from('inventory_audit_templates').update({ item_ids: newIds }).eq('id', editingTemplate.id);
+                                setEditingTemplate({ ...editingTemplate, item_ids: newIds });
+                                setAuditTemplates(auditTemplates.map(t => t.id === editingTemplate.id ? { ...t, item_ids: newIds } : t));
+                              }}
+                              className="text-red-500 hover:bg-red-50 p-1 rounded"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(editingTemplate.item_ids || []).length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="p-6 text-center text-gray-500">Chưa có vật tư nào trong mẫu này.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
+      )}
+
       </div>
+    </div>
     </div>
   );
 };

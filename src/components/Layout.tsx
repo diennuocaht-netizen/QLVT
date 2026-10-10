@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ChangePasswordModal } from './ChangePasswordModal';
-import {   Key, LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck, CheckCircle , Package , ChevronLeft } from 'lucide-react';
+import {   Key, LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck, CheckCircle , Package , ChevronLeft, Scale } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
@@ -42,6 +42,7 @@ export const Layout: React.FC = () => {
     { path: '/inventory/issues', label: 'Phiếu Xuất Kho', icon: ArrowUpFromLine, roles: ['admin', 'manager', 'viewer'] },
     { path: '/inventory/requisitions', label: 'Tờ Trình', icon: ClipboardList, roles: ['admin', 'manager', 'viewer'] },
     { path: '/inventory/audits', label: 'Kiểm kê', icon: ClipboardList, roles: ['admin', 'manager'] },
+    { path: '/inventory/reconciliations', label: 'Đối soát Bravo', icon: Scale, roles: ['admin', 'manager'] },
     { path: '/inventory/settings', label: 'Cài đặt Vật tư', icon: Settings, roles: ['admin', 'manager'] },
   ];
 

@@ -73,7 +73,7 @@ export const InventoryAudits: React.FC = () => {
       <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Kiểm Kê Kho</h1>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setEditAudit(null); setIsModalOpen(true); }}
           className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
         >
           <Plus size={18} /> Tạo Phiếu Kiểm Kê
@@ -138,7 +138,7 @@ export const InventoryAudits: React.FC = () => {
                           </button>
                           {(profile?.role === 'admin' || profile?.role === 'manager') && (
                             <>
-                              <button onClick={() => { setEditAudit(audit); setIsEditModalOpen(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded" title="Chỉnh sửa">
+                              <button onClick={() => { setEditAudit(audit); setIsModalOpen(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded" title="Chỉnh sửa">
                                 <Edit2 size={18} />
                               </button>
                               <button onClick={() => handleDeleteAudit(audit.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Xóa">
@@ -179,9 +179,19 @@ export const InventoryAudits: React.FC = () => {
                   <span className="font-medium text-gray-800">{audit.notes || '-'}</span>
                 </div>
                 <div className="flex justify-end gap-2 border-t pt-3">
-                  <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md" title="Chi tiết">
-                    <FileText size={18} />
-                  </button>
+                  {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                      <>
+                        <button onClick={() => { setEditAudit(audit); setIsModalOpen(true); }} className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md" title="Chỉnh sửa">
+                          <Edit2 size={18} />
+                        </button>
+                        <button onClick={() => handleDeleteAudit(audit.id)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md" title="Xóa">
+                          <Trash2 size={18} />
+                        </button>
+                      </>
+                    )}
+                    <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md" title="Chi tiết">
+                      <FileText size={18} />
+                    </button>
                 </div>
               </div>
             ))
@@ -198,10 +208,16 @@ export const InventoryAudits: React.FC = () => {
 
       <AuditModal 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setEditAudit(null); }}
         onSuccess={() => {
-          // data will be reloaded due to useEffect dependency
+          setIsModalOpen(false);
+          setEditAudit(null);
+          // Reload data
+          supabase.from('inventory_audits').select('*').order('date', { ascending: false }).then(({data}) => {
+             if (data) setAudits(data);
+          });
         }}
+        audit={editAudit}
       />
     </div>
   );

@@ -24,7 +24,8 @@ export const Projects: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
-  const [viewingProject, setViewingProject] = useState<any>(null);
+  const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
+  const viewingProject = useMemo(() => projects.find((p: any) => p.id === viewingProjectId), [projects, viewingProjectId]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
@@ -154,7 +155,7 @@ export const Projects: React.FC = () => {
                     
                     <h3 
                       className="text-lg font-bold text-gray-900 mb-1 cursor-pointer hover:text-indigo-600 line-clamp-2"
-                      onClick={() => { setViewingProject(project); setIsDetailsOpen(true); }}
+                      onClick={() => { setViewingProjectId(project.id); setIsDetailsOpen(true); }}
                     >
                       {project.name}
                     </h3>
@@ -203,7 +204,7 @@ export const Projects: React.FC = () => {
                     </div>
                     <div className="flex space-x-2">
                       <button 
-                        onClick={() => { setViewingProject(project); setIsDetailsOpen(true); }}
+                        onClick={() => { setViewingProjectId(project.id); setIsDetailsOpen(true); }}
                         className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-md hover:bg-white border border-transparent hover:border-gray-200"
                         title="Xem chi tiết"
                       >
@@ -246,7 +247,7 @@ export const Projects: React.FC = () => {
       {isDetailsOpen && viewingProject && (
         <ProjectDetailsModal
           project={viewingProject}
-          onClose={() => setIsDetailsOpen(false)}
+          onClose={() => { setIsDetailsOpen(false); setViewingProjectId(null); }}
         />
       )}
 

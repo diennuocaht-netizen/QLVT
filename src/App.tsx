@@ -21,6 +21,7 @@ import { InventoryIssues } from './pages/InventoryIssues';
 import { InventoryRequisitions } from './pages/InventoryRequisitions';
 import { InventoryAudits } from './pages/InventoryAudits';
 import { InventorySettings } from './pages/InventorySettings';
+import { InventoryReconciliations } from './pages/InventoryReconciliations';
 import { MeasurementForms } from './pages/MeasurementForms';
 import { MeasurementRecords } from './pages/MeasurementRecords';
 import { MeasuredEquipments } from './pages/MeasuredEquipments';
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="inventory/issues" element={<InventoryIssues />} />
             <Route path="inventory/requisitions" element={<InventoryRequisitions />} />
             <Route path="inventory/audits" element={<InventoryAudits />} />
+            <Route path="inventory/reconciliations" element={<InventoryReconciliations />} />
             <Route path="inventory/settings" element={<InventorySettings />} />
             
             {/* HR / Shift Scheduling */}
