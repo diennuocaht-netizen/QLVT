@@ -4,6 +4,22 @@ import { supabase } from '../supabase-client';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { FileText, Server, Users, Clock, Plus, Edit, Trash, Activity, Calendar, ClipboardCheck, ArrowRight, User } from 'lucide-react';
 
+const isManagerRole = (role?: string) => {
+  if (!role) return false;
+  const nfc = role.normalize('NFC').toLowerCase();
+  const nonAccent = role.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd');
+  return (
+    nfc.includes('quản lý') ||
+    nfc.includes('ca trưởng') ||
+    nfc.includes('đội trưởng') ||
+    nfc.includes('đội phó') ||
+    nonAccent.includes('quan ly') ||
+    nonAccent.includes('ca truong') ||
+    nonAccent.includes('doi truong') ||
+    nonAccent.includes('doi pho')
+  );
+};
+
 export const Dashboard: React.FC = () => {
   const { profile } = useAuth();
   const [stats, setStats] = useState({ documents: 0, devices: 0, users: 0, tasks: 0, events: 0 });
@@ -113,11 +129,20 @@ export const Dashboard: React.FC = () => {
              }
           });
 
-          const hour = new Date().getHours();
+          // Chuyen ca tiep theo len dau truoc khi ket thuc ca hien tai 15 phut
+          // Ca M (06:00 - 14:00): Tu 05:45 den truoc 13:45
+          // Ca A (14:00 - 22:00): Tu 13:45 den truoc 21:45
+          // Ca N (22:00 - 06:00): Tu 21:45 den truoc 05:45
+          const now = new Date();
+          const totalMinutes = now.getHours() * 60 + now.getMinutes();
           let currentShiftCode = 'M';
-          if (hour >= 6 && hour < 14) currentShiftCode = 'M';
-          else if (hour >= 14 && hour < 22) currentShiftCode = 'A';
-          else currentShiftCode = 'N';
+          if (totalMinutes >= 345 && totalMinutes < 825) {
+            currentShiftCode = 'M';
+          } else if (totalMinutes >= 825 && totalMinutes < 1305) {
+            currentShiftCode = 'A';
+          } else {
+            currentShiftCode = 'N';
+          }
 
           const groupOrder = ['M', 'A', 'N'];
           const startIndex = groupOrder.indexOf(currentShiftCode);
@@ -138,10 +163,8 @@ export const Dashboard: React.FC = () => {
 
           finalGroups.forEach(sg => {
              sg.employees.sort((x: any, y: any) => {
-                const roleX = (x.role || '').toLowerCase();
-                const roleY = (y.role || '').toLowerCase();
-                const xIsManager = roleX.includes('quản lý') || roleX.includes('ca trưởng') || roleX.includes('đội trưởng') || roleX.includes('đội phó');
-                const yIsManager = roleY.includes('quản lý') || roleY.includes('ca trưởng') || roleY.includes('đội trưởng') || roleY.includes('đội phó');
+                const xIsManager = isManagerRole(x.role);
+                const yIsManager = isManagerRole(y.role);
                 if (xIsManager && !yIsManager) return -1;
                 if (!xIsManager && yIsManager) return 1;
                 return y.tasksCount - x.tasksCount;
@@ -363,7 +386,7 @@ export const Dashboard: React.FC = () => {
                       </div>
                       <div className="p-2 space-y-1.5">
                         {shiftGroup.employees.map((staff, sIdx) => {
-                          const isManager = staff.role?.toLowerCase().includes('quản lý') || staff.role?.toLowerCase().includes('ca trưởng') || staff.role?.toLowerCase().includes('đội trưởng');
+                          const isManager = isManagerRole(staff.role);
                           return (
                             <div key={sIdx} className="flex items-center justify-between p-2 rounded bg-white border border-emerald-50 shadow-sm">
                               <div className="flex items-center">
