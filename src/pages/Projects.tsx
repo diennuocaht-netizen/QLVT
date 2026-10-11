@@ -25,7 +25,6 @@ export const Projects: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
-  const viewingProject = useMemo(() => projects.find((p: any) => p.id === viewingProjectId), [projects, viewingProjectId]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
@@ -36,6 +35,8 @@ export const Projects: React.FC = () => {
     queryKey: ['projects'],
     queryFn: fetchProjects,
   });
+
+  const viewingProject = useMemo(() => projects.find((p: any) => p.id === viewingProjectId), [projects, viewingProjectId]);
 
   // Real-time subscription
   useEffect(() => {
