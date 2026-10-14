@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Plus, Trash2, ExternalLink, Edit2, QrCode } from 'lucide-react';
 import Select from 'react-select';
 import { InventorySlip, SlipType, InventorySlipItem, Item, Requisition, RequisitionStatus, RequisitionItemStatus } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { slipToDatabase, requisitionToDatabase, itemFromDatabase, requisitionFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
 import { SelectRequisitionItemsModal } from './SelectRequisitionItemsModal';
 import { QRScannerModal } from './QRScannerModal';
-import { QrCode } from 'lucide-react';
+import { findBestCostCode, DEFAULT_PURPOSE, DEFAULT_METHOD } from '../../utils/costCodeMatcher';
 
 interface SlipModalProps {
   isOpen: boolean;
@@ -34,8 +34,12 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     reason: '',
     status: 'Đang mở',
     items: [],
+    handoverRecordUrl: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCostCodeDetails, setShowCostCodeDetails] = useState(false);
+  const initialLoadRef = useRef(false);
+  const lastGeneratedDateRef = useRef('');
 
   useEffect(() => {
     // Fetch all required data for the form
@@ -174,22 +178,34 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
   };
 
   useEffect(() => {
-    if (slip) {
-      setFormData(slip);
-    } else {
-      const today = new Date().toISOString().split('T')[0];
-      setFormData({
-        code: '',
-        date: today,
-        reason: '',
-        status: 'Đang mở',
-        items: [],
-        type: type,
-        createdBy: profile?.display_name || '',
-        receiptType: type === SlipType.Receipt ? 'Theo tờ trình' : undefined,
-      });
+    if (!isOpen) {
+      initialLoadRef.current = false;
+      return;
     }
-  }, [slip, isOpen, type, profile]);
+
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      if (slip) {
+        setFormData({
+          ...slip,
+          handoverRecordUrl: slip.handoverRecordUrl || '',
+        });
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        setFormData({
+          code: '',
+          date: today,
+          reason: '',
+          status: 'Đang mở',
+          items: [],
+          type: type,
+          createdBy: profile?.display_name || '',
+          receiptType: type === SlipType.Receipt ? 'Theo tờ trình' : undefined,
+          handoverRecordUrl: '',
+        });
+      }
+    }
+  }, [slip?.id, isOpen]);
 
   const getWeekNumber = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -243,7 +259,16 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
   };
 
   useEffect(() => {
+    if (!isOpen) {
+      lastGeneratedDateRef.current = '';
+      return;
+    }
     if (!slip && formData.date && isOpen) {
+      const cacheKey = `${formData.date}_${type}`;
+      if (lastGeneratedDateRef.current === cacheKey && formData.code) {
+        return;
+      }
+      lastGeneratedDateRef.current = cacheKey;
       if (type === SlipType.Receipt) {
         // Auto-generate Receipt code: PN_YYYYMMDD_###
         const dateStr = formData.date.replace(/-/g, '');
@@ -315,7 +340,11 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
       items: [...(prev.items || []), { 
         itemId: initialItemId, 
         quantity: 1,
-        ...(type === SlipType.Issue ? { issueDate: prev.date } : {})
+        ...(type === SlipType.Issue ? { 
+          issueDate: prev.date || new Date().toISOString().split('T')[0],
+          purpose: DEFAULT_PURPOSE,
+          method: DEFAULT_METHOD,
+        } : {})
       }]
     }));
   };
@@ -331,6 +360,16 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     setFormData(prev => {
       const newItems = [...(prev.items || [])];
       newItems[index] = { ...newItems[index], [field]: value };
+
+      if (field === 'itemId' && value) {
+        const selectedInventoryItem = items.find(i => i.id === value);
+        if (selectedInventoryItem) {
+          newItems[index].itemCode = selectedInventoryItem.code;
+          newItems[index].itemName = selectedInventoryItem.name;
+          newItems[index].unit = selectedInventoryItem.unit;
+          newItems[index].unitPrice = selectedInventoryItem.unitPrice;
+        }
+      }
 
       // Validate inventory for Issue slips when itemId is selected
       if (type === SlipType.Issue && field === 'itemId' && value) {
@@ -359,82 +398,40 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
         }
       }
 
+      // If subsystem changed, ensure default purpose and method
+      if (field === 'subsystem' && value) {
+        if (!newItems[index].purpose) {
+          newItems[index].purpose = DEFAULT_PURPOSE;
+        }
+        if (!newItems[index].method) {
+          newItems[index].method = DEFAULT_METHOD;
+        }
+      }
+
+      // If costCode changed directly, sync subsystem, purpose, method
+      if (field === 'costCode' && value) {
+        const selectedCc = costCodes.find(cc => cc.code === value);
+        if (selectedCc) {
+          if (selectedCc.subsystem) newItems[index].subsystem = selectedCc.subsystem;
+          if (selectedCc.purpose) newItems[index].purpose = selectedCc.purpose;
+          if (selectedCc.method) newItems[index].method = selectedCc.method;
+        }
+      }
+
       // Auto-match cost code for Issue slips
       if (type === SlipType.Issue && ['itemId', 'subsystem', 'purpose', 'method'].includes(field)) {
         const currentItem = newItems[index];
-        if (currentItem.itemId) {
-          const selectedInventoryItem = items.find(i => i.id === currentItem.itemId);
-          if (selectedInventoryItem) {
-            let bestMatch = null;
-            let maxScore = -1;
-
-            const normalize = (str?: string) => (str || '').trim().toLowerCase();
-
-            costCodes.forEach(cc => {
-              const ccClass = normalize(cc.classification);
-              const itemClass = normalize(selectedInventoryItem.classification);
-              const matchClass = !ccClass || ccClass === itemClass || (itemClass && ccClass.includes(itemClass)) || (ccClass && itemClass.includes(ccClass));
-
-              const ccSub = normalize(cc.subsystem);
-              const itemSub = normalize(currentItem.subsystem);
-              const matchSub = !ccSub || ccSub === itemSub || (itemSub && ccSub.includes(itemSub)) || (ccSub && itemSub.includes(ccSub));
-
-              const ccPurp = normalize(cc.purpose);
-              const itemPurp = normalize(currentItem.purpose);
-              const matchPurp = !ccPurp || ccPurp === itemPurp || (itemPurp && ccPurp.includes(itemPurp)) || (ccPurp && itemPurp.includes(ccPurp));
-
-              const ccMeth = normalize(cc.method);
-              const itemMeth = normalize(currentItem.method);
-              const matchMeth = !ccMeth || ccMeth === itemMeth || (itemMeth && ccMeth.includes(itemMeth)) || (ccMeth && itemMeth.includes(ccMeth));
-
-              if (matchClass && matchSub && matchPurp && matchMeth) {
-                let score = 0;
-                if (ccClass) score += 1;
-                if (ccSub) score += 1;
-                if (ccPurp) score += 1;
-                if (ccMeth) score += 1;
-
-                if (score > maxScore) {
-                  maxScore = score;
-                  bestMatch = cc;
-                }
-              }
-            });
-
-            if (!bestMatch) {
-              // Fallback: ignore classification completely
-              costCodes.forEach(cc => {
-                const ccSub = normalize(cc.subsystem);
-                const itemSub = normalize(currentItem.subsystem);
-                const matchSub = !ccSub || ccSub === itemSub || (itemSub && ccSub.includes(itemSub)) || (ccSub && itemSub.includes(ccSub));
-
-                const ccPurp = normalize(cc.purpose);
-                const itemPurp = normalize(currentItem.purpose);
-                const matchPurp = !ccPurp || ccPurp === itemPurp || (itemPurp && ccPurp.includes(itemPurp)) || (ccPurp && itemPurp.includes(ccPurp));
-
-                const ccMeth = normalize(cc.method);
-                const itemMeth = normalize(currentItem.method);
-                const matchMeth = !ccMeth || ccMeth === itemMeth || (itemMeth && ccMeth.includes(itemMeth)) || (ccMeth && itemMeth.includes(ccMeth));
-
-                if (matchSub && matchPurp && matchMeth) {
-                  let score = 0;
-                  if (ccSub) score += 1;
-                  if (ccPurp) score += 1;
-                  if (ccMeth) score += 1;
-
-                  if (score > maxScore) {
-                    maxScore = score;
-                    bestMatch = cc;
-                  }
-                }
-              });
-            }
-
-            if (bestMatch) {
-              currentItem.costCode = (bestMatch as any).code;
-            } else {
-              currentItem.costCode = '';
-            }
+        if (currentItem.subsystem) {
+          const selectedInventoryItem = currentItem.itemId ? items.find(i => i.id === currentItem.itemId) : undefined;
+          const matchedCode = findBestCostCode(
+            currentItem.subsystem,
+            currentItem.purpose || DEFAULT_PURPOSE,
+            currentItem.method || DEFAULT_METHOD,
+            selectedInventoryItem?.classification || selectedInventoryItem?.category,
+            costCodes
+          );
+          if (matchedCode) {
+            currentItem.costCode = matchedCode;
           }
         }
       }
@@ -455,12 +452,20 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
 
     console.log(`📋 [Requisition Items] Selected ${selectedItems.length} items from ${req.code}:`, selectedItems);
 
-    const newItems: InventorySlipItem[] = selectedItems.map(item => ({
-      itemId: item.itemId,
-      quantity: item.quantity,
-      requisitionItemId: item.requisitionItemId,
-      requisitionId: req.id
-    }));
+    const newItems: InventorySlipItem[] = selectedItems.map(item => {
+      const invItem = items.find(i => i.id === item.itemId);
+      const reqItem = req.items?.find(i => i.id === item.requisitionItemId || i.itemId === item.itemId);
+      return {
+        itemId: item.itemId,
+        itemCode: invItem?.code || reqItem?.itemCode || '',
+        itemName: invItem?.name || reqItem?.itemName || '',
+        unit: invItem?.unit || reqItem?.unit || '',
+        unitPrice: invItem?.unitPrice ?? reqItem?.unitPrice ?? 0,
+        quantity: item.quantity,
+        requisitionItemId: item.requisitionItemId,
+        requisitionId: req.id
+      };
+    });
 
     console.log(`📝 [Receipt] Created ${newItems.length} slip items:`, newItems);
 
@@ -521,13 +526,45 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
         }
       }
 
+      // Validate document link for Receipt slips when closing
+      if (type === SlipType.Receipt && formData.status === 'Đã đóng') {
+        const link = formData.handoverRecordUrl?.trim();
+        if (!link) {
+          alert('Vui lòng nhập đường dẫn Biên bản nhận vật tư / Tài liệu trước khi đóng phiếu nhập.');
+          setIsSubmitting(false);
+          return;
+        }
+        try {
+          const parsed = new URL(link);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            throw new Error();
+          }
+        } catch (_) {
+          alert('Đường dẫn Biên bản nhận vật tư / Tài liệu không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Ensure all items have snapshot fields populated from inventory items
+      const itemsWithSnapshot = (formData.items || []).map(slipItem => {
+        const invItem = items.find(i => i.id === slipItem.itemId);
+        return {
+          ...slipItem,
+          itemCode: slipItem.itemCode || invItem?.code || '',
+          itemName: slipItem.itemName || invItem?.name || '',
+          unit: slipItem.unit || invItem?.unit || '',
+          unitPrice: slipItem.unitPrice !== undefined ? slipItem.unitPrice : (invItem?.unitPrice ?? 0),
+        };
+      });
+
       // Build clean slipData object - only include defined fields
       const slipData: Partial<InventorySlip> = {
         code: formData.code,
         date: formData.date,
         reason: formData.reason,
         status: formData.status,
-        items: formData.items,
+        items: itemsWithSnapshot,
         type,
         createdBy: formData.createdBy || profile?.display_name || 'Unknown',
       };
@@ -536,6 +573,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
       if (type === SlipType.Receipt) {
         slipData.receiptType = formData.receiptType;
         slipData.requisitionIds = formData.requisitionIds;
+        slipData.handoverRecordUrl = formData.handoverRecordUrl?.trim() || null;
       }
 
       // Auto-generate code if empty
@@ -844,40 +882,107 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     }
   };
 
-  const combinedSubsystems = Array.from(new Set(costCodes.map(c => c.subsystem).filter(Boolean)));
-  const uniqueMethods = Array.from(new Set(costCodes.map(c => c.method).filter(Boolean)));
-  const uniquePurposes = Array.from(new Set(costCodes.map(c => c.purpose).filter(Boolean)));
+  const combinedSubsystems = Array.from(new Set([
+    ...subsystems.map(s => s.name),
+    ...costCodes.map(c => c.subsystem)
+  ].filter(Boolean)));
+  const uniqueMethods = Array.from(new Set([DEFAULT_METHOD, ...costCodes.map(c => c.method).filter(Boolean)]));
+  const uniquePurposes = Array.from(new Set([DEFAULT_PURPOSE, ...costCodes.map(c => c.purpose).filter(Boolean)]));
+
+  const scrollToSelectedOption = () => {
+    const tryScroll = () => {
+      const selectedElement = document.querySelector('.react-select__option--is-selected') as HTMLElement | null;
+      if (selectedElement) {
+        const menuList = (
+          selectedElement.closest('.react-select__menu-list') || 
+          selectedElement.closest('[class*="-MenuList"]') ||
+          selectedElement.parentElement
+        ) as HTMLElement | null;
+
+        if (menuList && menuList.scrollHeight > menuList.clientHeight) {
+          menuList.scrollTop = Math.max(0, selectedElement.offsetTop - (menuList.clientHeight - selectedElement.clientHeight) / 2);
+          return true;
+        } else {
+          selectedElement.scrollIntoView({ block: 'nearest' });
+          return true;
+        }
+      }
+      return false;
+    };
+
+    setTimeout(tryScroll, 20);
+    setTimeout(tryScroll, 60);
+    setTimeout(tryScroll, 120);
+  };
 
   const selectStyles = {
     control: (base: any) => ({
       ...base,
-      minHeight: '38px',
+      minHeight: '42px',
       borderRadius: '0.375rem',
       borderColor: '#d1d5db',
       boxShadow: 'none',
       '&:hover': {
-        borderColor: '#d1d5db'
+        borderColor: '#9ca3af'
       }
     }),
-    menuPortal: (base: any) => ({ ...base, zIndex: 9999 })
+    valueContainer: (base: any) => ({
+      ...base,
+      padding: '4px 8px',
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      overflow: 'visible',
+      lineHeight: '1.25rem',
+    }),
+    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+    menu: (base: any) => ({
+      ...base,
+      minWidth: '420px',
+      maxWidth: '650px',
+      zIndex: 9999,
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isSelected ? '#e0e7ff' : state.isFocused ? '#f1f5f9' : 'white',
+      color: state.isSelected ? '#3730a3' : '#1f2937',
+      borderBottom: '1px solid #f3f4f6',
+      cursor: 'pointer',
+      padding: '8px 12px',
+    })
   };
 
   const itemOptions = items.map(i => ({ value: i.id, label: `${i.code} - ${i.name} (${i.unit})` }));
   const itemCodeOptions = items.map(i => ({ value: i.id, label: i.code }));
-  const itemNameOptions = items.map(i => ({ value: i.id, label: i.name }));
+  const itemNameOptions = items.map(i => ({ value: i.id, label: `${i.name} (${i.code})` }));
 
   const formatItemOptionLabel = (option: any) => {
-    if (type !== SlipType.Issue) return option.label;
-    const avail = getAvailableQty(option.value);
-    if (avail <= 0) {
-      return (
-        <div className="flex flex-col sm:flex-row justify-between text-red-500">
-          <span>{option.label}</span>
-          <span className="text-xs font-medium sm:ml-2">(Hết hàng)</span>
+    const it = items.find(i => i.id === option.value);
+    if (!it) return option.label;
+    const avail = type === SlipType.Issue ? getAvailableQty(option.value) : null;
+    return (
+      <div className="py-0.5 text-left" title={`${it.code} - ${it.name} (${it.unit})`}>
+        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+              {it.code}
+            </span>
+            <span className="text-xs text-gray-500 font-medium">({it.unit})</span>
+          </div>
+          {avail !== null && (
+            <span className={avail <= 0 ? 'text-xs font-semibold text-red-500' : 'text-xs text-gray-500 font-medium'}>
+              {avail <= 0 ? '(Hết tồn kho)' : `Tồn: ${avail}`}
+            </span>
+          )}
         </div>
-      );
-    }
-    return option.label;
+        <div className="text-sm font-medium text-gray-900 mt-1 whitespace-normal break-words leading-tight">
+          {it.name}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -944,8 +1049,11 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500"
                 >
                   <option value="Đang mở">Đang mở</option>
-                  <option value="Đã hoàn thành">Đã hoàn thành</option>
-                  <option value="Đã đóng">Đã đóng</option>
+                  {type === SlipType.Issue ? (
+                    <option value="Đã hoàn thành">Đã hoàn thành</option>
+                  ) : (
+                    <option value="Đã đóng">Đã đóng</option>
+                  )}
                 </select>
               </div>
               <div>
@@ -973,6 +1081,45 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
               
               {type === SlipType.Receipt && (
                 <>
+                  <div className="col-span-1 sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center justify-between">
+                      <span>
+                        Link Biên bản nhận vật tư / Tài liệu (URL)
+                        {formData.status === 'Đã đóng' && (
+                          <span className="text-red-500 font-bold ml-1">* (Bắt buộc khi đóng phiếu)</span>
+                        )}
+                      </span>
+                      {formData.handoverRecordUrl && (
+                        <a
+                          href={formData.handoverRecordUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium"
+                        >
+                          <ExternalLink size={12} /> Mở link
+                        </a>
+                      )}
+                    </label>
+                    <input
+                      type="url"
+                      name="handoverRecordUrl"
+                      value={formData.handoverRecordUrl || ''}
+                      onChange={handleChange}
+                      disabled={isFormDisabled()}
+                      placeholder="https://docs.google.com/... hoặc link Google Drive"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                        formData.status === 'Đã đóng' && !formData.handoverRecordUrl?.trim()
+                          ? 'border-red-400 bg-red-50/40'
+                          : 'border-gray-300'
+                      }`}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.status === 'Đã đóng'
+                        ? '⚠️ Phiếu nhập ở trạng thái "Đã đóng" bắt buộc phải đính kèm link Biên bản nhận vật tư.'
+                        : 'Dán đường dẫn (link) tới Biên bản nhận vật tư hoặc bổ sung khi bấm Đóng phiếu ngoài danh sách.'}
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Loại nhập</label>
                     <select
@@ -1048,7 +1195,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                       {type === SlipType.Receipt ? (
                         <>
                           <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Mã vật tư</th>
-                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[200px]">Tên vật tư</th>
+                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[320px]">Tên vật tư</th>
                           <th className="p-3 text-sm font-medium text-gray-600 w-24">Đơn vị</th>
                           <th className="p-3 text-sm font-medium text-gray-600 w-32">Số lượng</th>
                           <th className="p-3 text-sm font-medium text-gray-600 w-32">Đơn giá</th>
@@ -1056,16 +1203,20 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                         </>
                       ) : (
                         <>
-                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[250px]">Vật tư</th>
+                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[380px] sm:min-w-[420px]">Vật tư</th>
                           <th className="p-3 text-sm font-medium text-gray-600 w-32">Số lượng</th>
                           <th className="p-3 text-sm font-medium text-gray-600 w-32">Đơn giá</th>
                           <th className="p-3 text-sm font-medium text-gray-600 w-32">Thành tiền</th>
                           <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Ngày xuất</th>
                           <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Người xuất</th>
                           <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Hệ thống</th>
-                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Mục đích</th>
-                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Phương thức</th>
-                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Mã chi phí</th>
+                          {showCostCodeDetails && (
+                            <>
+                              <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Mục đích</th>
+                              <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Phương thức</th>
+                            </>
+                          )}
+                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[170px]">Mã chi phí</th>
                           <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Ghi chú</th>
                         </>
                       )}
@@ -1090,6 +1241,8 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 placeholder="-- Chọn mã --"
                                 styles={selectStyles}
                                 menuPortalTarget={document.body}
+                                classNamePrefix="react-select"
+                                onMenuOpen={scrollToSelectedOption}
                                 isClearable
                                 required
                               />
@@ -1102,6 +1255,8 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 placeholder="-- Chọn tên vật tư --"
                                 styles={selectStyles}
                                 menuPortalTarget={document.body}
+                                classNamePrefix="react-select"
+                                onMenuOpen={scrollToSelectedOption}
                                 isClearable
                                 required
                               />
@@ -1133,10 +1288,12 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 options={itemOptions}
                                 value={itemOptions.find(opt => opt.value === item.itemId) || null}
                                 onChange={(selected) => handleItemChange(index, 'itemId', selected?.value || '')}
-                                placeholder="-- Chọn vật tư --"
+                                placeholder="-- Tìm hoặc chọn vật tư --"
                                 styles={selectStyles}
                                 menuPortalTarget={document.body}
                                 formatOptionLabel={formatItemOptionLabel}
+                                classNamePrefix="react-select"
+                                onMenuOpen={scrollToSelectedOption}
                                 isClearable
                                 required
                               />
@@ -1209,41 +1366,56 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                   ))}
                               </select>
                             </td>
+                            {showCostCodeDetails && (
+                              <>
+                                <td className="p-3">
+                                  <select
+                                    value={item.purpose || DEFAULT_PURPOSE}
+                                    onChange={(e) => handleItemChange(index, 'purpose', e.target.value)}
+                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  >
+                                    <option value="">-- Mục đích --</option>
+                                    {uniquePurposes.map(p => (
+                                      <option key={p} value={p}>{p}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="p-3">
+                                  <select
+                                    value={item.method || DEFAULT_METHOD}
+                                    onChange={(e) => handleItemChange(index, 'method', e.target.value)}
+                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  >
+                                    <option value="">-- Phương thức --</option>
+                                    {uniqueMethods.map(m => (
+                                      <option key={m} value={m}>{m}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                              </>
+                            )}
                             <td className="p-3">
-                              <select
-                                value={item.purpose || ''}
-                                onChange={(e) => handleItemChange(index, 'purpose', e.target.value)}
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                              >
-                                <option value="">-- Mục đích --</option>
-                                {uniquePurposes.map(p => (
-                                  <option key={p} value={p}>{p}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-3">
-                              <select
-                                value={item.method || ''}
-                                onChange={(e) => handleItemChange(index, 'method', e.target.value)}
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                              >
-                                <option value="">-- Phương thức --</option>
-                                {uniqueMethods.map(m => (
-                                  <option key={m} value={m}>{m}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-3">
-                              <select
-                                value={item.costCode || ''}
-                                onChange={(e) => handleItemChange(index, 'costCode', e.target.value)}
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                              >
-                                <option value="">-- Chọn mã --</option>
-                                {costCodes.map(cc => (
-                                  <option key={cc.id} value={cc.code}>{cc.code} - {cc.classification}</option>
-                                ))}
-                              </select>
+                              <div className="flex flex-col gap-1">
+                                <select
+                                  value={item.costCode || ''}
+                                  onChange={(e) => handleItemChange(index, 'costCode', e.target.value)}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-gray-800"
+                                >
+                                  <option value="">-- Chọn mã chi phí --</option>
+                                  {costCodes.map(cc => (
+                                    <option key={cc.id} value={cc.code}>{cc.code} - {cc.classification || cc.purpose}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCostCodeDetails(!showCostCodeDetails)}
+                                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium self-start transition-colors py-0.5"
+                                  title="Sửa mục đích và cách thực hiện để chọn mã khác"
+                                >
+                                  <Edit2 size={12} />
+                                  <span>{showCostCodeDetails ? 'Ẩn chi tiết' : 'Sửa mã chi phí'}</span>
+                                </button>
+                              </div>
                             </td>
                             <td className="p-3">
                               <input

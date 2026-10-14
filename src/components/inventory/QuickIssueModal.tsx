@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Edit2 } from 'lucide-react';
+import { findBestCostCode, DEFAULT_PURPOSE, DEFAULT_METHOD } from '../../utils/costCodeMatcher';
 import { Item, InventorySlip, SlipType, RequisitionStatus, Requisition } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,13 +30,14 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
   const [users, setUsers] = useState<{id: string, name: string}[]>([]);
   const [slips, setSlips] = useState<InventorySlip[]>([]);
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
+  const [showCostCodeDetails, setShowCostCodeDetails] = useState(false);
   
   const [formData, setFormData] = useState({
     issueDate: new Date().toISOString().split('T')[0],
     handler: '',
     subsystem: '',
-    purpose: '',
-    method: '',
+    purpose: DEFAULT_PURPOSE,
+    method: DEFAULT_METHOD,
     costCode: '',
     quantity: 1,
     notes: ''
@@ -167,142 +169,49 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'quantity' ? Number(value) : value 
-    }));
+    setFormData(prev => {
+      const updated = { 
+        ...prev, 
+        [name]: name === 'quantity' ? Number(value) : value 
+      };
+
+      if (name === 'subsystem' && value) {
+        if (!updated.purpose) updated.purpose = DEFAULT_PURPOSE;
+        if (!updated.method) updated.method = DEFAULT_METHOD;
+        const matched = findBestCostCode(
+          value,
+          updated.purpose,
+          updated.method,
+          item?.classification,
+          costCodes
+        );
+        if (matched) updated.costCode = matched;
+      }
+
+      if (name === 'costCode' && value) {
+        const selectedCc = costCodes.find(cc => cc.code === value);
+        if (selectedCc) {
+          if (selectedCc.subsystem) updated.subsystem = selectedCc.subsystem;
+          if (selectedCc.purpose) updated.purpose = selectedCc.purpose;
+          if (selectedCc.method) updated.method = selectedCc.method;
+        }
+      }
+
+      return updated;
+    });
   };
 
   const autoMatchCostCode = () => {
-    if (!item || !formData.subsystem || !formData.purpose || !formData.method) return;
-
-    if (costCodes.length === 0) {
-      console.warn('No cost codes available for matching');
-      return;
-    }
-
-    let bestMatch: CostCode | null = null;
-    let maxScore = -1;
-
-    const normalize = (str?: string) => (str || '').trim().toLowerCase();
-
-    console.log('Auto-matching cost code:', {
-      item: item.name,
-      classification: item.classification,
-      subsystem: formData.subsystem,
-      purpose: formData.purpose,
-      method: formData.method,
-      availableCostCodes: costCodes.length
-    });
-
-    // Strategy 1: Try to match classification + subsystem + purpose + method
-    costCodes.forEach(cc => {
-      const ccClass = normalize(cc.classification);
-      const itemClass = normalize(item.classification);
-      const matchClass = !ccClass || ccClass === itemClass || itemClass.includes(ccClass) || ccClass.includes(itemClass);
-
-      const ccSub = normalize(cc.subsystem);
-      const formSub = normalize(formData.subsystem);
-      const matchSub = !ccSub || ccSub === formSub || formSub.includes(ccSub) || ccSub.includes(formSub);
-
-      const ccPurp = normalize(cc.purpose);
-      const formPurp = normalize(formData.purpose);
-      const matchPurp = !ccPurp || ccPurp === formPurp || formPurp.includes(ccPurp) || ccPurp.includes(formPurp);
-
-      const ccMeth = normalize(cc.method);
-      const formMeth = normalize(formData.method);
-      const matchMeth = !ccMeth || ccMeth === formMeth || formMeth.includes(ccMeth) || ccMeth.includes(formMeth);
-
-      if (matchClass && matchSub && matchPurp && matchMeth) {
-        let score = 0;
-        if (ccClass && matchClass) score += 2;
-        if (ccSub && matchSub) score += 2;
-        if (ccPurp && matchPurp) score += 2;
-        if (ccMeth && matchMeth) score += 2;
-
-        if (score > maxScore) {
-          maxScore = score;
-          bestMatch = cc;
-        }
-      }
-    });
-
-    // Strategy 2: Try to match subsystem + purpose + method (ignore classification)
-    if (!bestMatch) {
-      costCodes.forEach(cc => {
-        const ccSub = normalize(cc.subsystem);
-        const formSub = normalize(formData.subsystem);
-        const matchSub = !ccSub || ccSub === formSub || formSub.includes(ccSub) || ccSub.includes(formSub);
-
-        const ccPurp = normalize(cc.purpose);
-        const formPurp = normalize(formData.purpose);
-        const matchPurp = !ccPurp || ccPurp === formPurp || formPurp.includes(ccPurp) || ccPurp.includes(formPurp);
-
-        const ccMeth = normalize(cc.method);
-        const formMeth = normalize(formData.method);
-        const matchMeth = !ccMeth || ccMeth === formMeth || formMeth.includes(ccMeth) || ccMeth.includes(formMeth);
-
-        if (matchSub && matchPurp && matchMeth) {
-          let score = 0;
-          if (ccSub && matchSub) score += 2;
-          if (ccPurp && matchPurp) score += 2;
-          if (ccMeth && matchMeth) score += 2;
-
-          if (score > maxScore) {
-            maxScore = score;
-            bestMatch = cc;
-          }
-        }
-      });
-    }
-
-    // Strategy 3: Match any 2 of 3 (subsystem + purpose, subsystem + method, purpose + method)
-    if (!bestMatch) {
-      costCodes.forEach(cc => {
-        const ccSub = normalize(cc.subsystem);
-        const formSub = normalize(formData.subsystem);
-        const matchSub = !ccSub || ccSub === formSub || formSub.includes(ccSub) || ccSub.includes(formSub);
-
-        const ccPurp = normalize(cc.purpose);
-        const formPurp = normalize(formData.purpose);
-        const matchPurp = !ccPurp || ccPurp === formPurp || formPurp.includes(ccPurp) || ccPurp.includes(formPurp);
-
-        const ccMeth = normalize(cc.method);
-        const formMeth = normalize(formData.method);
-        const matchMeth = !ccMeth || ccMeth === formMeth || formMeth.includes(ccMeth) || ccMeth.includes(formMeth);
-
-        const matchCount = (matchSub ? 1 : 0) + (matchPurp ? 1 : 0) + (matchMeth ? 1 : 0);
-        
-        if (matchCount >= 2) {
-          let score = 0;
-          if (ccSub && matchSub) score += 1;
-          if (ccPurp && matchPurp) score += 1;
-          if (ccMeth && matchMeth) score += 1;
-
-          if (score > maxScore) {
-            maxScore = score;
-            bestMatch = cc;
-          }
-        }
-      });
-    }
-
-    // Strategy 4: Match first available cost code (last resort)
-    if (!bestMatch && costCodes.length > 0) {
-      bestMatch = costCodes[0];
-      console.warn('Using fallback: first available cost code');
-    }
-
-    if (bestMatch) {
-      console.log('Cost code match found:', bestMatch.code);
-      setFormData(prev => {
-        if (prev.costCode !== bestMatch!.code) {
-          return { ...prev, costCode: bestMatch!.code };
-        }
-        return prev;
-      });
-    } else {
-      console.warn('No cost code match found');
+    if (!item || !formData.subsystem) return;
+    const matched = findBestCostCode(
+      formData.subsystem,
+      formData.purpose || DEFAULT_PURPOSE,
+      formData.method || DEFAULT_METHOD,
+      item.classification,
+      costCodes
+    );
+    if (matched) {
+      setFormData(prev => (prev.costCode === matched ? prev : { ...prev, costCode: matched }));
     }
   };
 
@@ -354,6 +263,10 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
           status: 'Đang mở',
           items: [{
             itemId: item.id,
+            itemCode: item.code,
+            itemName: item.name,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
             quantity: formData.quantity,
             issueDate: formData.issueDate,
             handler: handlerName,
@@ -379,6 +292,10 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
           ...existingSlip.items,
           {
             itemId: item.id,
+            itemCode: item.code,
+            itemName: item.name,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
             quantity: formData.quantity,
             issueDate: formData.issueDate,
             handler: handlerName,
@@ -467,9 +384,9 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
 
   if (!isOpen || !item) return null;
 
-  const uniquePurposes = Array.from(new Set(costCodes.map(c => c.purpose).filter(Boolean)));
-  const combinedSubsystems = Array.from(new Set(costCodes.map(c => c.subsystem).filter(Boolean)));
-  const uniqueMethods = Array.from(new Set(costCodes.map(c => c.method).filter(Boolean)));
+  const uniquePurposes = Array.from(new Set([DEFAULT_PURPOSE, ...costCodes.map(c => c.purpose).filter(Boolean)]));
+  const combinedSubsystems = Array.from(new Set([...subsystems.map(s => s.name), ...costCodes.map(c => c.subsystem)].filter(Boolean)));
+  const uniqueMethods = Array.from(new Set([DEFAULT_METHOD, ...costCodes.map(c => c.method).filter(Boolean)]));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -550,49 +467,66 @@ export const QuickIssueModal: React.FC<QuickIssueModalProps> = ({ isOpen, onClos
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mục đích *</label>
-                <select
-                  name="purpose"
-                  value={formData.purpose}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                  required
-                >
-                  <option value="">-- Chọn mục đích --</option>
-                  {uniquePurposes.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
+              {showCostCodeDetails && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mục đích *</label>
+                    <select
+                      name="purpose"
+                      value={formData.purpose}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                      required
+                    >
+                      <option value="">-- Chọn mục đích --</option>
+                      {uniquePurposes.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phương thức *</label>
-                <select
-                  name="method"
-                  value={formData.method}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                  required
-                >
-                  <option value="">-- Chọn phương thức --</option>
-                  {uniqueMethods.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phương thức *</label>
+                    <select
+                      name="method"
+                      value={formData.method}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                      required
+                    >
+                      <option value="">-- Chọn phương thức --</option>
+                      {uniqueMethods.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
 
               <div className="col-span-1 sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mã chi phí (tự động)</label>
-                <input
-                  type="text"
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Mã chi phí</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCostCodeDetails(!showCostCodeDetails)}
+                    className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                  >
+                    <Edit2 size={13} />
+                    <span>{showCostCodeDetails ? 'Ẩn chi tiết' : 'Sửa mã chi phí (chọn Mục đích & Phương thức)'}</span>
+                  </button>
+                </div>
+                <select
                   name="costCode"
                   value={formData.costCode}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-not-allowed text-gray-700 font-medium"
-                  placeholder="Sẽ tự động điền khi chọn hệ thống, mục đích và phương thức"
-                />
-                <p className="text-xs text-gray-500 mt-1">Trường này sẽ tự động điền dựa vào hệ thống, mục đích và phương thức</p>
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-medium text-gray-800"
+                >
+                  <option value="">-- Chọn mã chi phí --</option>
+                  {costCodes.map(cc => (
+                    <option key={cc.id} value={cc.code}>{cc.code} - {cc.classification || cc.purpose}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Hệ thống tự động điền theo Hệ thống, Mục đích ("Sửa chữa") và Phương thức ("Tự thực hiện").</p>
               </div>
 
               <div className="col-span-1 sm:col-span-2">

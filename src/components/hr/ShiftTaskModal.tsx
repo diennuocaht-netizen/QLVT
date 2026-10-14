@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { X, Calendar as CalendarIcon, Clock, User, AlertCircle, FileText, Layers, CheckCircle } from 'lucide-react';
@@ -58,6 +58,21 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
 
   
   const canEditTask = !task || profile?.role === 'admin' || profile?.id === task.created_by || profile?.id === task.assignee_id || (task.completers || []).includes(profile?.id);
+
+  const getAssignerName = () => {
+    if (!task) {
+      return profile?.displayName || profile?.display_name || profile?.email || 'Bạn';
+    }
+    if (task.creator?.display_name) {
+      return task.creator.display_name;
+    }
+    if (task.created_by) {
+      const found = users.find(u => u.id === task.created_by);
+      if (found) return found.display_name || found.email;
+      return 'Người dùng hệ thống';
+    }
+    return 'Hệ thống (Checklist ca)';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,9 +200,28 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Người phụ trách</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Người giao việc</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 w-4 h-4" />
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={getAssignerName()}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-800 font-medium cursor-not-allowed text-sm"
+                />
+              </div>
+              {task?.created_at && (
+                <span className="text-[11px] text-gray-500 mt-1 block">
+                  Thời gian giao: {new Date(task.created_at).toLocaleString('vi-VN')}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Người phụ trách (Thực hiện)</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <select disabled={!canEditTask}                   value={formData.assignee_id}
@@ -201,7 +235,9 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
                 </select>
               </div>
             </div>
-            
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Mức độ ưu tiên</label>
               <div className="relative">
@@ -216,22 +252,22 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
                 </select>
               </div>
             </div>
+            
+            {task ? (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Trạng thái hiện tại</label>
+                <select disabled={!canEditTask}                 value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                >
+                  <option value="todo">Chưa làm</option>
+                  <option value="in_progress">Đang làm</option>
+                  <option value="done">Hoàn thành</option>
+                  <option value="handover">Bàn giao ca sau</option>
+                </select>
+              </div>
+            ) : null}
           </div>
-          
-          {task && (
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Trạng thái hiện tại</label>
-              <select disabled={!canEditTask}                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              >
-                <option value="todo">Chưa làm</option>
-                <option value="in_progress">Đang làm</option>
-                <option value="done">Hoàn thành</option>
-                <option value="handover">Bàn giao ca sau</option>
-              </select>
-            </div>
-          )}
         
             {task?.status === 'done' && (
               <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-gray-100">

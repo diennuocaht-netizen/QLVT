@@ -47,8 +47,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!isMountedRef.current) return;
 
       if (!error && userData) {
-        console.log('✅ [Auth] User profile loaded');
-        setProfile(userData as UserProfile);
+        setProfile(prev => {
+          if (
+            prev &&
+            prev.id === userData.id &&
+            prev.email === userData.email &&
+            prev.display_name === userData.display_name &&
+            prev.role === userData.role &&
+            prev.job_title === userData.job_title
+          ) {
+            return prev;
+          }
+          console.log('✅ [Auth] User profile loaded');
+          return userData as UserProfile;
+        });
       } else if (error?.code === 'PGRST116') {
         // User not in database yet, create profile
         console.log('📝 [Auth] Creating user profile...');
@@ -135,8 +147,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (!isMountedRef.current) return;
 
+      if (event === 'TOKEN_REFRESHED') {
+        // Token was refreshed in background (e.g. on window focus).
+        // User identity and profile are unchanged, do not trigger re-renders or profile refetch.
+        return;
+      }
+
       if (session?.user) {
-        setUser(session.user);
+        setUser(prev => {
+          if (prev && prev.id === session.user.id && prev.email === session.user.email) {
+            return prev;
+          }
+          return session.user;
+        });
         // Load profile in background
         loadUserProfile(session.user.id, session.user.email || '');
       } else {

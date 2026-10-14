@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Item } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
@@ -28,42 +28,49 @@ export const ItemModal: React.FC<ItemModalProps> = ({ isOpen, onClose, item, onS
   });
   const [locations, setLocations] = useState<{id: string, name: string, code: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const initialLoadRef = useRef(false);
 
   useEffect(() => {
-    if (item) {
-      setFormData(item);
-    } else {
-      setFormData({
-        code: '',
-        name: '',
-        unit: '',
-        category: '',
-        initialStock: 0,
-        unitPrice: 0,
-        warningThresholdLower: 0,
-        warningThresholdUpper: 0,
-        priceUpdateDate: '',
-        notes: '',
-        locationId: '',
-      });
+    if (!isOpen) {
+      initialLoadRef.current = false;
+      return;
     }
 
-    // Fetch locations
-    const fetchLocations = async () => {
-      try {
-        const { data, error } = await supabase.from('inventory_locations').select('*');
-        if (!error && data) {
-          setLocations(data);
-        }
-      } catch (err) {
-        console.error('Error fetching locations:', err);
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      if (item) {
+        setFormData(item);
+      } else {
+        setFormData({
+          code: '',
+          name: '',
+          unit: '',
+          category: '',
+          initialStock: 0,
+          unitPrice: 0,
+          warningThresholdLower: 0,
+          warningThresholdUpper: 0,
+          priceUpdateDate: '',
+          notes: '',
+          locationId: '',
+        });
       }
-    };
-    
-    if (isOpen) {
+
+      // Fetch locations
+      const fetchLocations = async () => {
+        try {
+          const { data, error } = await supabase.from('inventory_locations').select('*');
+          if (!error && data) {
+            setLocations(data);
+          }
+        } catch (err) {
+          console.error('Error fetching locations:', err);
+        }
+      };
+      
       fetchLocations();
     }
-  }, [item, isOpen]);
+  }, [item?.id, isOpen]);
 
   if (!isOpen) return null;
 

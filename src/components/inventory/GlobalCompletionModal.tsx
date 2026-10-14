@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, CheckSquare } from 'lucide-react';
 import { supabase } from '../../supabase-client';
 import { InventorySlip, InventorySlipItem } from '../../types/inventory';
-import { itemFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
+import { itemFromDatabase, slipFromDatabase, slipToDatabase } from '../../utils/dataTransform';
 import Select from 'react-select';
 
 interface GlobalCompletionModalProps {
@@ -55,13 +55,9 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
         });
       });
 
-      if (itemIds.size > 0) {
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999)
-          .in('id', Array.from(itemIds));
-
-        if (itemsError) throw itemsError;
-        setItemsRef(itemsData.map(itemFromDatabase));
-      }
+      const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+      if (itemsError) throw itemsError;
+      if (itemsData) setItemsRef(itemsData.map(itemFromDatabase));
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -69,12 +65,22 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
     }
   };
 
-  const getItemName = (itemId: string) => {
-    return itemsRef.find(i => i.id === itemId)?.name || 'N/A';
+  const getItemName = (itemId: string, itemObj?: any) => {
+    if (itemObj?.itemName) return itemObj.itemName;
+    const byId = itemsRef.find(i => i.id === itemId);
+    if (byId) return byId.name;
+    if (itemObj?.itemCode) {
+      const byCode = itemsRef.find(i => i.code === itemObj.itemCode);
+      if (byCode) return byCode.name;
+    }
+    return 'N/A';
   };
   
-  const getItemCode = (itemId: string) => {
-    return itemsRef.find(i => i.id === itemId)?.code || 'N/A';
+  const getItemCode = (itemId: string, itemObj?: any) => {
+    if (itemObj?.itemCode) return itemObj.itemCode;
+    const byId = itemsRef.find(i => i.id === itemId);
+    if (byId) return byId.code;
+    return 'N/A';
   };
 
   // Tập hợp tất cả các vật tư chưa hoàn thành từ các phiếu ĐƯỢC CHỌN
@@ -140,9 +146,13 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
             const completedQtyInThisBatch = completionInputs[key];
             item.completedQuantity = (item.completedQuantity || 0) + completedQtyInThisBatch;
             
+            const cat = itemsRef.find(i => i.id === item.itemId) || (item.itemCode ? itemsRef.find(i => i.code === item.itemCode) : undefined);
             // Chuẩn bị dữ liệu để in
             printItems.push({
               ...item,
+              itemCode: item.itemCode || cat?.code || '',
+              itemName: item.itemName || cat?.name || '',
+              unit: item.unit || cat?.unit || '',
               quantity: completedQtyInThisBatch, // Số lượng in ra là số lượng vừa hoàn thành
               sourceSlipCode: slip.code
             });
@@ -161,7 +171,18 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
         const isAllCompleted = updatedItems.every(i => (i.completedQuantity || 0) >= i.quantity);
         const newStatus = isAllCompleted ? 'Đã hoàn thành' : undefined;
 
-        const updateData: any = { items: updatedItems };
+        const itemsWithSnapshot = updatedItems.map(item => {
+          const cat = itemsRef.find(i => i.id === item.itemId) || (item.itemCode ? itemsRef.find(i => i.code === item.itemCode) : undefined);
+          return {
+            ...item,
+            itemCode: item.itemCode || cat?.code || '',
+            itemName: item.itemName || cat?.name || '',
+            unit: item.unit || cat?.unit || '',
+            unitPrice: item.unitPrice ?? cat?.unitPrice ?? cat?.price ?? 0
+          };
+        });
+
+        const updateData: any = slipToDatabase({ items: itemsWithSnapshot });
         if (newStatus) {
           updateData.status = newStatus;
         }
@@ -247,8 +268,8 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
                     return (
                       <tr key={item.uniqueKey} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-indigo-600 font-medium">{item.slipCode}</td>
-                        <td className="px-4 py-3 text-gray-900">{getItemCode(item.itemId)}</td>
-                        <td className="px-4 py-3 text-gray-600">{getItemName(item.itemId)}</td>
+                        <td className="px-4 py-3 text-gray-900">{getItemCode(item.itemId, item)}</td>
+                        <td className="px-4 py-3 text-gray-600">{getItemName(item.itemId, item)}</td>
                         <td className="px-4 py-3 text-center text-gray-900">{item.quantity}</td>
                         <td className="px-4 py-3 text-center text-gray-500">{item.completedQuantity || 0}</td>
                         <td className="px-4 py-3 text-center text-orange-600 font-semibold">{item.remainingQty}</td>

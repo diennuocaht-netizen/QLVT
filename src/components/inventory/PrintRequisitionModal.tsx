@@ -146,18 +146,19 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
   };
 
   // Compute current stock for an item
-  const getCurrentStock = (itemId: string, itemData?: Item) => {
+  const getCurrentStock = (itemId: string, itemData?: Item, itemCode?: string) => {
     if (!itemData) return 0;
+    const targetCode = itemCode || itemData.code;
     const receipts = slips.filter(s => s.type === SlipType.Receipt);
     const issues = slips.filter(s => s.type === SlipType.Issue);
 
     const totalReceived = receipts.reduce((sum, s) => {
-      const si = s.items.find(i => i.itemId === itemId);
+      const si = s.items.find(i => i.itemId === itemId || (targetCode && (i.itemCode === targetCode || items.find(cat => cat.id === i.itemId)?.code === targetCode)));
       return sum + (si?.quantity || 0);
     }, 0);
 
     const totalIssued = issues.reduce((sum, s) => {
-      const si = s.items.find(i => i.itemId === itemId);
+      const si = s.items.find(i => i.itemId === itemId || (targetCode && (i.itemCode === targetCode || items.find(cat => cat.id === i.itemId)?.code === targetCode)));
       return sum + (si?.quantity || 0);
     }, 0);
 
@@ -382,15 +383,15 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
                       </tr>
                       {/* Items */}
                       {group.items.map((reqItem, index) => {
-                        const itemData = items.find(i => i.id === reqItem.itemId);
-                        const stock = getCurrentStock(reqItem.itemId, itemData);
+                        const itemData = items.find(i => i.id === reqItem.itemId) || (reqItem.itemCode ? items.find(i => i.code === reqItem.itemCode) : undefined);
+                        const stock = getCurrentStock(reqItem.itemId, itemData, reqItem.itemCode);
                         return (
                           <tr key={`${reqItem.id}-${index}`}>
                             <td className="text-center border border-black p-2">{globalRowIndex++}</td>
                             <td className="text-center border border-black p-2">{reqItem.costCode || ''}</td>
-                            <td className="text-center border border-black p-2">{itemData?.code || ''}</td>
-                            <td className="border border-black p-2">{itemData?.name || 'Không xác định'}</td>
-                            <td className="text-center border border-black p-2">{itemData?.unit || ''}</td>
+                            <td className="text-center border border-black p-2">{itemData?.code || reqItem.itemCode || ''}</td>
+                            <td className="border border-black p-2">{itemData?.name || reqItem.itemName || 'Không xác định'}</td>
+                            <td className="text-center border border-black p-2">{itemData?.unit || reqItem.unit || ''}</td>
                             <td className="text-center border border-black p-2">{reqItem.requestedQuantity}</td>
                             <td className="text-center border border-black p-2">{stock}</td>
                             <td className="border border-black p-2">{reqItem.purpose || ''}</td>

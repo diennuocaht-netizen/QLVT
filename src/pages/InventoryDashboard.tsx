@@ -66,7 +66,7 @@ export const InventoryDashboard: React.FC = () => {
       slips.forEach(slip => {
         if (slip.status !== 'Đã đóng' && slip.status !== 'Đã hoàn thành') return;
         
-        const slipItem = slip.items.find(i => i.itemId === item.id);
+        const slipItem = slip.items.find(i => i.itemId === item.id || (item.code && i.itemCode === item.code));
         if (slipItem) {
           const slipDate = new Date(slip.date);
           if (slip.type === SlipType.Receipt) {

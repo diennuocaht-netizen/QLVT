@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { InventorySlip, SlipType, Requisition } from '../types/inventory';
-import { Plus, Search, Trash2, CheckCircle, FileText, Edit, Download } from 'lucide-react';
+import { Plus, Search, Trash2, CheckCircle, FileText, Edit, Download, Link as LinkIcon, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SlipModal } from '../components/inventory/SlipModal';
 import { DetailSlipModal } from '../components/inventory/DetailSlipModal';
@@ -21,16 +21,35 @@ export const InventoryReceipts: React.FC = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [slipToClose, setSlipToClose] = useState<InventorySlip | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Handler: Called when handover record upload is complete
   const handleUploadComplete = async (handoverRecordUrl: string) => {
     if (!slipToClose) return;
 
+    const trimmedUrl = handoverRecordUrl?.trim();
+    if (!trimmedUrl) {
+      alert('Vui lòng nhập đường dẫn liên kết Biên bản nhận vật tư trước khi đóng phiếu.');
+      return;
+    }
+
+    try {
+      const parsed = new URL(trimmedUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        alert('Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://');
+        return;
+      }
+    } catch (_) {
+      alert('Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://');
+      return;
+    }
+
+    setIsUpdatingStatus(true);
     try {
       console.log('📝 [InventoryReceipts] Updating slip status after upload:', {
         slipId: slipToClose.id,
         status: 'Đã đóng',
-        handoverRecordUrl,
+        handoverRecordUrl: trimmedUrl,
       });
 
       // Update slip in database
@@ -38,7 +57,7 @@ export const InventoryReceipts: React.FC = () => {
         .from('inventory_slips')
         .update({
           status: 'Đã đóng',
-          handover_record_url: handoverRecordUrl,
+          handover_record_url: trimmedUrl,
           updated_at: new Date().toISOString(),
         })
         .eq('id', slipToClose.id);
@@ -52,7 +71,7 @@ export const InventoryReceipts: React.FC = () => {
             ? {
                 ...slip,
                 status: 'Đã đóng',
-                handoverRecordUrl,
+                handoverRecordUrl: trimmedUrl,
               }
             : slip
         )
@@ -60,45 +79,48 @@ export const InventoryReceipts: React.FC = () => {
 
       console.log('✅ [InventoryReceipts] Slip status updated successfully');
 
-      // Apply inventory quantities now that slip is closed
-      try {
-        console.log('📦 [InventoryReceipts] Applying inventory quantities for closed slip:', slipToClose.id);
-        for (const slipItem of slipToClose.items || []) {
-          if (!slipItem.itemId || !slipItem.quantity) continue;
-          try {
-            const { data: itemData, error: fetchError } = await supabase
-              .from('inventory_items')
-              .select('quantity')
-              .eq('id', slipItem.itemId)
-              .single();
+      // Only apply inventory quantities if slip was NOT already closed
+      const isFirstTimeClosing = slipToClose.status !== 'Đã đóng';
+      if (isFirstTimeClosing) {
+        try {
+          console.log('📦 [InventoryReceipts] Applying inventory quantities for closed slip:', slipToClose.id);
+          for (const slipItem of slipToClose.items || []) {
+            if (!slipItem.itemId || !slipItem.quantity) continue;
+            try {
+              const { data: itemData, error: fetchError } = await supabase
+                .from('inventory_items')
+                .select('quantity')
+                .eq('id', slipItem.itemId)
+                .single();
 
-            if (fetchError) {
-              console.error(`❌ [InventoryReceipts] Error fetching item ${slipItem.itemId}:`, fetchError);
-              throw fetchError;
+              if (fetchError) {
+                console.error(`❌ [InventoryReceipts] Error fetching item ${slipItem.itemId}:`, fetchError);
+                throw fetchError;
+              }
+
+              const currentQuantity = itemData?.quantity || 0;
+              const newQuantity = currentQuantity + slipItem.quantity;
+
+              const { error: updateError } = await supabase
+                .from('inventory_items')
+                .update({ quantity: newQuantity })
+                .eq('id', slipItem.itemId);
+
+              if (updateError) {
+                console.error(`❌ [InventoryReceipts] Error updating item ${slipItem.itemId}:`, updateError);
+                throw updateError;
+              }
+
+              console.log(`✅ [InventoryReceipts] Item ${slipItem.itemId} quantity updated: ${currentQuantity} -> ${newQuantity}`);
+            } catch (innerErr) {
+              console.error('❌ [InventoryReceipts] Error applying inventory for item:', innerErr);
+              // continue to next item
             }
-
-            const currentQuantity = itemData?.quantity || 0;
-            const newQuantity = currentQuantity + slipItem.quantity;
-
-            const { error: updateError } = await supabase
-              .from('inventory_items')
-              .update({ quantity: newQuantity })
-              .eq('id', slipItem.itemId);
-
-            if (updateError) {
-              console.error(`❌ [InventoryReceipts] Error updating item ${slipItem.itemId}:`, updateError);
-              throw updateError;
-            }
-
-            console.log(`✅ [InventoryReceipts] Item ${slipItem.itemId} quantity updated: ${currentQuantity} -> ${newQuantity}`);
-          } catch (innerErr) {
-            console.error('❌ [InventoryReceipts] Error applying inventory for item:', innerErr);
-            // continue to next item
           }
+          console.log('✅ [InventoryReceipts] Applied all inventory quantities for slip');
+        } catch (invErr) {
+          console.error('❌ [InventoryReceipts] Failed to apply inventory quantities for slip:', invErr);
         }
-        console.log('✅ [InventoryReceipts] Applied all inventory quantities for slip');
-      } catch (invErr) {
-        console.error('❌ [InventoryReceipts] Failed to apply inventory quantities for slip:', invErr);
       }
 
       // Close modal
@@ -107,6 +129,8 @@ export const InventoryReceipts: React.FC = () => {
     } catch (err) {
       console.error('❌ [InventoryReceipts] Error updating slip status:', err);
       alert('Lỗi cập nhật trạng thái phiếu. Vui lòng thử lại.');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -441,7 +465,8 @@ export const InventoryReceipts: React.FC = () => {
   const filteredSlips = React.useMemo(() => {
     return slips.filter(slip =>
       slip.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      slip.reason?.toLowerCase().includes(searchTerm.toLowerCase())
+      slip.reason?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (slip.receiptType && slip.receiptType.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [slips, searchTerm]);
 
@@ -449,6 +474,7 @@ export const InventoryReceipts: React.FC = () => {
     const dataToExport = filteredSlips.map(slip => ({
       'Mã phiếu': slip.code,
       'Ngày nhập': new Date(slip.date).toLocaleDateString('vi-VN'),
+      'Loại nhập': slip.receiptType || (slip as any).receipt_type || '',
       'Lý do nhập': slip.reason || '',
       'Người yêu cầu': slip.requester || '',
       'Trạng thái': slip.status,
@@ -527,23 +553,32 @@ export const InventoryReceipts: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {new Date(slip.date).toLocaleDateString('vi-VN')}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{slip.receipt_type || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{slip.receiptType || (slip as any).receipt_type || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{slip.reason || '-'}</td>
                     <td className="px-6 py-4 text-sm text-center text-gray-700 font-semibold">
                       {(slip.items as any[])?.length || 0}
                     </td>
                     <td className="px-6 py-4 text-sm text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          slip.status === 'Đã đóng'
-                            ? 'bg-green-100 text-green-800'
-                            : slip.status === 'Đã hoàn thành'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {slip.status}
-                      </span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            slip.status === 'Đã đóng'
+                              ? slip.handoverRecordUrl
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-amber-100 text-amber-800'
+                              : slip.status === 'Đã hoàn thành'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {slip.status}
+                        </span>
+                        {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && (
+                          <span className="text-[10px] text-amber-600 font-medium whitespace-nowrap">
+                            (Thiếu link tài liệu)
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-center">
                       <div className="flex justify-center gap-2">
@@ -571,6 +606,15 @@ export const InventoryReceipts: React.FC = () => {
                               <CheckCircle size={18} />
                             </button>
                           </>
+                        )}
+                        {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && (
+                          <button
+                            onClick={() => handleCloseSlip(slip)}
+                            className="p-2 text-amber-600 hover:bg-amber-50 rounded"
+                            title="Bổ sung link tài liệu (Đang thiếu)"
+                          >
+                            <LinkIcon size={18} />
+                          </button>
                         )}
                         {profile?.role === 'admin' && (
                           <button
@@ -600,17 +644,26 @@ export const InventoryReceipts: React.FC = () => {
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h3 className="font-semibold text-lg text-gray-900">{slip.code}</h3>
-                    <p className="text-sm text-gray-500">{new Date(slip.date).toLocaleDateString('vi-VN')} - {slip.receipt_type || 'N/A'}</p>
+                    <p className="text-sm text-gray-500">{new Date(slip.date).toLocaleDateString('vi-VN')} - {slip.receiptType || (slip as any).receipt_type || 'N/A'}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    slip.status === 'Đã đóng'
-                      ? 'bg-green-100 text-green-800'
-                      : slip.status === 'Đã hoàn thành'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {slip.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      slip.status === 'Đã đóng'
+                        ? slip.handoverRecordUrl
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-amber-100 text-amber-800'
+                        : slip.status === 'Đã hoàn thành'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {slip.status}
+                    </span>
+                    {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && (
+                      <span className="text-[10px] text-amber-600 font-medium">
+                        (Thiếu link tài liệu)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="text-sm text-gray-600 mb-4">
                   <span className="block text-xs text-gray-400">Lý do</span>
@@ -641,6 +694,15 @@ export const InventoryReceipts: React.FC = () => {
                         <CheckCircle size={18} />
                       </button>
                     </>
+                  )}
+                  {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && (
+                    <button
+                      onClick={() => handleCloseSlip(slip)}
+                      className="p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-md"
+                      title="Bổ sung link tài liệu"
+                    >
+                      <LinkIcon size={18} />
+                    </button>
                   )}
                   {profile?.role === 'admin' && (
                     <button

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, FileText, Download, Printer } from 'lucide-react';
+import { X, FileText, Download, Printer, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { InventorySlip, SlipType, Item, Requisition } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
@@ -23,10 +23,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
     const loadAndSubscribe = async () => {
       // Load initial data
       
-        const itemIds = slip?.items.map(i => i.itemId).filter(Boolean) || [];
-        if (itemIds.length === 0) return;
-        const { data, error } = await supabase.from('inventory_items').select('*').in('id', itemIds);
-          console.log('Fetched items for IDs', itemIds, 'Result:', data, 'Error:', error);
+        const { data, error } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
 
       if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
 
@@ -37,9 +34,9 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
           { event: '*', schema: 'public', table: 'inventory_items' },
           () => {
             
-              const currentIds = slip?.items.map(i => i.itemId).filter(Boolean) || [];
-              if (currentIds.length === 0) return;
-              supabase.from('inventory_items').select('*').in('id', currentIds).then
+
+
+              supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999).then
 (({ data }) => {
               if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
             });
@@ -57,7 +54,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
     let channel: any;
     const loadAndSubscribe = async () => {
       // Load initial data
-      const { data } = await supabase.from('inventory_requisitions').select('*');
+      const { data } = await supabase.from('inventory_requisitions').select('*').limit(999999);
       if (data) setRequisitions(data as Requisition[]);
 
       // Subscribe to changes
@@ -66,7 +63,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'inventory_requisitions' },
           () => {
-            supabase.from('inventory_requisitions').select('*').then(({ data }) => {
+            supabase.from('inventory_requisitions').select('*').limit(999999).then(({ data }) => {
               if (data) setRequisitions(data as Requisition[]);
             });
           }
@@ -81,22 +78,95 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
 
   if (!isOpen || !slip) return null;
 
-  const getItemName = (itemId: string) => {
+  const getRequisitionItem = (itemObj?: any) => {
+    if (!itemObj) return undefined;
+    const reqId = itemObj.requisitionId;
+    if (!reqId) return undefined;
+    const req = requisitions.find(r => r.id === reqId || r.code === reqId);
+    if (!req || !req.items) return undefined;
+    return req.items.find((ri: any) => (ri.id && itemObj.requisitionItemId && ri.id === itemObj.requisitionItemId) || ri.itemId === itemObj.itemId);
+  };
+
+  const getItemName = (itemId: string, itemObj?: any) => {
       console.log('getting name for', itemId, 'from items:', items.map(i => i.id));
 
-    return items.find(i => i.id === itemId)?.name || `[Đã xóa] ${itemId}`;
+    const rawName = itemObj?.itemName || itemObj?.item_name;
+    if (rawName) return rawName;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.name) return byId.name;
+    const rawCode = itemObj?.itemCode || itemObj?.item_code;
+    if (rawCode) {
+      const byCode = items.find(i => i.code === rawCode);
+      if (byCode?.name) return byCode.name;
+    }
+    const reqItem = getRequisitionItem(itemObj);
+    const reqName = reqItem?.itemName || (reqItem as any)?.item_name;
+    if (reqName) return reqName;
+
+    const reqCode = reqItem?.itemCode || (reqItem as any)?.item_code;
+    if (reqCode) {
+      const byReqCode = items.find(i => i.code === reqCode);
+      if (byReqCode?.name) return byReqCode.name;
+    }
+
+    if (reqItem?.itemId && reqItem.itemId !== itemId) {
+      const byReqId = items.find(i => i.id === reqItem.itemId);
+      if (byReqId?.name) return byReqId.name;
+    }
+
+    return `[Đã xóa] ${rawCode || reqCode || itemId}`;
   };
 
-  const getItemCode = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.code || '-';
+  const getItemCode = (itemId: string, itemObj?: any) => {
+    const rawCode = itemObj?.itemCode || itemObj?.item_code;
+    if (rawCode) return rawCode;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.code) return byId.code;
+    const reqItem = getRequisitionItem(itemObj);
+    const reqCode = reqItem?.itemCode || (reqItem as any)?.item_code;
+    if (reqCode) return reqCode;
+    if (reqItem?.itemId) {
+      const byReqId = items.find(i => i.id === reqItem.itemId);
+      if (byReqId?.code) return byReqId.code;
+    }
+    return '-';
   };
 
-  const getItemUnit = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.unit || '-';
+  const getItemUnit = (itemId: string, itemObj?: any) => {
+    const rawUnit = itemObj?.unit;
+    if (rawUnit) return rawUnit;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.unit) return byId.unit;
+    const rawCode = itemObj?.itemCode || itemObj?.item_code;
+    if (rawCode) {
+      const byCode = items.find(i => i.code === rawCode);
+      if (byCode?.unit) return byCode.unit;
+    }
+    const reqItem = getRequisitionItem(itemObj);
+    const reqUnit = reqItem?.unit;
+    if (reqUnit) return reqUnit;
+    const reqCode = reqItem?.itemCode || (reqItem as any)?.item_code;
+    if (reqCode) {
+      const byReqCode = items.find(i => i.code === reqCode);
+      if (byReqCode?.unit) return byReqCode.unit;
+    }
+    return '-';
   };
 
-  const getItemPrice = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.unitPrice || 0;
+  const getItemPrice = (itemId: string, itemObj?: any) => {
+    const rawPrice = itemObj?.unitPrice ?? itemObj?.unit_price;
+    if (rawPrice !== undefined && rawPrice !== null && rawPrice !== 0) return rawPrice;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.unitPrice !== undefined && byId?.unitPrice !== null) return byId.unitPrice;
+    const rawCode = itemObj?.itemCode || itemObj?.item_code;
+    if (rawCode) {
+      const byCode = items.find(i => i.code === rawCode);
+      if (byCode?.unitPrice !== undefined && byCode?.unitPrice !== null) return byCode.unitPrice;
+    }
+    const reqItem = getRequisitionItem(itemObj);
+    const reqPrice = reqItem?.unitPrice ?? (reqItem as any)?.unit_price;
+    if (reqPrice !== undefined && reqPrice !== null) return reqPrice;
+    return 0;
   };
 
   const getRequisitionCode = (requisitionId: string) => {
@@ -105,7 +175,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
 
   const calculateTotalValue = () => {
     return slip.items.reduce((total, item) => {
-      const price = getItemPrice(item.itemId);
+      const price = getItemPrice(item.itemId, item);
       return total + (item.quantity * price);
     }, 0);
   };
@@ -158,12 +228,12 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
     
     // Prepare item rows
     const itemRows = slip.items.map(item => {
-      const price = getItemPrice(item.itemId);
+      const price = getItemPrice(item.itemId, item);
       const totalPrice = item.quantity * price;
       return {
-        A: getItemCode(item.itemId),
-        B: getItemName(item.itemId),
-        C: getItemUnit(item.itemId),
+        A: getItemCode(item.itemId, item),
+        B: getItemName(item.itemId, item),
+        C: getItemUnit(item.itemId, item),
         D: item.quantity,
         E: price,
         F: totalPrice,
@@ -288,8 +358,18 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
               >
                 <FileText size={16} />
-                Tải xuống Biên bản
+                Mở / Tải xuống Biên bản
               </a>
+            </div>
+          )}
+
+          {isReceipt && slip.status === 'Đã đóng' && !slip.handoverRecordUrl && (
+            <div className="mb-8 p-4 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <label className="block text-sm font-semibold text-amber-900 mb-1">Chưa có Biên bản nhận vật tư</label>
+                <p className="text-sm text-amber-700">Phiếu nhập này đã ở trạng thái Đóng nhưng chưa được đính kèm link Biên bản nhận vật tư / Tài liệu chứng từ.</p>
+              </div>
             </div>
           )}
 
@@ -329,17 +409,17 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {slip.items.map((item, index) => {
-                    const price = getItemPrice(item.itemId);
+                    const price = getItemPrice(item.itemId, item);
                     const totalPrice = item.quantity * price;
                     return (
                       <tr key={index} className="hover:bg-gray-50">
                         {isReceipt ? (
                           <>
                             <td className="px-4 py-3 text-gray-900">
-                                <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId)}</span>
-                                <span className="text-sm text-gray-500">{getItemCode(item.itemId)}</span>
+                                <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId, item)}</span>
+                                <span className="text-sm text-gray-500">{getItemCode(item.itemId, item)}</span>
                               </td>
-                            <td className="px-4 py-3 text-gray-600">{getItemUnit(item.itemId)}</td>
+                            <td className="px-4 py-3 text-gray-600">{getItemUnit(item.itemId, item)}</td>
                             <td className="px-4 py-3 text-right text-gray-900 font-medium">{item.quantity}</td>
                             <td className="px-4 py-3 text-right text-gray-600">{price.toLocaleString('vi-VN')} ₫</td>
                             <td className="px-4 py-3 text-right text-indigo-600 font-semibold">{totalPrice.toLocaleString('vi-VN')} ₫</td>
@@ -349,8 +429,8 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
                         ) : (
                           <>
                             <td className="px-4 py-3 text-gray-900">
-                              <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId)}</span>
-                                <span className="text-sm text-gray-500">{getItemCode(item.itemId)}</span>
+                              <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId, item)}</span>
+                                <span className="text-sm text-gray-500">{getItemCode(item.itemId, item)}</span>
                             </td>
                             <td className="px-4 py-3 text-right text-gray-900 font-medium">{item.quantity}</td>
                             <td className="px-4 py-3 text-center text-teal-600 font-semibold">{item.completedQuantity || 0} / {item.quantity}</td>

@@ -83,7 +83,7 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
     slips
       .filter(s => s.type === SlipType.Receipt)
       .forEach(slip => {
-        const slipItem = slip.items.find(i => i.itemId === item.id);
+        const slipItem = slip.items.find(i => i.itemId === item.id || (item.code && i.itemCode === item.code));
         if (slipItem) {
           newRecords.push({
             type: 'receipt',
@@ -100,7 +100,7 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
     slips
       .filter(s => s.type === SlipType.Issue)
       .forEach(slip => {
-        const slipItem = slip.items.find(i => i.itemId === item.id);
+        const slipItem = slip.items.find(i => i.itemId === item.id || (item.code && i.itemCode === item.code));
         if (slipItem) {
           newRecords.push({
             type: 'issue',
@@ -115,7 +115,7 @@ export const ItemTraceabilityModal: React.FC<ItemTraceabilityModalProps> = ({ is
 
     // Process requisitions
     requisitions.forEach(req => {
-      const reqItem = req.items.find(i => i.itemId === item.id);
+      const reqItem = req.items.find(i => i.itemId === item.id || (item.code && i.itemCode === item.code));
       if (reqItem) {
         newRecords.push({
           type: 'requisition',

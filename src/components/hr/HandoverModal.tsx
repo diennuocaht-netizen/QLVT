@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { X, ArrowRight, FileText, Calendar as CalendarIcon, Clock } from 'lucide-react';
@@ -64,6 +64,7 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
         assignee_id: task.assignee_id,
         priority: task.priority,
         status: 'todo',
+        subsystem_id: task.subsystem_id || null,
         created_by: profile?.id || null,
         group_id: task.group_id || task.id // Fallback in case old task doesn't have group_id yet
       }]).select();

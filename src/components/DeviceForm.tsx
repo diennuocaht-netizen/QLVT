@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
 import { X } from 'lucide-react';
@@ -19,9 +19,11 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({ device, onClose }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const initialIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (device) {
+    if (device && initialIdRef.current !== device.id) {
+      initialIdRef.current = device.id;
       setFormData({
         code: device.code || '',
         name: device.name || '',
@@ -30,7 +32,7 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({ device, onClose }) => {
         status: device.status || 'active',
       });
     }
-  }, [device]);
+  }, [device?.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

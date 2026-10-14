@@ -113,26 +113,28 @@ export const SelectRequisitionItemsModal: React.FC<SelectRequisitionItemsModalPr
       return remainingQuantity > 0;
     });
 
-  const getItemName = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    return item ? `${item.code} - ${item.name}` : itemId;
+  const getItemName = (itemId: string, reqItem?: RequisitionItem) => {
+    const item = items.find(i => i.id === itemId) || (reqItem?.itemCode ? items.find(i => i.code === reqItem.itemCode) : undefined);
+    if (item) return `${item.code} - ${item.name}`;
+    if (reqItem?.itemName) return `${reqItem.itemCode || ''} - ${reqItem.itemName}`;
+    return itemId;
   };
 
-  const getItemUnit = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    return item?.unit || '-';
+  const getItemUnit = (itemId: string, reqItem?: RequisitionItem) => {
+    const item = items.find(i => i.id === itemId) || (reqItem?.itemCode ? items.find(i => i.code === reqItem.itemCode) : undefined);
+    return item?.unit || reqItem?.unit || '-';
   };
 
-  const getItemPrice = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    return item?.unitPrice || 0;
+  const getItemPrice = (itemId: string, reqItem?: RequisitionItem) => {
+    const item = items.find(i => i.id === itemId) || (reqItem?.itemCode ? items.find(i => i.code === reqItem.itemCode) : undefined);
+    return item?.unitPrice || reqItem?.unitPrice || 0;
   };
 
   const totalValue = itemsToDisplay.reduce((sum, { reqItem, originalIndex }) => {
     const key = `${requisition.id}-item-${originalIndex}`;
     const entry = selectedItems[key];
     if (entry?.isSelected) {
-      return sum + (entry.quantity * getItemPrice(reqItem.itemId));
+      return sum + (entry.quantity * getItemPrice(reqItem.itemId, reqItem));
     }
     return sum;
   }, 0);
@@ -179,7 +181,7 @@ export const SelectRequisitionItemsModal: React.FC<SelectRequisitionItemsModalPr
                     const key = `${requisition.id}-item-${originalIndex}`;
                     const currentQuantity = selectedItems[key]?.quantity || 0;
                     const isSelected = selectedItems[key]?.isSelected || false;
-                    const unitPrice = getItemPrice(reqItem.itemId);
+                    const unitPrice = getItemPrice(reqItem.itemId, reqItem);
                     const totalPrice = isSelected ? currentQuantity * unitPrice : 0;
 
                     return (
@@ -193,10 +195,10 @@ export const SelectRequisitionItemsModal: React.FC<SelectRequisitionItemsModalPr
                           />
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                          {getItemName(reqItem.itemId)}
+                          {getItemName(reqItem.itemId, reqItem)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
-                          {getItemUnit(reqItem.itemId)}
+                          {getItemUnit(reqItem.itemId, reqItem)}
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium">
                           {reqItem.requestedQuantity}

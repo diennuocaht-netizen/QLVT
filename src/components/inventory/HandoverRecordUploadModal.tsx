@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Link as LinkIcon, FileText, AlertCircle } from 'lucide-react';
 import { InventorySlip } from '../../types/inventory';
 
@@ -20,21 +20,33 @@ export const HandoverRecordUploadModal: React.FC<HandoverRecordUploadModalProps>
   const [linkUrl, setLinkUrl] = useState('');
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (isOpen) {
+      setLinkUrl(slip?.handoverRecordUrl || '');
+      setError('');
+    }
+  }, [isOpen, slip]);
+
   const handleSave = () => {
-    if (!linkUrl.trim()) {
-      setError('Vui lòng nhập đường dẫn liên kết');
+    const trimmed = linkUrl.trim();
+    if (!trimmed) {
+      setError('Vui lòng nhập đường dẫn liên kết Biên bản nhận vật tư / Tài liệu');
       return;
     }
     
-    // Kiểm tra định dạng URL (cơ bản)
+    // Kiểm tra định dạng URL
     try {
-      new URL(linkUrl);
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        setError('Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://');
+        return;
+      }
     } catch (_) {
       setError('Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://');
       return;
     }
 
-    onUploadComplete?.(linkUrl.trim());
+    onUploadComplete?.(trimmed);
     setLinkUrl('');
     onClose();
   };
@@ -42,16 +54,23 @@ export const HandoverRecordUploadModal: React.FC<HandoverRecordUploadModalProps>
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex justify-between items-center p-6 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-50">
               <FileText className="w-5 h-5 text-blue-600" />
             </div>
-            <h2 className="text-lg font-bold text-gray-900">
-              Biên bản nhận vật tư
-            </h2>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">
+                Biên bản nhận vật tư
+              </h2>
+              {slip?.code && (
+                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                  Phiếu nhập: <span className="text-indigo-600 font-semibold">{slip.code}</span>
+                </p>
+              )}
+            </div>
           </div>
           <button 
             onClick={onClose}
@@ -60,6 +79,8 @@ export const HandoverRecordUploadModal: React.FC<HandoverRecordUploadModalProps>
             <X size={24} />
           </button>
         </div>
+
+        <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
 
         <div className="p-6 space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-3">
@@ -105,13 +126,14 @@ export const HandoverRecordUploadModal: React.FC<HandoverRecordUploadModalProps>
             Hủy
           </button>
           <button
-            onClick={handleSave}
+            type="submit"
             disabled={!linkUrl.trim() || isLoading}
             className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isLoading ? 'Đang lưu...' : 'Lưu lại'}
           </button>
         </div>
+        </form>
       </div>
     </div>
   );

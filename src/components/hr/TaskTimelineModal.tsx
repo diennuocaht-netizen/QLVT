@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase-client';
 import { X, Clock, User, CheckCircle, ArrowRight } from 'lucide-react';
 
@@ -13,7 +13,7 @@ export const TaskTimelineModal: React.FC<{ groupId: string, onClose: () => void 
   const fetchTimeline = async () => {
     const { data } = await supabase
       .from('hr_shift_tasks')
-      .select('*, assignee:users!hr_shift_tasks_assignee_id_fkey(display_name), shift:shift_types(name)')
+      .select('*, assignee:users!hr_shift_tasks_assignee_id_fkey(display_name), creator:users!hr_shift_tasks_created_by_fkey(display_name), shift:shift_types(name)')
       .eq('group_id', groupId)
       .order('created_at', { ascending: true });
     
@@ -43,7 +43,16 @@ export const TaskTimelineModal: React.FC<{ groupId: string, onClose: () => void 
                       <span className="font-bold text-sm text-gray-900">{t.shift?.name || 'Không rõ ca'}</span>
                       <time className="text-xs font-medium text-gray-500">{new Date(t.date).toLocaleDateString('vi-VN')}</time>
                     </div>
-                    <p className="text-xs text-gray-700 font-medium mb-2">{t.assignee?.display_name || 'Chưa phân công'}</p>
+                    <div className="flex flex-col gap-0.5 mb-2 text-xs">
+                      <div className="text-gray-500 font-medium flex items-center">
+                        <span className="text-gray-400 font-normal mr-1">Người giao:</span>
+                        <span className="text-gray-700 font-semibold">{t.creator?.display_name || 'Hệ thống'}</span>
+                      </div>
+                      <div className="text-gray-500 font-medium flex items-center">
+                        <span className="text-gray-400 font-normal mr-1">Phụ trách:</span>
+                        <span className="text-indigo-600 font-semibold">{t.assignee?.display_name || 'Chưa phân công'}</span>
+                      </div>
+                    </div>
                     <div className="text-xs text-gray-600 whitespace-pre-wrap bg-gray-50 p-2 rounded">
                       {t.description || t.title}
                     </div>

@@ -81,6 +81,13 @@ export interface InventorySlipItem {
   itemId: string;
   quantity: number;
   
+  // Snapshot metadata (preserved permanently even if master item is deleted/re-created)
+  itemCode?: string;
+  itemName?: string;
+  unit?: string;
+  unitPrice?: number;
+  issueDate?: string;
+  
   // For Receipts from Requisitions
   requisitionItemId?: string; 
   requisitionId?: string;
@@ -164,6 +171,12 @@ export interface RequisitionItem {
   purpose: string;
   costCode: string; // This will be auto-filled
   notes: string;
+  
+  // Snapshot metadata (preserved permanently even if master item is deleted/re-created)
+  itemCode?: string;
+  itemName?: string;
+  unit?: string;
+  unitPrice?: number;
 }
 
 export interface Requisition {

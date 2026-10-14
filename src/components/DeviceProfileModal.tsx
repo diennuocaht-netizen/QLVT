@@ -43,12 +43,14 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
   const [newLog, setNewLog] = useState({ date: '', action: '', details: '' });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialIdRef = useRef<string | null>(null);
   const [importing, setImporting] = useState(false);
 
   const canEdit = true; // Allowed all users to edit
 
   useEffect(() => {
-    if (device) {
+    if (device && initialIdRef.current !== device.id) {
+      initialIdRef.current = device.id;
       // Extract specs if it's an object
       const specs = typeof device.specs === 'object' ? device.specs : {};
       
@@ -71,7 +73,7 @@ export const DeviceProfileModal: React.FC<DeviceProfileModalProps> = ({ device, 
       setSubComponents(device.sub_components || []);
       setHistoryLogs(device.history_logs || []);
     }
-  }, [device]);
+  }, [device?.id]);
 
   const handleGeneralChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

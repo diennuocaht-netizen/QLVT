@@ -49,12 +49,12 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
 
     // Prepare item rows
     const itemRows = requisition.items.map(item => {
-      const price = getItemPrice(item.itemId);
+      const price = getItemPrice(item.itemId, item);
       const totalPrice = item.requestedQuantity * price;
       return {
-        A: getItemCode(item.itemId),
-        B: getItemName(item.itemId),
-        C: getItemUnit(item.itemId),
+        A: getItemCode(item.itemId, item),
+        B: getItemName(item.itemId, item),
+        C: getItemUnit(item.itemId, item),
         D: item.requestedQuantity,
         E: item.receivedQuantity,
         F: price,
@@ -107,10 +107,7 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
     const loadAndSubscribe = async () => {
       // Load initial data
       
-        const itemIds = requisition?.items.map(i => i.itemId).filter(Boolean) || [];
-        if (itemIds.length === 0) return;
-        const { data, error } = await supabase.from('inventory_items').select('*').in('id', itemIds);
-          console.log('Fetched items for IDs', itemIds, 'Result:', data, 'Error:', error);
+        const { data, error } = await supabase.from('inventory_items').select('*');
 
       if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
 
@@ -121,9 +118,9 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
           { event: '*', schema: 'public', table: 'inventory_items' },
           () => {
             
-              const currentIds = requisition?.items.map(i => i.itemId).filter(Boolean) || [];
-              if (currentIds.length === 0) return;
-              supabase.from('inventory_items').select('*').in('id', currentIds).then
+
+
+              supabase.from('inventory_items').select('*').then
 (({ data }) => {
               if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
             });
@@ -139,27 +136,51 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
 
   if (!isOpen || !requisition) return null;
 
-  const getItemName = (itemId: string) => {
+  const getItemName = (itemId: string, itemObj?: any) => {
       console.log('DetailRequisitionModal getting name for', itemId, 'from items:', items.map(i => i.id));
 
-    return items.find(i => i.id === itemId)?.name || `[Đã xóa] ${itemId}`;
+    if (itemObj?.itemName) return itemObj.itemName;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.name) return byId.name;
+    if (itemObj?.itemCode) {
+      const byCode = items.find(i => i.code === itemObj.itemCode);
+      if (byCode?.name) return byCode.name;
+    }
+    return `[Đã xóa] ${itemObj?.itemCode || itemId}`;
   };
 
-  const getItemCode = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.code || '-';
+  const getItemCode = (itemId: string, itemObj?: any) => {
+    if (itemObj?.itemCode) return itemObj.itemCode;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.code) return byId.code;
+    return '-';
   };
 
-  const getItemUnit = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.unit || '-';
+  const getItemUnit = (itemId: string, itemObj?: any) => {
+    if (itemObj?.unit) return itemObj.unit;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.unit) return byId.unit;
+    if (itemObj?.itemCode) {
+      const byCode = items.find(i => i.code === itemObj.itemCode);
+      if (byCode?.unit) return byCode.unit;
+    }
+    return '-';
   };
 
-  const getItemPrice = (itemId: string) => {
-    return items.find(i => i.id === itemId)?.unitPrice || 0;
+  const getItemPrice = (itemId: string, itemObj?: any) => {
+    if (itemObj?.unitPrice !== undefined && itemObj?.unitPrice !== null) return itemObj.unitPrice;
+    const byId = items.find(i => i.id === itemId);
+    if (byId?.unitPrice !== undefined && byId?.unitPrice !== null) return byId.unitPrice;
+    if (itemObj?.itemCode) {
+      const byCode = items.find(i => i.code === itemObj.itemCode);
+      if (byCode?.unitPrice !== undefined && byCode?.unitPrice !== null) return byCode.unitPrice;
+    }
+    return 0;
   };
 
   const calculateTotalValue = () => {
     return requisition.items.reduce((total, item) => {
-      const price = getItemPrice(item.itemId);
+      const price = getItemPrice(item.itemId, item);
       return total + (item.requestedQuantity * price);
     }, 0);
   };
@@ -264,16 +285,16 @@ export const DetailRequisitionModal: React.FC<DetailRequisitionModalProps> = ({ 
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {requisition.items.map((item, index) => {
-                    const price = getItemPrice(item.itemId);
+                    const price = getItemPrice(item.itemId, item);
                     const totalPrice = item.requestedQuantity * price;
                     const remaining = item.requestedQuantity - item.receivedQuantity;
                     return (
                       <tr key={index} className={`hover:bg-gray-50 ${item.itemStatus === RequisitionItemStatus.Completed ? 'bg-green-50' : ''}`}>
                         <td className="px-4 py-3 text-gray-900">
-                                <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId)}</span>
-                                <span className="text-sm text-gray-500">{getItemCode(item.itemId)}</span>
+                                <span className="font-semibold text-base text-indigo-700 block mb-1">{getItemName(item.itemId, item)}</span>
+                                <span className="text-sm text-gray-500">{getItemCode(item.itemId, item)}</span>
                               </td>
-                        <td className="px-4 py-3 text-gray-600">{getItemUnit(item.itemId)}</td>
+                        <td className="px-4 py-3 text-gray-600">{getItemUnit(item.itemId, item)}</td>
                         <td className="px-4 py-3 text-right text-gray-900 font-medium">{item.requestedQuantity}</td>
                         <td className="px-4 py-3 text-right text-indigo-600 font-medium">{item.receivedQuantity}</td>
                         <td className="px-4 py-3 text-right text-gray-600">{price.toLocaleString('vi-VN')} ₫</td>

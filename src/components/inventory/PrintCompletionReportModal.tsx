@@ -219,15 +219,15 @@ export const PrintCompletionReportModal: React.FC<PrintCompletionReportModalProp
                       </tr>
                       {/* Items */}
                       {slipItems.map((slipItem, index) => {
-                        const itemData = items.find(i => i.id === slipItem.itemId);
+                        const itemData = items.find(i => i.id === slipItem.itemId) || (slipItem.itemCode ? items.find(i => i.code === slipItem.itemCode) : undefined);
                         return (
                           <tr key={`${slipItem.itemId}-${index}`}>
                             <td className="text-center border border-black p-2">{globalRowIndex++}</td>
                             {isGlobalPrint && <td className="text-center border border-black p-2 font-medium text-indigo-700">{slipItem.sourceSlipCode || ''}</td>}
                             <td className="text-center border border-black p-2">{slipItem.costCode || ''}</td>
-                            <td className="border border-black p-2">{itemData?.name || 'Không xác định'}</td>
-                            <td className="border border-black p-2">{itemData?.code || ''}</td>
-                            <td className="text-center border border-black p-2">{itemData?.unit || ''}</td>
+                            <td className="border border-black p-2">{itemData?.name || slipItem.itemName || 'Không xác định'}</td>
+                            <td className="border border-black p-2">{itemData?.code || slipItem.itemCode || ''}</td>
+                            <td className="text-center border border-black p-2">{itemData?.unit || slipItem.unit || ''}</td>
                             <td className="text-center border border-black p-2 font-semibold">{slipItem.quantity}</td>
                             <td className="border border-black p-2">{slipItem.notes || slipItem.purpose || ''}</td>
                           </tr>

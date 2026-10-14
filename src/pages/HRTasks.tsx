@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Settings, Layers, Search, Filter, Calendar as CalendarIcon, Clock, ArrowRight, User, CheckCircle, Edit3, Trash2, FileText, ChevronDown, ChevronUp, History, X } from 'lucide-react';
@@ -89,7 +89,7 @@ export const HRTasks: React.FC = () => {
     try {
       let query = supabase
         .from('hr_shift_tasks')
-        .select(`*, assignee:users!hr_shift_tasks_assignee_id_fkey(id, display_name), shift:shift_types(id, name, code)`)
+        .select(`*, assignee:users!hr_shift_tasks_assignee_id_fkey(id, display_name), creator:users!hr_shift_tasks_created_by_fkey(id, display_name), shift:shift_types(id, name, code), subsystem:inventory_subsystems(id, name)`)
         .eq('date', selectedDate);
         
       if (selectedShiftId !== 'all') {
@@ -420,22 +420,36 @@ export const HRTasks: React.FC = () => {
                             </div>
                           )}
 
-                          <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
-                            <div className="flex items-center text-xs text-gray-600">
-                              <User className="w-3.5 h-3.5 mr-1" />
-                              {task.assignee?.display_name || 'Chưa phân công'}
+                          <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] text-gray-500">
+                              <div className="flex items-center truncate mr-2" title={`Người giao việc: ${task.creator?.display_name || 'Hệ thống'}`}>
+                                <span className="text-gray-400 font-medium mr-1 shrink-0">Người giao:</span>
+                                <span className="font-semibold text-gray-700 truncate">{task.creator?.display_name || 'Hệ thống'}</span>
+                              </div>
+                              {task.created_at && (
+                                <span className="text-[10px] text-gray-400 shrink-0 font-normal">
+                                  {new Date(task.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center space-x-1">
-                               {task.status !== 'done' && task.status !== 'handover' && (
-                                 <button onClick={(e) => { e.stopPropagation(); setCompletionNote(''); setSelectedCompleters(task.assignee_id ? [task.assignee_id] : []); setCompletingTask(task); }} title="Hoàn thành & Ghi chú" className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors">
-                                   <CheckCircle size={16} />
-                                 </button>
-                               )}
-                               {task.status !== 'done' && task.status !== 'handover' && (
-                                 <button onClick={() => { setHandoverTask(task); setIsHandoverModalOpen(true); }} title="Bàn giao ca sau" className="p-1 rounded hover:bg-orange-100 text-gray-400 hover:text-orange-600 transition-colors flex items-center">
-                                   <ArrowRight size={16} />
-                                 </button>
-                               )}
+
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center text-xs text-gray-700 font-medium truncate mr-2" title={`Người phụ trách: ${task.assignee?.display_name || 'Chưa phân công'}`}>
+                                <User className="w-3.5 h-3.5 mr-1 text-indigo-500 shrink-0" />
+                                <span className="truncate">{task.assignee?.display_name || 'Chưa phân công'}</span>
+                              </div>
+                              <div className="flex items-center space-x-1 shrink-0">
+                                 {task.status !== 'done' && task.status !== 'handover' && (
+                                   <button onClick={(e) => { e.stopPropagation(); setCompletionNote(''); setSelectedCompleters(task.assignee_id ? [task.assignee_id] : []); setCompletingTask(task); }} title="Hoàn thành & Ghi chú" className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors">
+                                     <CheckCircle size={16} />
+                                   </button>
+                                 )}
+                                 {task.status !== 'done' && task.status !== 'handover' && (
+                                   <button onClick={() => { setHandoverTask(task); setIsHandoverModalOpen(true); }} title="Bàn giao ca sau" className="p-1 rounded hover:bg-orange-100 text-gray-400 hover:text-orange-600 transition-colors flex items-center">
+                                     <ArrowRight size={16} />
+                                   </button>
+                                 )}
+                              </div>
                             </div>
                           </div>
                         </div>

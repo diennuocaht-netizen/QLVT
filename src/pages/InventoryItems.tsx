@@ -245,7 +245,8 @@ export const InventoryItems: React.FC = () => {
         const items_array = Array.isArray(slip.items) ? slip.items : [];
         const matchingItems = items_array.filter((i: any) => {
           const idKey = i.itemId ?? i.item_id ?? i.itemId;
-          return idKey === item.id;
+          const codeKey = i.itemCode ?? i.item_code;
+          return idKey === item.id || (item.code && codeKey === item.code);
         });
         if (matchingItems.length === 0) return;
 

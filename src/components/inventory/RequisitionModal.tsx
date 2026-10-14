@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Plus, Trash2, Edit2, QrCode } from 'lucide-react';
 import Select from 'react-select';
 import { Requisition, RequisitionType, RequisitionStatus, RequisitionItem, RequisitionItemStatus, Item } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { requisitionToDatabase } from '../../utils/dataTransform';
 import { QRScannerModal } from './QRScannerModal';
-import { QrCode } from 'lucide-react';
+import { findBestCostCode, DEFAULT_PURPOSE, DEFAULT_METHOD } from '../../utils/costCodeMatcher';
 
 interface RequisitionModalProps {
   isOpen: boolean;
@@ -31,7 +31,9 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
     items: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCostCodeDetails, setShowCostCodeDetails] = useState(false);
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const initialLoadRef = useRef(false);
 
   // Generate next requisition code
   const generateNextCode = async (): Promise<string> => {
@@ -130,45 +132,51 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
   }, []);
 
   useEffect(() => {
-    const initForm = async () => {
-      if (requisition) {
-        // When editing, ensure all items have required fields
-        const normalizedRequisition = {
-          ...requisition,
-          items: (requisition.items || []).map((item: any) => ({
-            id: item.id || Date.now().toString(),
-            itemId: item.itemId || '',
-            requestedQuantity: item.requestedQuantity || 0,
-            receivedQuantity: item.receivedQuantity || 0,
-            itemStatus: item.itemStatus || RequisitionItemStatus.Pending,
-            subsystem: item.subsystem || '',
-            method: item.method || '',
-            purpose: item.purpose || '',
-            costCode: item.costCode || '',
-            notes: item.notes || ''
-          }))
-        };
-        setFormData(normalizedRequisition);
-      } else {
-        // Auto-generate code for new requisition
-        const nextCode = await generateNextCode();
-        setFormData({
-          code: nextCode,
-          date: new Date().toISOString().split('T')[0],
-          purpose: '',
-          status: RequisitionStatus.New,
-          type: '',
-          notes: '',
-          items: [],
-          createdBy: '', // Empty - user MUST select from dropdown
-        });
-      }
-    };
-    
-    if (isOpen) {
+    if (!isOpen) {
+      initialLoadRef.current = false;
+      return;
+    }
+
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      const initForm = async () => {
+        if (requisition) {
+          // When editing, ensure all items have required fields
+          const normalizedRequisition = {
+            ...requisition,
+            items: (requisition.items || []).map((item: any) => ({
+              id: item.id || Date.now().toString(),
+              itemId: item.itemId || '',
+              requestedQuantity: item.requestedQuantity || 0,
+              receivedQuantity: item.receivedQuantity || 0,
+              itemStatus: item.itemStatus || RequisitionItemStatus.Pending,
+              subsystem: item.subsystem || '',
+              method: item.method || '',
+              purpose: item.purpose || '',
+              costCode: item.costCode || '',
+              notes: item.notes || ''
+            }))
+          };
+          setFormData(normalizedRequisition);
+        } else {
+          // Auto-generate code for new requisition
+          const nextCode = await generateNextCode();
+          setFormData({
+            code: nextCode,
+            date: new Date().toISOString().split('T')[0],
+            purpose: '',
+            status: RequisitionStatus.New,
+            type: '',
+            notes: '',
+            items: [],
+            createdBy: '', // Empty - user MUST select from dropdown
+          });
+        }
+      };
+
       initForm();
     }
-  }, [requisition, isOpen, profile]);
+  }, [isOpen, requisition?.id]);
 
   const handleQRScanSuccess = (decodedText: string) => {
     // Attempt to find item by code
@@ -203,8 +211,8 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
         receivedQuantity: 0, 
         itemStatus: RequisitionItemStatus.Pending,
         subsystem: '',
-        method: '',
-        purpose: '',
+        method: DEFAULT_METHOD,
+        purpose: DEFAULT_PURPOSE,
         costCode: '',
         notes: ''
       }]
@@ -223,82 +231,50 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
       const newItems = [...(prev.items || [])];
       newItems[index] = { ...newItems[index], [field]: value };
       
+      if (field === 'itemId' && value) {
+        const selectedInventoryItem = items.find(i => i.id === value);
+        if (selectedInventoryItem) {
+          newItems[index].itemCode = selectedInventoryItem.code;
+          newItems[index].itemName = selectedInventoryItem.name;
+          newItems[index].unit = selectedInventoryItem.unit;
+          newItems[index].unitPrice = selectedInventoryItem.unitPrice;
+        }
+      }
+
+      // If subsystem changed, ensure default purpose and method
+      if (field === 'subsystem' && value) {
+        if (!newItems[index].purpose) {
+          newItems[index].purpose = DEFAULT_PURPOSE;
+        }
+        if (!newItems[index].method) {
+          newItems[index].method = DEFAULT_METHOD;
+        }
+      }
+
+      // If costCode changed directly, sync subsystem, purpose, method
+      if (field === 'costCode' && value) {
+        const selectedCc = costCodes.find(cc => cc.code === value);
+        if (selectedCc) {
+          if (selectedCc.subsystem) newItems[index].subsystem = selectedCc.subsystem;
+          if (selectedCc.purpose) newItems[index].purpose = selectedCc.purpose;
+          if (selectedCc.method) newItems[index].method = selectedCc.method;
+        }
+      }
+      
       // Auto-match cost code
       const currentItem = newItems[index];
       if (['itemId', 'subsystem', 'purpose', 'method'].includes(field)) {
-        if (currentItem.itemId) {
-          const selectedInventoryItem = items.find(i => i.id === currentItem.itemId);
-          if (selectedInventoryItem) {
-            let bestMatch = null;
-            let maxScore = -1;
-
-            const normalize = (str?: string) => (str || '').trim().toLowerCase();
-
-            costCodes.forEach(cc => {
-              const ccClass = normalize(cc.classification);
-              const itemClass = normalize(selectedInventoryItem.category);
-              const matchClass = !ccClass || ccClass === itemClass || (itemClass && ccClass.includes(itemClass)) || (ccClass && itemClass.includes(ccClass));
-
-              const ccSub = normalize(cc.subsystem);
-              const itemSub = normalize(currentItem.subsystem);
-              const matchSub = !ccSub || ccSub === itemSub || (itemSub && ccSub.includes(itemSub)) || (ccSub && itemSub.includes(ccSub));
-
-              const ccPurp = normalize(cc.purpose);
-              const itemPurp = normalize(currentItem.purpose);
-              const matchPurp = !ccPurp || ccPurp === itemPurp || (itemPurp && ccPurp.includes(itemPurp)) || (ccPurp && itemPurp.includes(ccPurp));
-
-              const ccMeth = normalize(cc.method);
-              const itemMeth = normalize(currentItem.method);
-              const matchMeth = !ccMeth || ccMeth === itemMeth || (itemMeth && ccMeth.includes(itemMeth)) || (ccMeth && itemMeth.includes(ccMeth));
-
-              if (matchClass && matchSub && matchPurp && matchMeth) {
-                let score = 0;
-                if (ccClass) score += 1;
-                if (ccSub) score += 1;
-                if (ccPurp) score += 1;
-                if (ccMeth) score += 1;
-
-                if (score > maxScore) {
-                  maxScore = score;
-                  bestMatch = cc;
-                }
-              }
-            });
-
-            if (!bestMatch) {
-              // Fallback: ignore classification completely
-              costCodes.forEach(cc => {
-                const ccSub = normalize(cc.subsystem);
-                const itemSub = normalize(currentItem.subsystem);
-                const matchSub = !ccSub || ccSub === itemSub || (itemSub && ccSub.includes(itemSub)) || (ccSub && itemSub.includes(ccSub));
-
-                const ccPurp = normalize(cc.purpose);
-                const itemPurp = normalize(currentItem.purpose);
-                const matchPurp = !ccPurp || ccPurp === itemPurp || (itemPurp && ccPurp.includes(itemPurp)) || (ccPurp && itemPurp.includes(ccPurp));
-
-                const ccMeth = normalize(cc.method);
-                const itemMeth = normalize(currentItem.method);
-                const matchMeth = !ccMeth || ccMeth === itemMeth || (itemMeth && ccMeth.includes(itemMeth)) || (ccMeth && itemMeth.includes(ccMeth));
-
-                if (matchSub && matchPurp && matchMeth) {
-                  let score = 0;
-                  if (ccSub) score += 1;
-                  if (ccPurp) score += 1;
-                  if (ccMeth) score += 1;
-
-                  if (score > maxScore) {
-                    maxScore = score;
-                    bestMatch = cc;
-                  }
-                }
-              });
-            }
-
-            if (bestMatch) {
-              currentItem.costCode = (bestMatch as any).code;
-            } else {
-              currentItem.costCode = '';
-            }
+        if (currentItem.subsystem) {
+          const selectedInventoryItem = currentItem.itemId ? items.find(i => i.id === currentItem.itemId) : undefined;
+          const matchedCode = findBestCostCode(
+            currentItem.subsystem,
+            currentItem.purpose || DEFAULT_PURPOSE,
+            currentItem.method || DEFAULT_METHOD,
+            selectedInventoryItem?.category || selectedInventoryItem?.classification,
+            costCodes
+          );
+          if (matchedCode) {
+            currentItem.costCode = matchedCode;
           }
         }
       }
@@ -393,8 +369,20 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
         );
       }
 
+      const itemsWithSnapshot = (formData.items || []).map(reqItem => {
+        const invItem = items.find(i => i.id === reqItem.itemId);
+        return {
+          ...reqItem,
+          itemCode: reqItem.itemCode || invItem?.code || '',
+          itemName: reqItem.itemName || invItem?.name || '',
+          unit: reqItem.unit || invItem?.unit || '',
+          unitPrice: reqItem.unitPrice !== undefined ? reqItem.unitPrice : (invItem?.unitPrice ?? 0),
+        };
+      });
+
       const reqData = {
         ...formData,
+        items: itemsWithSnapshot,
         createdBy: createdByValue,
       };
 
@@ -456,25 +444,98 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
     }
   };
 
-  const combinedSubsystems = Array.from(new Set(costCodes.map(c => c.subsystem).filter(Boolean)));
-  const uniqueMethods = Array.from(new Set(costCodes.map(c => c.method).filter(Boolean)));
-  const uniquePurposes = Array.from(new Set(costCodes.map(c => c.purpose).filter(Boolean)));
+  const combinedSubsystems = Array.from(new Set([
+    ...subsystems.map(s => s.name),
+    ...costCodes.map(c => c.subsystem)
+  ].filter(Boolean)));
+  const uniqueMethods = Array.from(new Set([DEFAULT_METHOD, ...costCodes.map(c => c.method).filter(Boolean)]));
+  const uniquePurposes = Array.from(new Set([DEFAULT_PURPOSE, ...costCodes.map(c => c.purpose).filter(Boolean)]));
+
+  const scrollToSelectedOption = () => {
+    const tryScroll = () => {
+      const selectedElement = document.querySelector('.react-select__option--is-selected') as HTMLElement | null;
+      if (selectedElement) {
+        const menuList = (
+          selectedElement.closest('.react-select__menu-list') || 
+          selectedElement.closest('[class*="-MenuList"]') ||
+          selectedElement.parentElement
+        ) as HTMLElement | null;
+
+        if (menuList && menuList.scrollHeight > menuList.clientHeight) {
+          menuList.scrollTop = Math.max(0, selectedElement.offsetTop - (menuList.clientHeight - selectedElement.clientHeight) / 2);
+          return true;
+        } else {
+          selectedElement.scrollIntoView({ block: 'nearest' });
+          return true;
+        }
+      }
+      return false;
+    };
+
+    setTimeout(tryScroll, 20);
+    setTimeout(tryScroll, 60);
+    setTimeout(tryScroll, 120);
+  };
 
   const selectStyles = {
     control: (base: any) => ({
       ...base,
-      minHeight: '38px',
+      minHeight: '42px',
       borderRadius: '0.375rem',
       borderColor: '#d1d5db',
       boxShadow: 'none',
       '&:hover': {
-        borderColor: '#d1d5db'
+        borderColor: '#9ca3af'
       }
     }),
-    menuPortal: (base: any) => ({ ...base, zIndex: 9999 })
+    valueContainer: (base: any) => ({
+      ...base,
+      padding: '4px 8px',
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      overflow: 'visible',
+      lineHeight: '1.25rem',
+    }),
+    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+    menu: (base: any) => ({
+      ...base,
+      minWidth: '420px',
+      maxWidth: '650px',
+      zIndex: 9999,
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isSelected ? '#e0e7ff' : state.isFocused ? '#f1f5f9' : 'white',
+      color: state.isSelected ? '#3730a3' : '#1f2937',
+      borderBottom: '1px solid #f3f4f6',
+      cursor: 'pointer',
+      padding: '8px 12px',
+    })
   };
 
   const itemOptions = items.map(i => ({ value: i.id, label: `${i.code} - ${i.name} (${i.unit})` }));
+
+  const formatItemOptionLabel = (option: any) => {
+    const it = items.find(i => i.id === option.value);
+    if (!it) return option.label;
+    return (
+      <div className="py-0.5 text-left" title={`${it.code} - ${it.name} (${it.unit})`}>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-semibold text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+            {it.code}
+          </span>
+          <span className="text-xs text-gray-500 font-medium">({it.unit})</span>
+        </div>
+        <div className="text-sm font-medium text-gray-900 mt-1 whitespace-normal break-words leading-snug">
+          {it.name}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -619,14 +680,18 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
                 <table className="w-full text-left whitespace-nowrap">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="p-3 text-sm font-medium text-gray-600 min-w-[250px]">Vật tư</th>
+                      <th className="p-3 text-sm font-medium text-gray-600 min-w-[380px] sm:min-w-[420px]">Vật tư</th>
                       <th className="p-3 text-sm font-medium text-gray-600 w-24">SL Yêu cầu</th>
                       <th className="p-3 text-sm font-medium text-gray-600 w-32">Đơn giá</th>
                       <th className="p-3 text-sm font-medium text-gray-600 w-32">Thành tiền</th>
                       <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Hệ thống</th>
-                      <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Mục đích</th>
-                      <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Phương thức</th>
-                      <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Mã chi phí</th>
+                      {showCostCodeDetails && (
+                        <>
+                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Mục đích</th>
+                          <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Phương thức</th>
+                        </>
+                      )}
+                      <th className="p-3 text-sm font-medium text-gray-600 min-w-[170px]">Mã chi phí</th>
                       <th className="p-3 text-sm font-medium text-gray-600 min-w-[150px]">Ghi chú</th>
                       <th className="p-3 text-sm font-medium text-gray-600 w-16 text-center">Xóa</th>
                     </tr>
@@ -644,9 +709,12 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
                             options={itemOptions}
                             value={itemOptions.find(opt => opt.value === item.itemId) || null}
                             onChange={(selected) => handleItemChange(index, 'itemId', selected?.value || '')}
-                            placeholder="-- Chọn vật tư --"
+                            placeholder="-- Tìm hoặc chọn vật tư --"
                             styles={selectStyles}
                             menuPortalTarget={document.body}
+                            formatOptionLabel={formatItemOptionLabel}
+                            classNamePrefix="react-select"
+                            onMenuOpen={scrollToSelectedOption}
                             isClearable
                             required
                           />
@@ -679,41 +747,56 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
                                   ))}
                           </select>
                         </td>
+                        {showCostCodeDetails && (
+                          <>
+                            <td className="p-3">
+                              <select
+                                value={item.purpose || DEFAULT_PURPOSE}
+                                onChange={(e) => handleItemChange(index, 'purpose', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                              >
+                                <option value="">-- Mục đích --</option>
+                                {uniquePurposes.map(p => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-3">
+                              <select
+                                value={item.method || DEFAULT_METHOD}
+                                onChange={(e) => handleItemChange(index, 'method', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                              >
+                                <option value="">-- Phương thức --</option>
+                                {uniqueMethods.map(m => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                              </select>
+                            </td>
+                          </>
+                        )}
                         <td className="p-3">
-                          <select
-                            value={item.purpose || ''}
-                            onChange={(e) => handleItemChange(index, 'purpose', e.target.value)}
-                            className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                          >
-                            <option value="">-- Mục đích --</option>
-                            {uniquePurposes.map(p => (
-                              <option key={p} value={p}>{p}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-3">
-                          <select
-                            value={item.method || ''}
-                            onChange={(e) => handleItemChange(index, 'method', e.target.value)}
-                            className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                          >
-                            <option value="">-- Phương thức --</option>
-                            {uniqueMethods.map(m => (
-                              <option key={m} value={m}>{m}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-3">
-                          <select
-                            value={item.costCode || ''}
-                            onChange={(e) => handleItemChange(index, 'costCode', e.target.value)}
-                            className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                          >
-                            <option value="">-- Chọn mã --</option>
-                            {costCodes.map(cc => (
-                              <option key={cc.id} value={cc.code}>{cc.code} - {cc.classification}</option>
-                            ))}
-                          </select>
+                          <div className="flex flex-col gap-1">
+                            <select
+                              value={item.costCode || ''}
+                              onChange={(e) => handleItemChange(index, 'costCode', e.target.value)}
+                              className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-gray-800"
+                            >
+                              <option value="">-- Chọn mã chi phí --</option>
+                              {costCodes.map(cc => (
+                                <option key={cc.id} value={cc.code}>{cc.code} - {cc.classification || cc.purpose}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setShowCostCodeDetails(!showCostCodeDetails)}
+                              className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium self-start transition-colors py-0.5"
+                              title="Sửa mục đích và cách thực hiện để chọn mã khác"
+                            >
+                              <Edit2 size={12} />
+                              <span>{showCostCodeDetails ? 'Ẩn chi tiết' : 'Sửa mã chi phí'}</span>
+                            </button>
+                          </div>
                         </td>
                         <td className="p-3">
                           <input
