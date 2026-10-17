@@ -3,12 +3,15 @@ import { supabase, subscribeToTable } from '../supabase-client';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { Item, InventorySlip, SlipType, Requisition, RequisitionStatus } from '../types/inventory';
 import { generateRestockSuggestion } from '../services/geminiService';
-import { Box, FileText, AlertTriangle, TrendingUp, TrendingDown, Clock, Zap, BarChart2, PieChart as PieChartIcon, Activity, ShoppingCart } from 'lucide-react';
+import { Box, FileText, AlertTriangle, TrendingUp, TrendingDown, Clock, Zap, BarChart2, PieChart as PieChartIcon, Activity, ShoppingCart, Star, SlidersHorizontal, Check } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend
 } from 'recharts';
+import { MonitoredItemsModal } from '../components/inventory/MonitoredItemsModal';
+import { toast } from 'sonner';
 
 type TabType = 'overview' | 'analytics';
+export type WarningScope = 'frequently_used' | 'custom_selected' | 'all';
 
 export const InventoryDashboard: React.FC = () => {
   const [items, setItems] = useState<Item[]>([]);
@@ -17,6 +20,22 @@ export const InventoryDashboard: React.FC = () => {
   const [suggestion, setSuggestion] = useState<string>('');
   const [loadingSuggestion, setLoadingSuggestion] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  const [warningScope, setWarningScope] = useState<WarningScope>(() => {
+    const saved = localStorage.getItem('inventory_warning_scope');
+    return (saved as WarningScope) || 'frequently_used';
+  });
+
+  const [monitoredItemIds, setMonitoredItemIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('inventory_monitored_items');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [isMonitoredModalOpen, setIsMonitoredModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -111,11 +130,71 @@ export const InventoryDashboard: React.FC = () => {
     });
   }, [items, slips]);
 
-  const lowStockItems = React.useMemo(() => inventoryState.filter(i => i.stock <= (i.item.warningThresholdLower || 0)), [inventoryState]);
+  const isItemInScope = React.useCallback((inv: typeof inventoryState[0]) => {
+    if (warningScope === 'all') return true;
+    if (warningScope === 'custom_selected') {
+      return monitoredItemIds.has(inv.item.id) || (Boolean(inv.item.code) && monitoredItemIds.has(inv.item.code));
+    }
+    if (warningScope === 'frequently_used') {
+      return inv.issues30d > 0 || inv.totalIssues > 0;
+    }
+    return true;
+  }, [warningScope, monitoredItemIds]);
+
+  const allLowStockItems = React.useMemo(() => {
+    return inventoryState.filter(i => i.stock <= (i.item.warningThresholdLower || 0));
+  }, [inventoryState]);
+
+  const frequentlyUsedLowStockCount = React.useMemo(() => {
+    return allLowStockItems.filter(i => i.issues30d > 0 || i.totalIssues > 0).length;
+  }, [allLowStockItems]);
+
+  const monitoredLowStockCount = React.useMemo(() => {
+    return allLowStockItems.filter(i => monitoredItemIds.has(i.item.id) || (Boolean(i.item.code) && monitoredItemIds.has(i.item.code))).length;
+  }, [allLowStockItems, monitoredItemIds]);
+
+  const lowStockItems = React.useMemo(() => {
+    return allLowStockItems.filter(isItemInScope);
+  }, [allLowStockItems, isItemInScope]);
+
   const overStockItems = React.useMemo(() => inventoryState.filter(i => i.stock >= (i.item.warningThresholdUpper || Infinity)), [inventoryState]);
-  const depletionWarningItems = React.useMemo(() => inventoryState.filter(i => i.stock > 0 && i.daysToDeplete <= 7).sort((a, b) => a.daysToDeplete - b.daysToDeplete), [inventoryState]);
+
+  const depletionWarningItems = React.useMemo(() => {
+    return inventoryState
+      .filter(i => i.stock > 0 && i.daysToDeplete <= 7 && isItemInScope(i))
+      .sort((a, b) => a.daysToDeplete - b.daysToDeplete);
+  }, [inventoryState, isItemInScope]);
+
   const deadStockItems = React.useMemo(() => inventoryState.filter(i => i.isDeadStock).sort((a, b) => b.totalValue - a.totalValue), [inventoryState]);
   const activeItems = React.useMemo(() => inventoryState.filter(i => i.issues30d > 0 || i.receipts30d > 0).sort((a, b) => (b.issues30d + b.receipts30d) - (a.issues30d + a.receipts30d)), [inventoryState]);
+
+  const handleToggleMonitor = (itemId: string, itemCode?: string) => {
+    setMonitoredItemIds(prev => {
+      const next = new Set(prev);
+      const isAlready = next.has(itemId) || (Boolean(itemCode) && next.has(itemCode!));
+      if (isAlready) {
+        next.delete(itemId);
+        if (itemCode) next.delete(itemCode);
+        toast.info(`Đã bỏ theo dõi cảnh báo cho vật tư ${itemCode || ''}`);
+      } else {
+        next.add(itemId);
+        toast.success(`Đã thêm vật tư ${itemCode || ''} vào danh sách theo dõi`);
+      }
+      localStorage.setItem('inventory_monitored_items', JSON.stringify(Array.from(next)));
+      return next;
+    });
+  };
+
+  const handleSaveMonitoredIds = (newIds: Set<string>) => {
+    setMonitoredItemIds(newIds);
+    localStorage.setItem('inventory_monitored_items', JSON.stringify(Array.from(newIds)));
+    toast.success(`Đã lưu ${newIds.size} vật tư vào danh sách theo dõi cảnh báo`);
+  };
+
+  const handleScopeChange = (newScope: WarningScope) => {
+    setWarningScope(newScope);
+    localStorage.setItem('inventory_warning_scope', newScope);
+  };
   
   const pendingRequisitions = React.useMemo(() => requisitions.filter(req => {
     const completedItems = req.items?.filter(item => (item.receivedQuantity || 0) >= item.requestedQuantity).length || 0;
@@ -181,14 +260,37 @@ export const InventoryDashboard: React.FC = () => {
               <p className="text-3xl font-bold text-gray-900">{items.length}</p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-500 font-medium">Sắp hết hàng</h3>
-                <div className="p-2 bg-red-50 text-red-600 rounded-lg">
-                  <AlertTriangle size={24} />
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-gray-500 font-medium">Sắp hết hàng</h3>
+                  <div className="p-2 bg-red-50 text-red-600 rounded-lg">
+                    <AlertTriangle size={24} />
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl font-bold text-gray-900">{lowStockItems.length}</p>
+                  {warningScope !== 'all' && (
+                    <span className="text-xs text-gray-400 font-normal">
+                      / {allLowStockItems.length} mã toàn kho
+                    </span>
+                  )}
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-900">{lowStockItems.length}</p>
+              <div className="mt-3 pt-2 border-t border-gray-50 flex items-center justify-between text-xs">
+                <span className="text-gray-500 truncate mr-2">
+                  {warningScope === 'frequently_used' && '⚡ Vật tư hay sử dụng'}
+                  {warningScope === 'custom_selected' && `⭐ Đang theo dõi (${monitoredItemIds.size})`}
+                  {warningScope === 'all' && '📦 Toàn bộ kho'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsMonitoredModalOpen(true)}
+                  className="text-indigo-600 hover:text-indigo-800 font-semibold shrink-0 cursor-pointer"
+                >
+                  Tùy chọn
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -251,33 +353,156 @@ export const InventoryDashboard: React.FC = () => {
               )}
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">Vật tư dưới định mức an toàn</h2>
+                <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      Vật tư dưới định mức an toàn
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100">
+                        {lowStockItems.length}
+                      </span>
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {warningScope === 'frequently_used' && 'Đang hiển thị các vật tư có phát sinh xuất kho trong vận hành'}
+                      {warningScope === 'custom_selected' && `Đang lọc theo ${monitoredItemIds.size} vật tư do bạn chọn theo dõi`}
+                      {warningScope === 'all' && 'Đang hiển thị toàn bộ vật tư trong kho dưới định mức'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Scope Selector Pills */}
+                    <div className="inline-flex bg-gray-100 p-1 rounded-lg text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => handleScopeChange('frequently_used')}
+                        className={`px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                          warningScope === 'frequently_used'
+                            ? 'bg-white text-emerald-700 shadow-xs font-semibold'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                        title="Chỉ hiển thị các vật tư có phát sinh xuất kho sử dụng"
+                      >
+                        <Zap size={13} className={warningScope === 'frequently_used' ? 'fill-emerald-600 text-emerald-600' : ''} />
+                        Hay dùng ({frequentlyUsedLowStockCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleScopeChange('custom_selected')}
+                        className={`px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                          warningScope === 'custom_selected'
+                            ? 'bg-white text-amber-700 shadow-xs font-semibold'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                        title="Chỉ hiển thị các vật tư bạn đã chọn vào danh sách theo dõi"
+                      >
+                        <Star size={13} className={warningScope === 'custom_selected' ? 'fill-amber-500 text-amber-500' : ''} />
+                        Tôi chọn ({monitoredLowStockCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleScopeChange('all')}
+                        className={`px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                          warningScope === 'all'
+                            ? 'bg-white text-blue-700 shadow-xs font-semibold'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                        title="Hiển thị toàn bộ vật tư trong kho"
+                      >
+                        Toàn bộ ({allLowStockItems.length})
+                      </button>
+                    </div>
+
+                    {/* Settings Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsMonitoredModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                      title="Cài đặt danh sách vật tư theo dõi"
+                    >
+                      <SlidersHorizontal size={14} />
+                      <span className="hidden sm:inline">Cài đặt theo dõi</span>
+                    </button>
+                  </div>
                 </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-gray-500 text-sm">
+                        <th className="p-3 font-medium w-12 text-center" title="Theo dõi trọng điểm">⭐</th>
                         <th className="p-4 font-medium">Mã</th>
                         <th className="p-4 font-medium">Tên vật tư</th>
                         <th className="p-4 font-medium">Tồn kho</th>
                         <th className="p-4 font-medium">Ngưỡng dưới</th>
+                        <th className="p-4 font-medium">Mức độ dùng</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {lowStockItems.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="p-4 text-center text-gray-500">Không có vật tư nào dưới định mức.</td>
+                          <td colSpan={6} className="p-8 text-center text-gray-500">
+                            {warningScope === 'custom_selected' && monitoredItemIds.size === 0 ? (
+                              <div className="space-y-2">
+                                <p className="font-medium text-gray-700">Bạn chưa chọn vật tư nào vào danh sách theo dõi.</p>
+                                <p className="text-xs text-gray-400">Hãy bấm "Cài đặt theo dõi" để tích chọn các vật tư bạn hay sử dụng.</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsMonitoredModalOpen(true)}
+                                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer"
+                                >
+                                  <SlidersHorizontal size={13} />
+                                  Chọn vật tư theo dõi ngay
+                                </button>
+                              </div>
+                            ) : (
+                              <span>Không có vật tư nào dưới định mức an toàn trong phạm vi đã chọn.</span>
+                            )}
+                          </td>
                         </tr>
                       ) : (
-                        lowStockItems.map((inv) => (
-                          <tr key={inv.item.id} className="hover:bg-gray-50">
-                            <td className="p-4 text-sm font-medium text-gray-900">{inv.item.code}</td>
-                            <td className="p-4 text-sm text-gray-600">{inv.item.name}</td>
-                            <td className="p-4 text-sm font-bold text-orange-600">{inv.stock} {inv.item.unit}</td>
-                            <td className="p-4 text-sm text-gray-500">{inv.item.warningThresholdLower}</td>
-                          </tr>
-                        ))
+                        lowStockItems.map((inv) => {
+                          const isMonitored = monitoredItemIds.has(inv.item.id) || (Boolean(inv.item.code) && monitoredItemIds.has(inv.item.code));
+                          return (
+                            <tr key={inv.item.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="p-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleMonitor(inv.item.id, inv.item.code)}
+                                  className="p-1 rounded-md hover:bg-amber-50 text-gray-300 hover:text-amber-500 transition-colors cursor-pointer"
+                                  title={isMonitored ? "Đang theo dõi - Bấm để bỏ theo dõi" : "Bấm để thêm vào danh sách theo dõi"}
+                                >
+                                  <Star size={16} className={isMonitored ? "text-amber-500 fill-amber-500" : ""} />
+                                </button>
+                              </td>
+                              <td className="p-4 text-sm font-semibold text-gray-900">
+                                <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded border border-gray-200">
+                                  {inv.item.code}
+                                </span>
+                              </td>
+                              <td className="p-4 text-sm text-gray-700 font-medium">
+                                <div>{inv.item.name}</div>
+                                {inv.item.category && (
+                                  <span className="text-[10px] text-gray-400">{inv.item.category}</span>
+                                )}
+                              </td>
+                              <td className="p-4 text-sm font-bold text-red-600">{inv.stock} {inv.item.unit}</td>
+                              <td className="p-4 text-sm text-gray-500">{inv.item.warningThresholdLower}</td>
+                              <td className="p-4 text-xs">
+                                {inv.issues30d > 0 ? (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                                    <Zap size={11} className="fill-emerald-600 text-emerald-600" />
+                                    Xuất {inv.issues30d} (30 ngày)
+                                  </span>
+                                ) : inv.totalIssues > 0 ? (
+                                  <span className="font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                    Đã xuất {inv.totalIssues}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">Chưa xuất</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -472,12 +697,28 @@ export const InventoryDashboard: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-              <ShoppingCart className="text-purple-500" size={20} />
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Đề xuất mua sắm (Dự trù vật tư)</h2>
-                <p className="text-sm text-gray-500">Danh sách các vật tư dưới mức tồn kho tối thiểu và số lượng cần mua thêm.</p>
+            <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="text-purple-500 shrink-0" size={20} />
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Đề xuất mua sắm (Dự trù vật tư)</h2>
+                  <p className="text-sm text-gray-500">
+                    Danh sách các vật tư dưới mức tồn kho tối thiểu và số lượng cần mua thêm
+                    <span className="font-medium text-purple-700 ml-1">
+                      ({warningScope === 'frequently_used' ? 'Theo vật tư hay sử dụng' : warningScope === 'custom_selected' ? `Theo ${monitoredItemIds.size} vật tư tôi chọn` : 'Toàn bộ kho'})
+                    </span>
+                    .
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsMonitoredModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors shrink-0 cursor-pointer"
+              >
+                <SlidersHorizontal size={14} />
+                Cài đặt vật tư theo dõi
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -519,6 +760,16 @@ export const InventoryDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal Cài đặt vật tư theo dõi cảnh báo */}
+      <MonitoredItemsModal
+        isOpen={isMonitoredModalOpen}
+        onClose={() => setIsMonitoredModalOpen(false)}
+        items={items}
+        inventoryState={inventoryState}
+        monitoredIds={monitoredItemIds}
+        onSave={handleSaveMonitoredIds}
+      />
     </div>
   );
 };

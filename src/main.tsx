@@ -49,6 +49,22 @@ if (import.meta.env.DEV) {
   initDebug();
 }
 
+// Auto-reload on mobile & PWA when a new Service Worker takes over
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  let isRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      window.location.reload();
+    }
+  });
+
+  // Check for updates when resuming tab
+  window.addEventListener('focus', () => {
+    navigator.serviceWorker.getRegistration().then(reg => reg?.update()).catch(() => {});
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

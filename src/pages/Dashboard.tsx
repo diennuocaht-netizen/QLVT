@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabase-client';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, Server, Users, Clock, Plus, Edit, Trash, Activity, Calendar, ClipboardCheck, ArrowRight, User } from 'lucide-react';
+import { FileText, Server, Users, Clock, Plus, Edit, Trash, Activity, Calendar, ClipboardCheck, ArrowRight, User, RefreshCw } from 'lucide-react';
+import { getVietnamDateString, getVietnamYesterdayString, getVietnamMinutesOfDay, getCurrentShiftCode, getShiftStatusDescription } from '../utils/dateUtils';
 
 const isManagerRole = (role?: string) => {
   if (!role) return false;
@@ -28,20 +29,54 @@ export const Dashboard: React.FC = () => {
   const [ongoingEvents, setOngoingEvents] = useState<any[]>([]);
   const [todayStaff, setTodayStaff] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [refreshingStaff, setRefreshingStaff] = useState(false);
 
   useEffect(() => {
     fetchStats();
     fetchActivities();
     fetchTodayData();
+
+    // Auto-refresh when tab/app becomes visible or focused (Crucial for Mobile & PWA)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchTodayData();
+        fetchStats();
+        fetchActivities();
+      }
+    };
+    const handleFocus = () => {
+      fetchTodayData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Periodic check every 30 seconds to automatically advance shift when 15min mark hits
+    const interval = setInterval(() => {
+      fetchTodayData();
+    }, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, [profile]);
+
+  const handleManualRefreshStaff = async () => {
+    setRefreshingStaff(true);
+    await Promise.all([fetchStats(), fetchActivities(), fetchTodayData()]);
+    setTimeout(() => setRefreshingStaff(false), 400);
+  };
 
   const fetchStats = async () => {
     try {
+      const today = getVietnamDateString();
       const [docRes, devRes, userRes, taskRes, eventRes] = await Promise.all([
         supabase.from('documents').select('id', { count: 'exact', head: true }),
         supabase.from('devices').select('id', { count: 'exact', head: true }),
         supabase.from('users').select('id', { count: 'exact', head: true }),
-        supabase.from('hr_shift_tasks').select('id', { count: 'exact', head: true }).eq('date', new Date().toISOString().split('T')[0]),
+        supabase.from('hr_shift_tasks').select('id', { count: 'exact', head: true }).eq('date', today),
         supabase.from('hr_events').select('id', { count: 'exact', head: true }).in('status', ['ongoing', 'upcoming'])
       ]);
 
@@ -61,7 +96,10 @@ export const Dashboard: React.FC = () => {
   };
 
   const fetchTodayData = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getVietnamDateString();
+    const yesterday = getVietnamYesterdayString();
+    const minutesOfDay = getVietnamMinutesOfDay();
+    const isEarlyMorning = minutesOfDay < 345; // Trước 05:45 sáng (rạng sáng ca đêm đang trực)
 
     // Fetch Today's Tasks
     const { data: tasks } = await supabase
@@ -71,10 +109,8 @@ export const Dashboard: React.FC = () => {
       .order('created_at', { ascending: false });
 
     if (tasks) {
-      // Group tasks by status but also deduplicate by group_id (if needed, but simple is fine for dashboard)
-      setTodayTasks(tasks.slice(0, 5)); // Just show top 5
+      setTodayTasks(tasks.slice(0, 5));
 
-      // Get task counts by user display_name
       const taskCountsMap = new Map();
       tasks.forEach(t => {
         if (t.assignee && t.assignee.display_name) {
@@ -83,98 +119,104 @@ export const Dashboard: React.FC = () => {
         }
       });
 
-      // Fetch actual Shift Assignments for today
+      // Nếu rạng sáng trước 05:45, ca đêm đang trực là ca đêm bắt đầu từ 22:00 hôm qua
+      const datesToQuery = isEarlyMorning ? [yesterday, today] : [today];
+
       const { data: assignments } = await supabase
         .from('shift_assignments')
         .select('*, employee:shift_employees(full_name, role), shift:shift_types(code, name)')
-        .eq('date', today);
+        .in('date', datesToQuery);
 
       if (assignments && assignments.length > 0) {
         const mainGroups: Record<string, any> = {
-            'M': { code: 'M', name: 'Ca Sáng (06:00 - 14:00)', employees: [] },
-            'A': { code: 'A', name: 'Ca Chiều (14:00 - 22:00)', employees: [] },
-            'N': { code: 'N', name: 'Ca Đêm (22:00 - 06:00)', employees: [] },
-            'OTHER': { code: 'Khác', name: 'Hành chính / Nghỉ / Công tác', employees: [] }
+          'M': { code: 'M', name: 'Ca Sáng (06:00 - 14:00)', employees: [] },
+          'A': { code: 'A', name: 'Ca Chiều (14:00 - 22:00)', employees: [] },
+          'N': { code: 'N', name: 'Ca Đêm (22:00 - 06:00)', employees: [] },
+          'OTHER': { code: 'Khác', name: 'Hành chính / Nghỉ / Công tác', employees: [] }
+        };
+
+        assignments.forEach(a => {
+          if (!a.shift || !a.employee) return;
+          const code = a.shift.code ? a.shift.code.trim().toUpperCase() : 'OTHER';
+          const empNameLower = a.employee.full_name.trim().toLowerCase();
+
+          // Khi ở rạng sáng (00:00 - 05:44):
+          // - Ca N lấy từ hôm qua (đang trực đêm)
+          // - Ca M và A lấy từ hôm nay (sắp làm việc ban ngày)
+          if (isEarlyMorning) {
+            if (code === 'N' && a.date !== yesterday) return;
+            if (code !== 'N' && a.date !== today) return;
+          }
+
+          const empObj = {
+            name: a.employee.full_name,
+            role: a.employee.role,
+            tasksCount: taskCountsMap.get(empNameLower) || 0,
+            originalShift: code
           };
 
-          assignments.forEach(a => {
-             if (!a.shift || !a.employee) return;
-             const code = a.shift.code ? a.shift.code.trim().toUpperCase() : 'OTHER';
-             const empNameLower = a.employee.full_name.trim().toLowerCase();
-             
-             const empObj = {
-                name: a.employee.full_name,
-                role: a.employee.role,
-                tasksCount: taskCountsMap.get(empNameLower) || 0,
-                originalShift: code
-             };
-
-             if (code === 'M') {
-               mainGroups['M'].employees.push(empObj);
-             } else if (code === 'A') {
-               mainGroups['A'].employees.push(empObj);
-             } else if (code === 'N') {
-               mainGroups['N'].employees.push(empObj);
-             } else if (code === 'M1') {
-               mainGroups['M'].employees.push(empObj);
-               mainGroups['A'].employees.push(empObj);
-             } else if (code === 'N1') {
-               mainGroups['A'].employees.push(empObj);
-               mainGroups['N'].employees.push(empObj);
-             } else if (code === 'AD') {
-               mainGroups['M'].employees.push(empObj);
-               mainGroups['A'].employees.push(empObj);
-             } else {
-               mainGroups['OTHER'].employees.push(empObj);
-             }
-          });
-
-          // Chuyen ca tiep theo len dau truoc khi ket thuc ca hien tai 15 phut
-          // Ca M (06:00 - 14:00): Tu 05:45 den truoc 13:45
-          // Ca A (14:00 - 22:00): Tu 13:45 den truoc 21:45
-          // Ca N (22:00 - 06:00): Tu 21:45 den truoc 05:45
-          const now = new Date();
-          const totalMinutes = now.getHours() * 60 + now.getMinutes();
-          let currentShiftCode = 'M';
-          if (totalMinutes >= 345 && totalMinutes < 825) {
-            currentShiftCode = 'M';
-          } else if (totalMinutes >= 825 && totalMinutes < 1305) {
-            currentShiftCode = 'A';
+          if (code === 'M') {
+            mainGroups['M'].employees.push(empObj);
+          } else if (code === 'A') {
+            mainGroups['A'].employees.push(empObj);
+          } else if (code === 'N') {
+            mainGroups['N'].employees.push(empObj);
+          } else if (code === 'M1') {
+            mainGroups['M'].employees.push(empObj);
+            mainGroups['A'].employees.push(empObj);
+          } else if (code === 'N1') {
+            mainGroups['A'].employees.push(empObj);
+            mainGroups['N'].employees.push(empObj);
+          } else if (code === 'AD') {
+            mainGroups['M'].employees.push(empObj);
+            mainGroups['A'].employees.push(empObj);
           } else {
-            currentShiftCode = 'N';
+            mainGroups['OTHER'].employees.push(empObj);
           }
+        });
 
-          const groupOrder = ['M', 'A', 'N'];
-          const startIndex = groupOrder.indexOf(currentShiftCode);
-          const orderedMainGroups = [
-            ...groupOrder.slice(startIndex),
-            ...groupOrder.slice(0, startIndex)
-          ];
+        // Chuyển ca tiếp theo lên đầu trước khi kết thúc ca hiện tại 15 phút:
+        // Ca M (06:00 - 14:00): Từ 05:45 đến trước 13:45
+        // Ca A (14:00 - 22:00): Từ 13:45 đến trước 21:45
+        // Ca N (22:00 - 06:00): Từ 21:45 đến trước 05:45
+        const currentShiftCode = getCurrentShiftCode();
 
-          const finalGroups: any[] = [];
-          orderedMainGroups.forEach(code => {
-            if (mainGroups[code].employees.length > 0) {
-               finalGroups.push(mainGroups[code]);
-            }
-          });
-          if (mainGroups['OTHER'].employees.length > 0) {
-            finalGroups.push(mainGroups['OTHER']);
+        const groupOrder = ['M', 'A', 'N'];
+        const startIndex = groupOrder.indexOf(currentShiftCode);
+        const orderedMainGroups = [
+          ...groupOrder.slice(startIndex),
+          ...groupOrder.slice(0, startIndex)
+        ];
+
+        const finalGroups: any[] = [];
+        orderedMainGroups.forEach(code => {
+          if (mainGroups[code].employees.length > 0) {
+            const statusInfo = getShiftStatusDescription(code);
+            finalGroups.push({
+              ...mainGroups[code],
+              statusLabel: statusInfo.label,
+              isUpcoming: statusInfo.isUpcoming
+            });
           }
-
-          finalGroups.forEach(sg => {
-             sg.employees.sort((x: any, y: any) => {
-                const xIsManager = isManagerRole(x.role);
-                const yIsManager = isManagerRole(y.role);
-                if (xIsManager && !yIsManager) return -1;
-                if (!xIsManager && yIsManager) return 1;
-                return y.tasksCount - x.tasksCount;
-             });
-          });
-          
-          setTodayStaff(finalGroups);
-        } else {
-          setTodayStaff([]);
+        });
+        if (mainGroups['OTHER'].employees.length > 0) {
+          finalGroups.push(mainGroups['OTHER']);
         }
+
+        finalGroups.forEach(sg => {
+          sg.employees.sort((x: any, y: any) => {
+            const xIsManager = isManagerRole(x.role);
+            const yIsManager = isManagerRole(y.role);
+            if (xIsManager && !yIsManager) return -1;
+            if (!xIsManager && yIsManager) return 1;
+            return y.tasksCount - x.tasksCount;
+          });
+        });
+
+        setTodayStaff(finalGroups);
+      } else {
+        setTodayStaff([]);
+      }
     }
 
     // Fetch Ongoing Events
@@ -367,11 +409,20 @@ export const Dashboard: React.FC = () => {
         <div className="lg:col-span-1 space-y-6">
           {/* Active Staff Today */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-50 bg-gray-50/50">
+            <div className="px-5 py-4 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
               <h2 className="text-base font-bold text-gray-800 flex items-center">
                 <Users className="w-4 h-4 mr-2 text-emerald-600" />
                 Nhân sự hôm nay
               </h2>
+              <button
+                onClick={handleManualRefreshStaff}
+                disabled={refreshingStaff}
+                className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
+                title="Cập nhật nhân sự ca trực"
+              >
+                <RefreshCw size={14} className={refreshingStaff ? "animate-spin text-emerald-600" : ""} />
+                <span className="hidden sm:inline">Cập nhật</span>
+              </button>
             </div>
             <div className="p-4">
               {todayStaff.length === 0 ? (
@@ -380,9 +431,20 @@ export const Dashboard: React.FC = () => {
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
                   {todayStaff.map((shiftGroup, idx) => (
                     <div key={idx} className="bg-emerald-50/30 border border-emerald-100 rounded-lg overflow-hidden">
-                      <div className="bg-emerald-100/50 px-3 py-2 text-xs font-bold text-emerald-800 flex justify-between border-b border-emerald-100">
-                        <span>{shiftGroup.code} - {shiftGroup.name}</span>
-                        <span>{shiftGroup.employees.length} nhân sự</span>
+                      <div className="bg-emerald-100/50 px-3 py-2 text-xs font-bold text-emerald-800 flex justify-between items-center border-b border-emerald-100">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{shiftGroup.code} - {shiftGroup.name}</span>
+                          {shiftGroup.statusLabel && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                              shiftGroup.isUpcoming
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                                : 'bg-emerald-200/80 text-emerald-900 border border-emerald-300'
+                            }`}>
+                              {shiftGroup.statusLabel}
+                            </span>
+                          )}
+                        </div>
+                        <span className="shrink-0 ml-1">{shiftGroup.employees.length} nhân sự</span>
                       </div>
                       <div className="p-2 space-y-1.5">
                         {shiftGroup.employees.map((staff, sIdx) => {

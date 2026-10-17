@@ -1,7 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import * as XLSX from 'xlsx';
 import { Calendar as CalendarIcon, Search, History, FileText, User, Layers, CheckCircle, Download, Filter } from 'lucide-react';
+import { getVietnamDateString } from '../utils/dateUtils';
 
 export const HRTaskLog: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -11,8 +12,8 @@ export const HRTaskLog: React.FC = () => {
   
   // Default to this month
   const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+  const firstDay = getVietnamDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+  const lastDay = getVietnamDateString(new Date(today.getFullYear(), today.getMonth() + 1, 0));
   
   const [startDate, setStartDate] = useState(firstDay);
   const [endDate, setEndDate] = useState(lastDay);

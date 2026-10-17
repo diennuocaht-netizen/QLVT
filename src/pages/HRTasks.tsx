@@ -6,6 +6,7 @@ import { ShiftTaskModal } from '../components/hr/ShiftTaskModal';
 import { RoutineChecklistModal } from '../components/hr/RoutineChecklistModal';
 import { HandoverModal } from '../components/hr/HandoverModal';
 import { TaskTimelineModal } from '../components/hr/TaskTimelineModal';
+import { getVietnamDateString, getCurrentShiftCode } from '../utils/dateUtils';
 
 export const HRTasks: React.FC = () => {
   const { profile } = useAuth();
@@ -16,7 +17,7 @@ export const HRTasks: React.FC = () => {
   const [loading, setLoading] = useState(true);
   
   // Filters
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(getVietnamDateString());
   const [selectedShiftId, setSelectedShiftId] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -77,9 +78,11 @@ export const HRTasks: React.FC = () => {
     const { data } = await supabase.from('shift_types').select('*').order('order_index');
     if (data && data.length > 0) {
       setShiftTypes(data);
-      // Auto-select first shift if none selected
+      // Auto-select shift based on 15-minute advance rule if none selected
       if (selectedShiftId === 'all') {
-         setSelectedShiftId(data[0].id);
+        const curCode = getCurrentShiftCode();
+        const matched = data.find(s => s.code?.trim().toUpperCase() === curCode);
+        setSelectedShiftId(matched ? matched.id : data[0].id);
       }
     }
   };
