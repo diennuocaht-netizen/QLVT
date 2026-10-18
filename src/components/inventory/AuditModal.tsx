@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { Item, InventorySlip, SlipType } from '../../types/inventory';
+import { fetchAllItems } from '../../utils/fetchHelpers';
 import { itemFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
 
 interface AuditModalProps {
@@ -41,7 +42,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose, onSucce
     const loadData = async () => {
       setLoading(true);
       try {
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').limit(10000);
+        const { data: itemsData, error: itemsError } = await fetchAllItems(supabase);
         if (itemsError) throw itemsError;
         
         const { data: slipsData, error: slipsError } = await supabase.from('inventory_slips').select('*');

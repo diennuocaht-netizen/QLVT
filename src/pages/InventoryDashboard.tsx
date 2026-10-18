@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, subscribeToTable } from '../supabase-client';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { fetchAllItems, fetchAllRows } from '../utils/fetchHelpers';
 import { Item, InventorySlip, SlipType, Requisition, RequisitionStatus } from '../types/inventory';
 import { generateRestockSuggestion } from '../services/geminiService';
 import { Box, FileText, AlertTriangle, TrendingUp, TrendingDown, Clock, Zap, BarChart2, PieChart as PieChartIcon, Activity, ShoppingCart, Star, SlidersHorizontal, Check } from 'lucide-react';
@@ -41,9 +42,9 @@ export const InventoryDashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         const [itemsData, slipsData, requisitionsData] = await Promise.all([
-          supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999),
-          supabase.from('inventory_slips').select('*'),
-          supabase.from('inventory_requisitions').select('*')
+          fetchAllItems(supabase),
+          fetchAllRows('inventory_slips', supabase),
+          fetchAllRows('inventory_requisitions', supabase)
         ]);
 
         if (itemsData.data) setItems(itemsData.data as Item[]);

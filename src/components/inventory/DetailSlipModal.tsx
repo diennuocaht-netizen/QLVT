@@ -3,6 +3,7 @@ import { X, FileText, Download, Printer, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { InventorySlip, SlipType, Item, Requisition } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
+import { fetchAllItems } from '../../utils/fetchHelpers';
 import { itemFromDatabase } from '../../utils/dataTransform';
 import { PrintCompletionReportModal } from './PrintCompletionReportModal';
 
@@ -23,7 +24,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
     const loadAndSubscribe = async () => {
       // Load initial data
       
-        const { data, error } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+        const { data, error } = await fetchAllItems(supabase);
 
       if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
 
@@ -36,7 +37,7 @@ export const DetailSlipModal: React.FC<DetailSlipModalProps> = ({ isOpen, onClos
             
 
 
-              supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999).then
+              fetchAllItems(supabase).then
 (({ data }) => {
               if (data) setItems(data.map((item: any) => itemFromDatabase(item)) as Item[]);
             });

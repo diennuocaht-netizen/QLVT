@@ -4,6 +4,8 @@ import Select from 'react-select';
 import { InventorySlip, SlipType, InventorySlipItem, Item, Requisition, RequisitionStatus, RequisitionItemStatus } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
+import { fetchAllItems } from '../../utils/fetchHelpers';
+import { filterSelectOption } from '../../utils/searchUtils';
 import { slipToDatabase, requisitionToDatabase, itemFromDatabase, requisitionFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
 import { SelectRequisitionItemsModal } from './SelectRequisitionItemsModal';
 import { QRScannerModal } from './QRScannerModal';
@@ -46,7 +48,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
     const loadData = async () => {
       try {
         // Fetch items
-        const { data: itemsData } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+        const { data: itemsData } = await fetchAllItems(supabase);
         if (itemsData) setItems(itemsData.map(item => itemFromDatabase(item)) as Item[]);
 
         // Fetch subsystems
@@ -1240,6 +1242,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 onChange={(selected) => handleItemChange(index, 'itemId', selected?.value || '')}
                                 placeholder="-- Chọn mã --"
                                 styles={selectStyles}
+                                filterOption={filterSelectOption}
                                 menuPortalTarget={document.body}
                                 classNamePrefix="react-select"
                                 onMenuOpen={scrollToSelectedOption}
@@ -1254,6 +1257,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 onChange={(selected) => handleItemChange(index, 'itemId', selected?.value || '')}
                                 placeholder="-- Chọn tên vật tư --"
                                 styles={selectStyles}
+                                filterOption={filterSelectOption}
                                 menuPortalTarget={document.body}
                                 classNamePrefix="react-select"
                                 onMenuOpen={scrollToSelectedOption}
@@ -1290,6 +1294,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
                                 onChange={(selected) => handleItemChange(index, 'itemId', selected?.value || '')}
                                 placeholder="-- Tìm hoặc chọn vật tư --"
                                 styles={selectStyles}
+                                filterOption={filterSelectOption}
                                 menuPortalTarget={document.body}
                                 formatOptionLabel={formatItemOptionLabel}
                                 classNamePrefix="react-select"

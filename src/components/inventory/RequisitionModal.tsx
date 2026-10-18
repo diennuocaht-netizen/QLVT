@@ -4,6 +4,8 @@ import Select from 'react-select';
 import { Requisition, RequisitionType, RequisitionStatus, RequisitionItem, RequisitionItemStatus, Item } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
+import { fetchAllItems } from '../../utils/fetchHelpers';
+import { filterSelectOption } from '../../utils/searchUtils';
 import { requisitionToDatabase } from '../../utils/dataTransform';
 import { QRScannerModal } from './QRScannerModal';
 import { findBestCostCode, DEFAULT_PURPOSE, DEFAULT_METHOD } from '../../utils/costCodeMatcher';
@@ -64,7 +66,7 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
     const loadData = async () => {
       try {
         // Fetch items
-        const { data: itemsData } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+        const { data: itemsData } = await fetchAllItems(supabase);
         if (itemsData) setItems(itemsData as Item[]);
 
         // Fetch subsystems
@@ -711,6 +713,7 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
                             onChange={(selected) => handleItemChange(index, 'itemId', selected?.value || '')}
                             placeholder="-- Tìm hoặc chọn vật tư --"
                             styles={selectStyles}
+                            filterOption={filterSelectOption}
                             menuPortalTarget={document.body}
                             formatOptionLabel={formatItemOptionLabel}
                             classNamePrefix="react-select"

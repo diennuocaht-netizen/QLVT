@@ -3,6 +3,7 @@ import { X, Save, CheckSquare } from 'lucide-react';
 import { supabase } from '../../supabase-client';
 import { InventorySlip, InventorySlipItem } from '../../types/inventory';
 import { itemFromDatabase, slipFromDatabase, slipToDatabase } from '../../utils/dataTransform';
+import { fetchAllItems } from '../../utils/fetchHelpers';
 import Select from 'react-select';
 
 interface GlobalCompletionModalProps {
@@ -55,7 +56,7 @@ export const GlobalCompletionModal: React.FC<GlobalCompletionModalProps> = ({ is
         });
       });
 
-      const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+      const { data: itemsData, error: itemsError } = await fetchAllItems(supabase);
       if (itemsError) throw itemsError;
       if (itemsData) setItemsRef(itemsData.map(itemFromDatabase));
 

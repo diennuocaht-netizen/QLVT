@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { X, Printer, Download } from 'lucide-react';
 import { Requisition, Item, InventorySlip, SlipType, RequisitionType } from '../../types/inventory';
 import { supabase } from '../../supabase-client';
+import { fetchAllItems } from '../../utils/fetchHelpers';
 import { itemFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
 
 interface PrintRequisitionModalProps {
@@ -26,7 +27,7 @@ export const PrintRequisitionModal: React.FC<PrintRequisitionModalProps> = ({
     const loadData = async () => {
       setLoading(true);
       try {
-        const { data: itemsData } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+        const { data: itemsData } = await fetchAllItems(supabase);
         if (itemsData) setItems(itemsData.map(item => itemFromDatabase(item) as Item));
 
         const { data: slipsData } = await supabase.from('inventory_slips').select('*');

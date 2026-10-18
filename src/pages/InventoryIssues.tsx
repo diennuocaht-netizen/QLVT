@@ -9,6 +9,7 @@ import { PrintCompletionReportModal } from '../components/inventory/PrintComplet
 import { GlobalCompletionModal } from '../components/inventory/GlobalCompletionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { slipFromDatabase, itemFromDatabase } from '../utils/dataTransform';
+import { fetchAllItems } from '../utils/fetchHelpers';
 
 export const InventoryIssues: React.FC = () => {
   const { profile } = useAuth();
@@ -42,7 +43,7 @@ export const InventoryIssues: React.FC = () => {
         setSlips((slipsData || []).map(slip => slipFromDatabase(slip)) as InventorySlip[]);
 
         // Fetch items for reference
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+        const { data: itemsData, error: itemsError } = await fetchAllItems(supabase);
 
         if (itemsError) throw itemsError;
         setItems((itemsData || []).map(item => itemFromDatabase(item)) as Item[]);

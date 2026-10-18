@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Save, AlertCircle, Trash2, Calendar, FileText, CheckCircle, Scale } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Select from 'react-select';
@@ -6,6 +6,7 @@ import { supabase } from '../../supabase-client';
 import { InventoryReconciliationItem, Item, InventorySlip, SlipType } from '../../types/inventory';
 import { useAuth } from '../../contexts/AuthContext';
 import { itemFromDatabase, slipFromDatabase } from '../../utils/dataTransform';
+import { fetchAllItems } from '../../utils/fetchHelpers';
 
 interface ReconciliationModalProps {
   isOpen: boolean;
@@ -43,7 +44,7 @@ export const ReconciliationModal: React.FC<ReconciliationModalProps> = ({ isOpen
       
       // Pre-load items
       const loadItems = async () => {
-        const { data } = await supabase.from('inventory_items').select('*').limit(10000);
+        const { data } = await fetchAllItems(supabase);
         if (data) setAllItems(data.map(itemFromDatabase));
         const { data: tData } = await supabase.from('inventory_audit_templates').select('*');
         if (tData) setTemplates(tData);

@@ -12,6 +12,8 @@ import { PrintQRModal } from '../components/inventory/PrintQRModal';
 import { BulkPrintQRModal } from '../components/inventory/BulkPrintQRModal';
 import { QRScannerModal } from '../components/inventory/QRScannerModal';
 import { itemFromDatabase, slipFromDatabase, itemToDatabase } from '../utils/dataTransform';
+import { fetchAllItems, fetchAllRows } from '../utils/fetchHelpers';
+import { matchesSearch } from '../utils/searchUtils';
 import { QrCode, ScanLine, X, ArrowUpFromLine, FileText } from 'lucide-react';
 
 export const InventoryItems: React.FC = () => {
@@ -49,7 +51,7 @@ export const InventoryItems: React.FC = () => {
       setLoading(true);
       try {
         // Fetch items
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+        const { data: itemsData, error: itemsError } = await fetchAllItems(supabase);
 
         if (itemsError) throw itemsError;
         if (isMounted) {
@@ -63,9 +65,7 @@ export const InventoryItems: React.FC = () => {
         }
 
         // Fetch slips
-        const { data: slipsData, error: slipsError } = await supabase
-          .from('inventory_slips')
-          .select('*');
+        const { data: slipsData, error: slipsError } = await fetchAllRows('inventory_slips', supabase);
 
         if (slipsError) throw slipsError;
         if (isMounted) {
@@ -181,11 +181,11 @@ export const InventoryItems: React.FC = () => {
     const handleRefresh = async () => {
       console.log('📣 [InventoryItems] Received inventory:refresh, reloading data...');
       try {
-        const { data: itemsData, error: itemsError } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: false }).limit(999999);
+        const { data: itemsData, error: itemsError } = await fetchAllItems(supabase);
         if (itemsError) throw itemsError;
         setItems((itemsData || []).map(item => itemFromDatabase(item)) as Item[]);
 
-        const { data: slipsData, error: slipsError } = await supabase.from('inventory_slips').select('*').order('created_at', { ascending: false });
+        const { data: slipsData, error: slipsError } = await fetchAllRows('inventory_slips', supabase);
         if (slipsError) throw slipsError;
         setSlips((slipsData || []).map(slip => slipFromDatabase(slip)) as InventorySlip[]);
         console.log('✅ [InventoryItems] Manual refresh complete');
@@ -270,10 +270,9 @@ export const InventoryItems: React.FC = () => {
 
   const filteredInventory = React.useMemo(() => {
     return inventory.filter(inv => {
-      const q = searchTerm.toLowerCase().trim();
-      const matchesQuery = inv.item.name.toLowerCase().includes(q) ||
-        inv.item.code.toLowerCase().includes(q) ||
-        (inv.item.category && inv.item.category.toLowerCase().includes(q));
+      const matchesQuery = matchesSearch(inv.item.name, searchTerm) ||
+        matchesSearch(inv.item.code, searchTerm) ||
+        Boolean(inv.item.category && matchesSearch(inv.item.category, searchTerm));
 
       if (!matchesQuery) return false;
 
