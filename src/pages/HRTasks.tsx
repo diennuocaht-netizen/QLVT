@@ -355,13 +355,13 @@ export const HRTasks: React.FC = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
           </div>
         ) : (
-          <div className="flex gap-4 h-full pb-4">
+          <div className="flex gap-4 h-full pb-4 min-w-full">
             {columns.map(col => {
               const colTasks = filteredTasks.filter(t => t.status === col.id);
               return (
                 <div 
                   key={col.id} 
-                  className={`flex-1 min-w-[280px] max-w-[350px] flex flex-col rounded-lg border ${col.color}`}
+                  className={`flex-1 min-w-[280px] flex flex-col rounded-lg border ${col.color}`}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, col.id)}
                 >
