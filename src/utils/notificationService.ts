@@ -59,13 +59,16 @@ export async function sendNotification(params: CreateNotificationParams): Promis
     const { error } = await supabase.from('notifications').insert([payload]);
 
     if (error) {
-      console.warn('⚠️ [NotificationService] Failed to insert notification:', error.message);
-      return false;
+      console.warn('⚠️ [NotificationService] Failed to insert notification (Table might not exist yet. Run 32-create-notifications.sql):', error.message);
     }
 
     // Trigger Web Push to registered devices (non-blocking)
     try {
-      fetch('http://localhost:3001/api/push/send', {
+      const apiHost = typeof window !== 'undefined' && window.location.hostname
+        ? `${window.location.protocol}//${window.location.hostname}:3001`
+        : 'http://localhost:3001';
+
+      fetch(`${apiHost}/api/push/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -73,11 +76,12 @@ export async function sendNotification(params: CreateNotificationParams): Promis
           message: payload.message,
           link: payload.link,
           userId: payload.user_id,
+          targetRole: payload.target_role,
         }),
       }).catch(() => {});
     } catch (_) {}
 
-    return true;
+    return !error;
   } catch (err) {
     console.warn('⚠️ [NotificationService] Error sending notification:', err);
     return false;

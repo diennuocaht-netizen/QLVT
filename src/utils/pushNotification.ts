@@ -178,16 +178,17 @@ export async function sendLocalTestNotification(): Promise<boolean> {
   if (!isPushSupported()) return false;
   try {
     const registration = await navigator.serviceWorker.ready;
-    await registration.showNotification('DNCT Hub - Thông báo thử nghiệm', {
-      body: 'Chúc mừng! Thiết bị của bạn đã được kết nối và nhận thông báo đẩy thành công.',
-      icon: '/logo.jpg',
-      badge: '/icon.svg',
-      data: { url: '/' },
-      vibrate: [200, 100, 200]
-    });
-    return true;
+    if (registration && registration.showNotification) {
+      await registration.showNotification('DNCT Hub - Thông báo thử nghiệm', {
+        body: 'Chúc mừng! Thiết bị của bạn đã được kết nối và nhận thông báo đẩy thành công.',
+        icon: '/logo.jpg',
+        data: { url: '/' }
+      });
+      return true;
+    }
+    return false;
   } catch (err) {
-    console.warn('⚠️ [Push] Failed to show local notification:', err);
+    console.warn('⚠️ [Push] Failed to show local notification (on iOS, push must be sent from server):', err);
     return false;
   }
 }

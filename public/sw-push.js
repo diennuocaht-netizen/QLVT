@@ -13,21 +13,26 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || 'DNCT Hub';
+  const body = data.body || data.message || 'Bạn có thông báo mới từ hệ thống.';
+  const url = data.url || data.link || '/';
+
   const options = {
-    body: data.message || data.body || 'Bạn có thông báo mới từ hệ thống.',
+    body: body,
     icon: data.icon || '/logo.jpg',
-    badge: data.badge || '/icon.svg',
     data: {
-      url: data.link || data.url || '/',
+      url: url,
       timestamp: Date.now()
     },
-    vibrate: [200, 100, 200],
     tag: data.tag || `dnct-${Date.now()}`,
     renotify: true
   };
 
+  // Safe execution with fallback for iOS WebKit
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    self.registration.showNotification(title, options).catch((err) => {
+      console.warn('⚠️ [SW] showNotification with options failed, retrying minimal:', err);
+      return self.registration.showNotification(title, { body: body });
+    })
   );
 });
 

@@ -21,7 +21,11 @@ try {
 } catch (_) {}
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL || 'https://setljfuhprinmsqztqyd.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
+  env.SUPABASE_SERVICE_ROLE_KEY || 
+  env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNldGxqZnVocHJpbm1zcXp0cXlkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDQ2NTU5NCwiZXhwIjoyMDkwMDQxNTk0fQ.ysPpSfRlTALCIc5FSw0ovN_xPUfC01z_8_NtWMaeSuQ';
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BNSWjGKI2y5qV-EODm7gOL5jZiq02QCor0XZDFBx-YhXj4ZqRON-wNByqWLEbroP9t-IodSA-VtpE9KV_HueEhM';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'QAjeHk2MbxbLhlQGSLR5Ee9XINRyOlP2MiODoBk3ueQ';
@@ -47,17 +51,34 @@ const title = args.title || 'DNCT Hub Thông báo';
 const message = args.message || 'Hệ thống có thông báo mới cần bạn kiểm tra.';
 const link = args.link || '/';
 const targetUserId = args.userId || null;
+const targetRole = args.role || args.targetRole || null;
 
 async function sendPush() {
   console.log('🚀 [WebPush] Bắt đầu gửi thông báo đẩy:');
   console.log(`   Tiêu đề: ${title}`);
   console.log(`   Nội dung: ${message}`);
   console.log(`   Đường dẫn: ${link}`);
+  if (targetUserId) console.log(`   Gửi tới User: ${targetUserId}`);
+  if (targetRole) console.log(`   Gửi tới Vai trò: ${targetRole}`);
 
   try {
     let query = supabase.from('user_push_subscriptions').select('*');
     if (targetUserId) {
       query = query.eq('user_id', targetUserId);
+    } else if (targetRole) {
+      const allowedRoles = targetRole === 'admin' ? ['admin'] : [targetRole, 'admin'];
+      const { data: roleUsers } = await supabase
+        .from('users')
+        .select('id')
+        .in('role', allowedRoles);
+      
+      const userIds = (roleUsers || []).map(u => u.id);
+      if (userIds.length > 0) {
+        query = query.in('user_id', userIds);
+      } else {
+        console.log(`ℹ️ Không tìm thấy nhân sự nào thuộc vai trò '${targetRole}'.`);
+        return;
+      }
     }
 
     const { data: subscriptions, error } = await query;
@@ -76,8 +97,10 @@ async function sendPush() {
 
     const payload = JSON.stringify({
       title,
+      body: message,
       message,
       link,
+      url: link,
       timestamp: Date.now()
     });
 

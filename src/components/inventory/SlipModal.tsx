@@ -889,6 +889,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
         const { sendNotification } = await import('../../utils/notificationService');
         if (type === SlipType.Issue) {
           sendNotification({
+            targetRole: 'manager',
             title: 'Phiếu xuất kho mới',
             message: `Phiếu xuất ${slipData.code} đã được tạo bởi ${profile?.displayName || 'Người dùng'}.`,
             type: 'info',
@@ -896,6 +897,7 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
           });
         } else {
           sendNotification({
+            targetRole: 'manager',
             title: 'Phiếu nhập kho mới',
             message: `Phiếu nhập ${slipData.code} đã được ghi nhận thành công.`,
             type: 'success',

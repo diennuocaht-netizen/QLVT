@@ -57,7 +57,9 @@ const upload = multer({
 
 // Supabase client (optional - only needed for user creation endpoint)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://setljfuhprinmsqztqyd.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNldGxqZnVocHJpbm1zcXp0cXlkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDQ2NTU5NCwiZXhwIjoyMDkwMDQxNTk0fQ.ysPpSfRlTALCIc5FSw0ovN_xPUfC01z_8_NtWMaeSuQ';
 
 let supabase = null;
 
@@ -554,9 +556,24 @@ webpush.setVapidDetails(
 
 app.post('/api/push/send', async (req, res) => {
   try {
-    const { title, message, link, userId } = req.body;
+    const { title, message, link, userId, targetRole } = req.body;
     let query = supabase.from('user_push_subscriptions').select('*');
-    if (userId) query = query.eq('user_id', userId);
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else if (targetRole) {
+      const allowedRoles = targetRole === 'admin' ? ['admin'] : [targetRole, 'admin'];
+      const { data: roleUsers } = await supabase
+        .from('users')
+        .select('id')
+        .in('role', allowedRoles);
+      
+      const userIds = (roleUsers || []).map(u => u.id);
+      if (userIds.length > 0) {
+        query = query.in('user_id', userIds);
+      } else {
+        return res.json({ success: true, count: 0, message: 'No users with specified role found' });
+      }
+    }
     const { data: subs, error } = await query;
     if (error) throw error;
     if (!subs || subs.length === 0) {
@@ -565,8 +582,10 @@ app.post('/api/push/send', async (req, res) => {
 
     const payload = JSON.stringify({
       title: title || 'DNCT Hub',
+      body: message || 'Bạn có thông báo mới',
       message: message || 'Bạn có thông báo mới',
       link: link || '/',
+      url: link || '/',
       timestamp: Date.now()
     });
 

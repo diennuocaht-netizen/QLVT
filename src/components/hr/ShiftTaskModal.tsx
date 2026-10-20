@@ -95,6 +95,17 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
           entityId: task.id,
           details: { title: payload.title }
         });
+
+        // Notify user if assigned or reassigned
+        if (payload.assignee_id && payload.assignee_id !== task.assignee_id) {
+          import('../../utils/notificationService').then(m => m.sendNotification({
+            userId: payload.assignee_id,
+            title: 'Nhiệm vụ ca trực mới',
+            message: `Bạn được phân công công việc: ${payload.title}`,
+            type: 'info',
+            link: '/hr-tasks'
+          })).catch(() => {});
+        }
       } else {
         const { data, error } = await supabase.from('hr_shift_tasks').insert([{ ...payload, created_by: profile?.id }]).select();
         if (error) throw error;
@@ -105,9 +116,9 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
           details: { title: payload.title }
         });
 
-        if (payload.assigned_to) {
+        if (payload.assignee_id) {
           import('../../utils/notificationService').then(m => m.sendNotification({
-            userId: payload.assigned_to,
+            userId: payload.assignee_id,
             title: 'Nhiệm vụ ca trực mới',
             message: `Bạn được phân công công việc: ${payload.title}`,
             type: 'info',

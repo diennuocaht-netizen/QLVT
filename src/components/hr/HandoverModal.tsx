@@ -82,6 +82,16 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
         }
       });
 
+      if (task.assignee_id) {
+        import('../../utils/notificationService').then(m => m.sendNotification({
+          userId: task.assignee_id,
+          title: 'Công việc bàn giao ca mới',
+          message: `Nhiệm vụ "${task.title}" đã được bàn giao sang ca tiếp theo. Ghi chú: ${handoverNote}`,
+          type: 'info',
+          link: '/hr-tasks'
+        })).catch(() => {});
+      }
+
       onSaved();
     } catch (err: any) {
       alert('Lỗi bàn giao ca: ' + err.message);

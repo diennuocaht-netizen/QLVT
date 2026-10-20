@@ -221,6 +221,17 @@ export const HRTasks: React.FC = () => {
       
       if (error) throw error;
       
+      // Notify creator when a task is completed by someone else
+      if (completingTask.created_by && completingTask.created_by !== profile?.id) {
+        import('../utils/notificationService').then(m => m.sendNotification({
+          userId: completingTask.created_by,
+          title: 'Nhiệm vụ đã hoàn thành',
+          message: `${profile?.displayName || 'Nhân sự'} đã hoàn thành công việc: "${completingTask.title}"`,
+          type: 'success',
+          link: '/hr-tasks'
+        })).catch(() => {});
+      }
+
       setCompletingTask(null);
       fetchTasks();
     } catch (err: any) {
