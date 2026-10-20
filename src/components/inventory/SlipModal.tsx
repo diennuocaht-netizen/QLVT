@@ -792,6 +792,16 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
               
             if (updateError) throw updateError;
             console.log(`✅ [Inventory] Item ${itemId} quantity updated: ${currentQuantity} -> ${newQuantity} (delta: ${delta})`);
+            const invItem = items.find(i => i.id === itemId);
+            if (invItem && invItem.warningThresholdLower !== undefined && invItem.warningThresholdLower !== null && newQuantity <= invItem.warningThresholdLower) {
+              import('../../utils/notificationService').then(m => m.sendNotification({
+                targetRole: 'manager',
+                title: 'Cảnh báo tồn kho tối thiểu',
+                message: `Vật tư "${invItem.name}" (${invItem.code}) chỉ còn ${newQuantity} ${invItem.unit}, chạm hoặc dưới ngưỡng cảnh báo (${invItem.warningThresholdLower})!`,
+                type: 'warning',
+                link: '/inventory/items'
+              })).catch(() => {});
+            }
           } catch (err) {
             console.error(`❌ [Inventory] Error processing item ${itemId}:`, err);
             throw err;
@@ -872,6 +882,28 @@ export const SlipModal: React.FC<SlipModalProps> = ({ isOpen, onClose, slip, typ
         }));
       } catch (e) {
         console.warn('activity log failed (slip):', e);
+      }
+
+      // Send In-App Notification
+      try {
+        const { sendNotification } = await import('../../utils/notificationService');
+        if (type === SlipType.Issue) {
+          sendNotification({
+            title: 'Phiếu xuất kho mới',
+            message: `Phiếu xuất ${slipData.code} đã được tạo bởi ${profile?.displayName || 'Người dùng'}.`,
+            type: 'info',
+            link: '/inventory/issues',
+          });
+        } else {
+          sendNotification({
+            title: 'Phiếu nhập kho mới',
+            message: `Phiếu nhập ${slipData.code} đã được ghi nhận thành công.`,
+            type: 'success',
+            link: '/inventory/receipts',
+          });
+        }
+      } catch (err) {
+        // Non-blocking
       }
 
       onClose();

@@ -26,6 +26,7 @@ import Docxtemplater from 'docxtemplater';
 import { DOMParser } from '@xmldom/xmldom';
 import { uploadToGoogleDriveOAuth } from './google-drive-oauth-service.js';
 import 'dotenv/config';
+import webpush from 'web-push';
 
 // Use OAuth instead of Service Account
 const USE_OAUTH = true;
@@ -541,6 +542,54 @@ app.use((err, req, res, next) => {
  * Health check
  * GET /api/health
  */
+// Web Push Notifications
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BNSWjGKI2y5qV-EODm7gOL5jZiq02QCor0XZDFBx-YhXj4ZqRON-wNByqWLEbroP9t-IodSA-VtpE9KV_HueEhM';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'QAjeHk2MbxbLhlQGSLR5Ee9XINRyOlP2MiODoBk3ueQ';
+
+webpush.setVapidDetails(
+  'mailto:admin@dnct.vn',
+  VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY
+);
+
+app.post('/api/push/send', async (req, res) => {
+  try {
+    const { title, message, link, userId } = req.body;
+    let query = supabase.from('user_push_subscriptions').select('*');
+    if (userId) query = query.eq('user_id', userId);
+    const { data: subs, error } = await query;
+    if (error) throw error;
+    if (!subs || subs.length === 0) {
+      return res.json({ success: true, count: 0, message: 'No registered devices found' });
+    }
+
+    const payload = JSON.stringify({
+      title: title || 'DNCT Hub',
+      message: message || 'Bạn có thông báo mới',
+      link: link || '/',
+      timestamp: Date.now()
+    });
+
+    let sent = 0;
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth }
+        }, payload);
+        sent++;
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await supabase.from('user_push_subscriptions').delete().eq('id', sub.id);
+        }
+      }
+    }
+    return res.json({ success: true, sentCount: sent });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'User API Server is running' });
 });

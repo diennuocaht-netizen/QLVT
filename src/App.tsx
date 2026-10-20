@@ -6,6 +6,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -47,6 +48,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 export default function App() {
   return (
     <BrowserRouter>
+      <NotificationProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
@@ -85,7 +87,8 @@ export default function App() {
             <Route path="hr-task-log" element={<HRTaskLog />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </NotificationProvider>
+    </BrowserRouter>
   );
 }
 

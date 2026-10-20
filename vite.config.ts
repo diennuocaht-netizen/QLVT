@@ -30,6 +30,7 @@ export default defineConfig(({mode}) => {
           ]
         },
         workbox: {
+          importScripts: ['/sw-push.js'],
           skipWaiting: true,
           clientsClaim: true,
           cleanupOutdatedCaches: true,

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { NotificationBell } from './NotificationBell';
 import {   Key, LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck, CheckCircle , Package , ChevronLeft, Scale } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -67,12 +68,15 @@ export const Layout: React.FC = () => {
           <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain" />
           <h1 className="text-xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-blue-600 tracking-tight">DNCT Hub</h1>
         </div>
-        <button 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 text-gray-600 hover:bg-gray-100 rounded-md"
-        >
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-md"
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* Overlay for mobile */}
@@ -289,12 +293,25 @@ export const Layout: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto w-full pb-16 md:pb-0">
-        <div className="p-4 md:p-8">
-          <Outlet />
-        </div>
-      </main>
+      {/* Main Content Area with Desktop Top Bar */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Desktop Top Header Bar */}
+        <header className="hidden md:flex items-center justify-between h-16 bg-white border-b border-gray-200 px-8 flex-shrink-0 z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Hệ thống Điều hành & Quản lý DNCT</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+          </div>
+        </header>
+
+        {/* Scrollable View */}
+        <main className="flex-1 overflow-y-auto w-full pb-16 md:pb-0">
+          <div className="p-4 md:p-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
 
       

@@ -104,6 +104,16 @@ export const ShiftTaskModal: React.FC<ShiftTaskModalProps> = ({ task, selectedDa
           entityId: data[0].id,
           details: { title: payload.title }
         });
+
+        if (payload.assigned_to) {
+          import('../../utils/notificationService').then(m => m.sendNotification({
+            userId: payload.assigned_to,
+            title: 'Nhiệm vụ ca trực mới',
+            message: `Bạn được phân công công việc: ${payload.title}`,
+            type: 'info',
+            link: '/hr-tasks'
+          })).catch(() => {});
+        }
       }
       onSaved();
     } catch (err: any) {

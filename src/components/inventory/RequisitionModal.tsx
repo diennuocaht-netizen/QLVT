@@ -412,6 +412,20 @@ export const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onCl
         console.log('📊 Insert response:', { error, data });
         if (error) throw error;
       }
+      // Send In-App Notification
+      try {
+        const { sendNotification } = await import('../../utils/notificationService');
+        sendNotification({
+          targetRole: 'manager',
+          title: 'Tờ trình mua sắm mới',
+          message: `Tờ trình ${reqData.code || ''} đã được gửi bởi ${profile?.displayName || 'Người dùng'}.`,
+          type: 'info',
+          link: '/inventory/requisitions'
+        });
+      } catch (err) {
+        // Non-blocking
+      }
+
       onClose();
       alert(`Lưu tờ trình thành công!`);
     } catch (error) {
