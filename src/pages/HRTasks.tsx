@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Settings, Layers, Search, Filter, Calendar as CalendarIcon, Clock, ArrowRight, User, CheckCircle, Edit3, Trash2, FileText, ChevronDown, ChevronUp, History, X } from 'lucide-react';
+import { Plus, Settings, Layers, Search, Filter, Calendar as CalendarIcon, Clock, ArrowRight, User, CheckCircle, Edit3, Trash2, FileText, ChevronDown, ChevronUp, History, X, UserCheck, CheckSquare, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { ShiftTaskModal } from '../components/hr/ShiftTaskModal';
 import { RoutineChecklistModal } from '../components/hr/RoutineChecklistModal';
 import { HandoverModal } from '../components/hr/HandoverModal';
@@ -34,6 +35,9 @@ export const HRTasks: React.FC = () => {
   const [completionNote, setCompletionNote] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [selectedCompleters, setSelectedCompleters] = useState<string[]>([]);
+  const [acceptingTask, setAcceptingTask] = useState<any | null>(null);
+  const [assignToMeOnAccept, setAssignToMeOnAccept] = useState<boolean>(true);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
 
   const toggleTaskExpand = (e: React.MouseEvent, taskId: string) => {
@@ -50,13 +54,42 @@ export const HRTasks: React.FC = () => {
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('taskId', taskId);
   };
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, columnId: string) => {
     e.preventDefault();
+    if (dragOverCol !== columnId) {
+      setDragOverCol(columnId);
+    }
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverCol(null);
   };
   const handleDrop = (e: React.DragEvent, columnId: string) => {
     e.preventDefault();
+    setDragOverCol(null);
     const taskId = e.dataTransfer.getData('taskId');
-    if (taskId) {
+    if (!taskId) return;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Dropped in the same column
+    if (task.status === columnId) return;
+
+    if (columnId === 'done') {
+      // Open completion modal
+      setCompletionNote('');
+      setSelectedCompleters(task.assignee_id ? [task.assignee_id] : (profile?.id ? [profile.id] : []));
+      setCompletingTask(task);
+    } else if (columnId === 'handover') {
+      // Open handover modal
+      setHandoverTask(task);
+      setIsHandoverModalOpen(true);
+    } else if (columnId === 'in_progress' && task.status === 'todo') {
+      // Moving from todo to in_progress -> open accept modal
+      setAssignToMeOnAccept(!task.assignee_id);
+      setAcceptingTask(task);
+    } else {
       updateTaskStatus(taskId, columnId);
     }
   };
@@ -241,6 +274,62 @@ export const HRTasks: React.FC = () => {
     }
   };
 
+  const handleConfirmAcceptTask = async () => {
+    if (!acceptingTask) return;
+    setLoading(true);
+    try {
+      const updates: any = {
+        status: 'in_progress',
+        updated_at: new Date().toISOString()
+      };
+
+      if (assignToMeOnAccept && profile?.id) {
+        updates.assignee_id = profile.id;
+      }
+
+      const { error } = await supabase
+        .from('hr_shift_tasks')
+        .update(updates)
+        .eq('id', acceptingTask.id);
+
+      if (error) throw error;
+
+      // Activity logging
+      try {
+        const { logActivity } = await import('../utils/activityLogger');
+        logActivity({
+          action: 'accept_shift_task',
+          entityType: 'hr_shift_tasks',
+          entityId: acceptingTask.id,
+          details: {
+            title: acceptingTask.title,
+            accepted_by: profile?.displayName || profile?.email,
+            assignee_id: updates.assignee_id || acceptingTask.assignee_id
+          }
+        });
+      } catch (_) {}
+
+      // Notification to creator if someone else accepted it
+      if (acceptingTask.created_by && acceptingTask.created_by !== profile?.id) {
+        import('../utils/notificationService').then(m => m.sendNotification({
+          userId: acceptingTask.created_by,
+          title: 'Công việc đã được tiếp nhận',
+          message: `${profile?.displayName || 'Nhân sự'} đã tiếp nhận công việc: "${acceptingTask.title}"`,
+          type: 'info',
+          link: '/hr-tasks'
+        })).catch(() => {});
+      }
+
+      toast.success('Đã tiếp nhận công việc! Thẻ đã chuyển sang Đang làm.');
+      setAcceptingTask(null);
+      fetchTasks();
+    } catch (err: any) {
+      alert('Lỗi tiếp nhận công việc: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
       const { error } = await supabase.from('hr_shift_tasks').update({ status: newStatus }).eq('id', taskId);
@@ -361,8 +450,9 @@ export const HRTasks: React.FC = () => {
               return (
                 <div 
                   key={col.id} 
-                  className={`flex-1 min-w-[280px] flex flex-col rounded-lg border ${col.color}`}
-                  onDragOver={handleDragOver}
+                  className={`flex-1 min-w-[280px] flex flex-col rounded-lg border transition-all ${col.color} ${dragOverCol === col.id ? 'ring-2 ring-indigo-500 ring-offset-2 border-indigo-400 scale-[1.005]' : ''}`}
+                  onDragOver={(e) => handleDragOver(e, col.id)}
+                  onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, col.id)}
                 >
                   <div className="p-3 border-b border-black/5 flex justify-between items-center shrink-0">
@@ -465,6 +555,22 @@ export const HRTasks: React.FC = () => {
                                  )}
                               </div>
                             </div>
+
+                            {task.status === 'todo' && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAssignToMeOnAccept(!task.assignee_id);
+                                  setAcceptingTask(task);
+                                }}
+                                className="w-full mt-2.5 py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 border border-indigo-200 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98]"
+                                title="Xác nhận tiếp nhận công việc này"
+                              >
+                                <UserCheck size={14} className="text-indigo-600" />
+                                <span>Nhận việc</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))
@@ -524,8 +630,8 @@ export const HRTasks: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Kết luận xử lý (Tùy chọn)</label>
-                <p className="text-xs text-gray-500 mb-2">Ghi lại kết quả, nguyên nhân hoặc thông số đo đạc được.</p>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Chi tiết xử lý & Kết quả thực hiện</label>
+                <p className="text-xs text-gray-500 mb-2">Ghi lại các bước xử lý, nguyên nhân hoặc kết quả/thông số đạt được.</p>
                 <div className="relative">
                   <FileText className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
                   <textarea
@@ -533,7 +639,7 @@ export const HRTasks: React.FC = () => {
                     onChange={(e) => setCompletionNote(e.target.value)}
                     rows={4}
                     className="w-full pl-10 pr-4 py-1.5 md:py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                    placeholder="Ví dụ: Đã thay thế aptomat mới, thông số dòng ổn định 15A..."
+                    placeholder="Nhập chi tiết xử lý và kết quả thực tế (ví dụ: Đã kiểm tra cách điện bơm, sấy hộp cực và đo lại đạt 50MΩ, chạy thử nghiệm 15 phút ổn định)..."
                   />
                 </div>
               </div>
@@ -585,6 +691,114 @@ export const HRTasks: React.FC = () => {
               >
                 {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : null}
                 Lưu & Hoàn thành
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {acceptingTask && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-indigo-50">
+              <h2 className="text-lg font-bold text-indigo-900 flex items-center">
+                <UserCheck className="w-5 h-5 mr-2 text-indigo-600" />
+                Xác nhận nhận việc
+              </h2>
+              <button 
+                onClick={() => setAcceptingTask(null)} 
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-3.5 border border-gray-200 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  {acceptingTask.priority && (
+                    <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${acceptingTask.priority === 'high' ? 'bg-red-100 text-red-700' : acceptingTask.priority === 'low' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                      {acceptingTask.priority === 'high' ? 'Khẩn cấp' : acceptingTask.priority === 'low' ? 'Thấp' : 'Thường'}
+                    </span>
+                  )}
+                  {acceptingTask.shift && (
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                      {acceptingTask.shift.name || acceptingTask.shift.code}
+                    </span>
+                  )}
+                  {acceptingTask.subsystem && (
+                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded inline-flex items-center gap-0.5">
+                      <Layers className="w-3 h-3" /> {acceptingTask.subsystem.name}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-bold text-gray-900">{acceptingTask.title}</p>
+                {acceptingTask.description && (
+                  <p className="text-xs text-gray-600 line-clamp-3 whitespace-pre-wrap">{acceptingTask.description}</p>
+                )}
+              </div>
+
+              <div className="space-y-2 text-xs text-gray-600 bg-blue-50/60 border border-blue-100 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Người giao việc:</span>
+                  <span className="font-semibold text-gray-800">{acceptingTask.creator?.display_name || 'Hệ thống'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Người được giao:</span>
+                  <span className="font-semibold text-gray-800">
+                    {acceptingTask.assignee?.display_name || 'Chưa chỉ định người phụ trách cụ thể'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200/70 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+                <span className="text-base leading-none">ℹ️</span>
+                <span>
+                  Xác nhận rằng bạn hoặc ca trực đã nắm thông tin công việc. Sau khi xác nhận, công việc sẽ tự động chuyển sang cột <strong className="text-indigo-700">Đang làm</strong>.
+                </span>
+              </div>
+
+              {!acceptingTask.assignee_id && profile && (
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer p-2.5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={assignToMeOnAccept}
+                    onChange={(e) => setAssignToMeOnAccept(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Gán tôi (<strong className="text-indigo-700">{profile.displayName || profile.email}</strong>) làm người phụ trách</span>
+                </label>
+              )}
+
+              {acceptingTask.assignee_id && acceptingTask.assignee_id !== profile?.id && profile && (
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer p-2.5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={assignToMeOnAccept}
+                    onChange={(e) => setAssignToMeOnAccept(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Chuyển quyền phụ trách công việc này sang tôi (<strong className="text-indigo-700">{profile.displayName || profile.email}</strong>)</span>
+                </label>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAcceptingTask(null)}
+                className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAcceptTask}
+                disabled={loading}
+                className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center shadow-sm"
+              >
+                {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : <Check className="w-4 h-4 mr-1.5" />}
+                Xác nhận nhận việc
               </button>
             </div>
           </div>

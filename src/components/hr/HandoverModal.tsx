@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase-client';
 import { useAuth } from '../../contexts/AuthContext';
-import { X, ArrowRight, FileText, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { X, ArrowRight, FileText, Calendar as CalendarIcon, Clock, User } from 'lucide-react';
 import { logActivity } from '../../utils/activityLogger';
 
 interface HandoverModalProps {
@@ -19,6 +19,23 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
   const [nextDate, setNextDate] = useState<string>('');
   const [nextShiftId, setNextShiftId] = useState<string>('');
   const [handoverNote, setHandoverNote] = useState<string>('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedCompleters, setSelectedCompleters] = useState<string[]>([]);
+  const [nextAssigneeId, setNextAssigneeId] = useState<string>('');
+
+  useEffect(() => {
+    supabase.from('users').select('id, display_name, email').then(({ data }) => {
+      if (data) setUsers(data);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (task) {
+      const defaultWorker = task.assignee_id ? [task.assignee_id] : (profile?.id ? [profile.id] : []);
+      setSelectedCompleters(defaultWorker);
+      setNextAssigneeId(task.assignee_id || '');
+    }
+  }, [task, profile]);
 
   useEffect(() => {
     // Basic logic to suggest next shift
@@ -42,10 +59,13 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
     e.preventDefault();
     setLoading(true);
     try {
-      // 1. Update current task to 'handover' status with note
+      // 1. Update current task to 'handover' status with note and completers of this shift
+      const resolvedGroupId = task.group_id || task.id;
       const { error: updateError } = await supabase.from('hr_shift_tasks').update({
         status: 'handover',
         handover_note: handoverNote,
+        completers: selectedCompleters,
+        group_id: resolvedGroupId,
         updated_at: new Date().toISOString()
       }).eq('id', task.id);
       
@@ -61,12 +81,12 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
         description: newDescription,
         date: nextDate,
         shift_id: nextShiftId,
-        assignee_id: task.assignee_id,
+        assignee_id: nextAssigneeId || null,
         priority: task.priority,
         status: 'todo',
         subsystem_id: task.subsystem_id || null,
         created_by: profile?.id || null,
-        group_id: task.group_id || task.id // Fallback in case old task doesn't have group_id yet
+        group_id: resolvedGroupId
       }]).select();
 
       if (cloneError) throw cloneError;
@@ -78,13 +98,14 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
         details: { 
           cloned_task_id: clonedTask[0].id,
           next_date: nextDate,
-          handover_note: handoverNote
+          handover_note: handoverNote,
+          shift_completers: selectedCompleters
         }
       });
 
-      if (task.assignee_id) {
+      if (nextAssigneeId) {
         import('../../utils/notificationService').then(m => m.sendNotification({
-          userId: task.assignee_id,
+          userId: nextAssigneeId,
           title: 'Công việc bàn giao ca mới',
           message: `Nhiệm vụ "${task.title}" đã được bàn giao sang ca tiếp theo. Ghi chú: ${handoverNote}`,
           type: 'info',
@@ -135,6 +156,40 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Người tham gia xử lý ca này</label>
+            <p className="text-xs text-gray-500 mb-2">Những nhân sự đã trực tiếp kiểm tra/thao tác trong ca hiện tại.</p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {selectedCompleters.map(userId => {
+                const user = users.find(u => u.id === userId);
+                return (
+                  <span key={userId} className="inline-flex items-center px-2 py-1 rounded bg-orange-50 text-orange-800 text-xs font-medium border border-orange-200">
+                    <User size={12} className="mr-1 text-orange-600" />
+                    {user ? (user.display_name || user.email) : 'Unknown'}
+                    <button type="button" onClick={() => setSelectedCompleters(prev => prev.filter(id => id !== userId))} className="ml-1 text-orange-400 hover:text-orange-700">
+                      <X size={12} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+            <select
+              value=""
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val && !selectedCompleters.includes(val)) {
+                  setSelectedCompleters([...selectedCompleters, val]);
+                }
+              }}
+              className="w-full px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+            >
+              <option value="">-- Thêm người tham gia xử lý --</option>
+              {users.filter(u => !selectedCompleters.includes(u.id)).map(u => (
+                <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="border-t border-gray-100 pt-5">
             <p className="text-sm font-bold text-gray-800 mb-3">Thông tin ca nhận bàn giao</p>
             <div className="grid grid-cols-2 gap-4">
@@ -168,6 +223,20 @@ export const HandoverModal: React.FC<HandoverModalProps> = ({ task, shiftTypes, 
                   </select>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Người phụ trách ca sau (Tùy chọn)</label>
+              <select
+                value={nextAssigneeId}
+                onChange={(e) => setNextAssigneeId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-orange-500 focus:border-orange-500 bg-white"
+              >
+                <option value="">-- Để trống (Chung cho ca nhận) --</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
+                ))}
+              </select>
             </div>
           </div>
         </form>
