@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, AlertCircle, FileText, CheckCircle, Scale, Download } from 'lucide-react';
 import { supabase } from '../../supabase-client';
 import { InventoryReconciliation, InventoryReconciliationItem, Item } from '../../types/inventory';
@@ -147,7 +147,8 @@ export const DetailReconciliationModal: React.FC<DetailReconciliationModalProps>
         'Tồn Bravo': l.bravo_stock,
         'Tồn App': l.app_stock,
         'Tồn Thực Tế': l.physical_stock !== '' ? l.physical_stock : 'Chưa nhập',
-        'Lệch Tồn TT vs Bravo': lechTon
+        'Lệch Tồn TT vs Bravo': lechTon,
+        'Ghi chú': l.notes || ''
       };
     });
     
@@ -238,6 +239,11 @@ export const DetailReconciliationModal: React.FC<DetailReconciliationModalProps>
                         <td className="p-3 border-r border-gray-200">
                           <div className="font-medium text-gray-900">{line.item?.code}</div>
                           <div className="text-xs text-gray-500 max-w-[200px] truncate" title={line.item?.name}>{line.item?.name}</div>
+                          {line.notes && (
+                            <div className={`text-[11px] font-medium mt-0.5 ${line.notes.includes('Không có trong file Bravo') ? 'text-amber-600' : 'text-gray-400'}`}>
+                              {line.notes}
+                            </div>
+                          )}
                         </td>
                         
                         {/* Nhập */}

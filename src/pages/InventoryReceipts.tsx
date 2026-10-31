@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { InventorySlip, SlipType, Requisition } from '../types/inventory';
-import { Plus, Search, Trash2, CheckCircle, FileText, Edit, Download, Link as LinkIcon, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Trash2, CheckCircle, FileText, Edit, Download, Link as LinkIcon, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SlipModal } from '../components/inventory/SlipModal';
 import { DetailSlipModal } from '../components/inventory/DetailSlipModal';
@@ -462,13 +462,66 @@ export const InventoryReceipts: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const filteredSlips = React.useMemo(() => {
-    return slips.filter(slip =>
-      slip.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      slip.reason?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (slip.receiptType && slip.receiptType.toLowerCase().includes(searchTerm.toLowerCase()))
+  type SortField = 'date' | 'code' | 'receiptType' | 'reason' | 'itemsCount' | 'status';
+  type SortOrder = 'asc' | 'desc';
+
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder(field === 'date' ? 'desc' : 'asc');
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />;
+    }
+    return sortOrder === 'asc' ? (
+      <ArrowUp className="w-3.5 h-3.5 text-blue-600 font-bold" />
+    ) : (
+      <ArrowDown className="w-3.5 h-3.5 text-blue-600 font-bold" />
     );
-  }, [slips, searchTerm]);
+  };
+
+  const filteredSlips = React.useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    const result = slips.filter(slip =>
+      slip.code.toLowerCase().includes(search) ||
+      (slip.reason && slip.reason.toLowerCase().includes(search)) ||
+      (slip.receiptType && slip.receiptType.toLowerCase().includes(search))
+    );
+
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'date') {
+        const timeA = new Date(a.date).getTime() || 0;
+        const timeB = new Date(b.date).getTime() || 0;
+        comparison = timeA - timeB;
+      } else if (sortField === 'code') {
+        comparison = (a.code || '').localeCompare(b.code || '', 'vi', { numeric: true, sensitivity: 'base' });
+      } else if (sortField === 'receiptType') {
+        const typeA = a.receiptType || (a as any).receipt_type || '';
+        const typeB = b.receiptType || (b as any).receipt_type || '';
+        comparison = typeA.localeCompare(typeB, 'vi');
+      } else if (sortField === 'reason') {
+        comparison = (a.reason || '').localeCompare(b.reason || '', 'vi');
+      } else if (sortField === 'itemsCount') {
+        const countA = (a.items as any[])?.length || 0;
+        const countB = (b.items as any[])?.length || 0;
+        comparison = countA - countB;
+      } else if (sortField === 'status') {
+        comparison = (a.status || '').localeCompare(b.status || '', 'vi');
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [slips, searchTerm, sortField, sortOrder]);
 
   const handleExportExcel = () => {
     const dataToExport = filteredSlips.map(slip => ({
@@ -508,17 +561,43 @@ export const InventoryReceipts: React.FC = () => {
           </div>
         </div>
 
-        {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-        <input
-          type="text"
-          placeholder="Tìm kiếm theo mã hoặc lý do..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
+        {/* Search & Sort Bar */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo mã phiếu, loại hoặc lý do..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative min-w-[210px] w-full sm:w-auto">
+              <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+              <select
+                value={`${sortField}_${sortOrder}`}
+                onChange={(e) => {
+                  const [field, order] = e.target.value.split('_');
+                  setSortField(field as any);
+                  setSortOrder(order as any);
+                }}
+                className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-medium text-gray-700 shadow-xs cursor-pointer"
+              >
+                <option value="date_desc">Ngày: Mới nhất trước</option>
+                <option value="date_asc">Ngày: Cũ nhất trước</option>
+                <option value="code_asc">Mã phiếu: A → Z</option>
+                <option value="code_desc">Mã phiếu: Z → A</option>
+                <option value="receiptType_asc">Loại nhập: A → Z</option>
+                <option value="reason_asc">Lý do nhập: A → Z</option>
+                <option value="itemsCount_desc">Số mặt hàng: Nhiều nhất</option>
+                <option value="itemsCount_asc">Số mặt hàng: Ít nhất</option>
+                <option value="status_asc">Trạng thái: A → Z</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
       {/* Loading */}
       {loading && <div className="text-center py-4 text-gray-600">Đang tải dữ liệu...</div>}
@@ -530,12 +609,60 @@ export const InventoryReceipts: React.FC = () => {
           <table className="w-full relative">
             <thead className="bg-gray-100 border-b sticky top-0 z-10 shadow-sm">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Mã Phiếu</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Ngày</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Loại Nhập</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Lý Do</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold">Số Mặt Hàng</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold">Trạng Thái</th>
+                <th 
+                  onClick={() => handleSort('code')}
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer select-none hover:bg-gray-200/80 transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Mã Phiếu</span>
+                    {renderSortIcon('code')}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('date')}
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer select-none hover:bg-gray-200/80 transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Ngày</span>
+                    {renderSortIcon('date')}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('receiptType')}
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer select-none hover:bg-gray-200/80 transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Loại Nhập</span>
+                    {renderSortIcon('receiptType')}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('reason')}
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer select-none hover:bg-gray-200/80 transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Lý Do</span>
+                    {renderSortIcon('reason')}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('itemsCount')}
+                  className="px-6 py-3 text-center text-sm font-semibold cursor-pointer select-none hover:bg-gray-200/80 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Số Mặt Hàng</span>
+                    {renderSortIcon('itemsCount')}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('status')}
+                  className="px-6 py-3 text-center text-sm font-semibold cursor-pointer select-none hover:bg-gray-200/80 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Trạng Thái</span>
+                    {renderSortIcon('status')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-center text-sm font-semibold">Thao Tác</th>
               </tr>
             </thead>
