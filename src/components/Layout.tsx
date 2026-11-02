@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermission } from '../hooks/usePermission';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { NotificationBell } from './NotificationBell';
 import {   Key, LayoutDashboard, FileText, Server, Users, LogOut, Box, ArrowDownToLine, ArrowUpFromLine, ClipboardList, ChevronDown, ChevronRight, Settings, Menu, X, Briefcase, Calendar, UserCheck, ClipboardCheck, CheckCircle , Package , ChevronLeft, Scale } from 'lucide-react';
@@ -8,6 +9,7 @@ import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
   const { profile, logout } = useAuth();
+  const { canAccess, isOwner } = usePermission();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const location = useLocation();
   const [isDeviceOpen, setIsDeviceOpen] = useState(false);
@@ -16,46 +18,41 @@ export const Layout: React.FC = () => {
   const [isHrOpen, setIsHrOpen] = useState(false);
 
   const navItems = [
-    { path: '/', label: 'Tổng quan', icon: LayoutDashboard, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/projects', label: 'Quản lý Dự án', icon: Briefcase, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/documents', label: 'Tài liệu ISO', icon: FileText, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/admin', label: 'Quản trị', icon: Users, roles: ['admin'] },
+    { path: '/', label: 'Tổng quan', icon: LayoutDashboard },
+    { path: '/projects', label: 'Quản lý Dự án', icon: Briefcase },
+    { path: '/documents', label: 'Tài liệu ISO', icon: FileText },
+    { path: '/admin', label: 'Quản trị', icon: Users },
   ];
 
   const hrItems = [
-    { path: '/hr-tasks', label: 'Công việc & Giao ca', icon: ClipboardCheck, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/hr-task-log', label: 'Nhật ký công việc', icon: CheckCircle, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/shift-schedule', label: 'Phân ca làm việc', icon: Calendar, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/events', label: 'Quản lý Sự kiện', icon: Calendar, roles: ['admin', 'manager', 'viewer'] },
+    { path: '/hr-tasks', label: 'Công việc & Giao ca', icon: ClipboardCheck },
+    { path: '/hr-task-log', label: 'Nhật ký công việc', icon: CheckCircle },
+    { path: '/shift-schedule', label: 'Phân ca làm việc', icon: Calendar },
+    { path: '/events', label: 'Quản lý Sự kiện', icon: Calendar },
   ];
 
   const deviceItems = [
-    { path: '/devices', label: 'Quản lý Tủ điện', icon: Server, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/measured-equipments', label: 'Quản lý Máy móc', icon: Box, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/measurements/records', label: 'Quản lý Phiếu đo đạc', icon: ClipboardList, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/measurements/forms', label: 'Biểu mẫu đo đạc', icon: Settings, roles: ['admin', 'manager'] },
+    { path: '/devices', label: 'Quản lý Tủ điện', icon: Server },
+    { path: '/measured-equipments', label: 'Quản lý Máy móc', icon: Box },
+    { path: '/measurements/records', label: 'Quản lý Phiếu đo đạc', icon: ClipboardList },
+    { path: '/measurements/forms', label: 'Biểu mẫu đo đạc', icon: Settings },
   ];
 
   const inventoryItems = [
-    { path: '/inventory', label: 'Tổng quan Vật tư', icon: LayoutDashboard, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/inventory/items', label: 'Danh mục Vật tư', icon: Box, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/inventory/receipts', label: 'Phiếu Nhập Kho', icon: ArrowDownToLine, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/inventory/issues', label: 'Phiếu Xuất Kho', icon: ArrowUpFromLine, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/inventory/requisitions', label: 'Tờ Trình', icon: ClipboardList, roles: ['admin', 'manager', 'viewer'] },
-    { path: '/inventory/audits', label: 'Kiểm kê', icon: ClipboardList, roles: ['admin', 'manager'] },
-    { path: '/inventory/reconciliations', label: 'Đối soát Bravo', icon: Scale, roles: ['admin', 'manager'] },
-    { path: '/inventory/settings', label: 'Cài đặt Vật tư', icon: Settings, roles: ['admin', 'manager'] },
+    { path: '/inventory', label: 'Tổng quan Vật tư', icon: LayoutDashboard },
+    { path: '/inventory/items', label: 'Danh mục Vật tư', icon: Box },
+    { path: '/inventory/receipts', label: 'Phiếu Nhập Kho', icon: ArrowDownToLine },
+    { path: '/inventory/issues', label: 'Phiếu Xuất Kho', icon: ArrowUpFromLine },
+    { path: '/inventory/requisitions', label: 'Tờ Trình', icon: ClipboardList },
+    { path: '/inventory/audits', label: 'Kiểm kê', icon: ClipboardList },
+    { path: '/inventory/reconciliations', label: 'Đối soát Bravo', icon: Scale },
+    { path: '/inventory/settings', label: 'Cài đặt Vật tư', icon: Settings },
   ];
 
-  const filteredNavItems = navItems.filter(item => 
-    profile && item.roles.includes(profile.role)
-  );
-
-  const filteredInventoryItems = inventoryItems.filter(item => 
-    profile && item.roles.includes(profile.role)
-  );
-  const filteredHrItems = hrItems.filter(item => profile && item.roles.includes(profile.role));
-  const filteredDeviceItems = deviceItems.filter(item => profile && item.roles.includes(profile.role));
+  const filteredNavItems = navItems.filter(item => canAccess(item.path));
+  const filteredInventoryItems = inventoryItems.filter(item => canAccess(item.path));
+  const filteredHrItems = hrItems.filter(item => canAccess(item.path));
+  const filteredDeviceItems = deviceItems.filter(item => canAccess(item.path));
 
   const isInventoryActive = location.pathname.startsWith('/inventory');
 
@@ -126,7 +123,7 @@ export const Layout: React.FC = () => {
             })}
 
             {/* HR Section */}
-            {profile && hrItems.filter(i => i.roles.includes(profile.role)).length > 0 && (
+            {filteredHrItems.length > 0 && (
               <li className="pt-4 mt-4 border-t border-gray-100">
                 <button
                   onClick={() => setIsHrOpen(!isHrOpen)}
@@ -146,7 +143,7 @@ export const Layout: React.FC = () => {
                 
                 {isHrOpen && (
                   <ul className="mt-1 ml-6 space-y-1 border-l-2 border-gray-100 pl-2">
-                    {hrItems.filter(i => i.roles.includes(profile.role)).map((item) => {
+                    {filteredHrItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = location.pathname === item.path;
                       return (
@@ -172,7 +169,7 @@ export const Layout: React.FC = () => {
             )}
 
             {/* Device Section */}
-            {profile && deviceItems.filter(i => i.roles.includes(profile.role)).length > 0 && (
+            {filteredDeviceItems.length > 0 && (
               <li className="pt-4 mt-4 border-t border-gray-100">
                 <button
                   onClick={() => setIsDeviceOpen(!isDeviceOpen)}
@@ -192,7 +189,7 @@ export const Layout: React.FC = () => {
                 
                 {isDeviceOpen && (
                   <ul className="mt-1 ml-6 space-y-1 border-l-2 border-gray-100 pl-2">
-                    {deviceItems.filter(i => i.roles.includes(profile.role)).map((item) => {
+                    {filteredDeviceItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = location.pathname === item.path;
                       return (
@@ -272,7 +269,7 @@ export const Layout: React.FC = () => {
             </div>
             <div className="ml-3 overflow-hidden">
               <p className="text-sm font-medium text-gray-900 truncate">{profile?.displayName || 'User'}</p>
-              <p className="text-xs text-gray-500 truncate capitalize">{profile?.role}</p>
+              <p className="text-xs text-gray-500 truncate capitalize">{isOwner ? '👑 Chủ sở hữu (Owner)' : profile?.role}</p>
             </div>
           </div>
           

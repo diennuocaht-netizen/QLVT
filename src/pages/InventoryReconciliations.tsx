@@ -1,10 +1,12 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Calendar, FileText, Scale, Trash2 } from 'lucide-react';
 import { supabase } from '../supabase-client';
 import { InventoryReconciliation } from '../types/inventory';
 import { ReconciliationModal } from '../components/inventory/ReconciliationModal';
 import { DetailReconciliationModal } from '../components/inventory/DetailReconciliationModal';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const InventoryReconciliations: React.FC = () => {
   const [reconciliations, setReconciliations] = useState<InventoryReconciliation[]>([]);
@@ -16,7 +18,8 @@ export const InventoryReconciliations: React.FC = () => {
   const [selectedReconId, setSelectedReconId] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { profile } = useAuth();
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'manager';
+  const { can } = usePermission();
+  const isAdmin = can('inventory_reconciliations', 'delete');
 
   useEffect(() => {
     fetchReconciliations();
@@ -41,6 +44,10 @@ export const InventoryReconciliations: React.FC = () => {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    if (!can('inventory_reconciliations', 'delete')) {
+      alert('Bạn không có quyền xóa kỳ đối soát!');
+      return;
+    }
     if (!window.confirm('Bạn có chắc chắn muốn xóa kỳ đối soát này? Dữ liệu không thể khôi phục.')) {
       return;
     }
@@ -65,6 +72,10 @@ export const InventoryReconciliations: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
+  if (!can('inventory_reconciliations', 'view')) {
+    return <AccessDenied title="Đối Soát Bravo" />;
+  }
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -72,13 +83,15 @@ export const InventoryReconciliations: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Đối Soát Bravo</h1>
           <p className="text-gray-500 mt-1">Trung tâm đối soát dữ liệu Nhập-Xuất-Tồn với kế toán</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <Plus size={20} />
-          <span>Tạo kỳ đối soát</span>
-        </button>
+        {can('inventory_reconciliations', 'create') && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <Plus size={20} />
+            <span>Tạo kỳ đối soát</span>
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">

@@ -15,9 +15,12 @@ import { itemFromDatabase, slipFromDatabase, itemToDatabase } from '../utils/dat
 import { fetchAllItems, fetchAllRows } from '../utils/fetchHelpers';
 import { matchesSearch } from '../utils/searchUtils';
 import { QrCode, ScanLine, X, ArrowUpFromLine, FileText } from 'lucide-react';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const InventoryItems: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [items, setItems] = useState<Item[]>([]);
   const [slips, setSlips] = useState<InventorySlip[]>([]);
   const [locations, setLocations] = useState<{id: string, code: string, name: string}[]>([]);
@@ -33,7 +36,7 @@ export const InventoryItems: React.FC = () => {
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [bulkPrintQROpen, setBulkPrintQROpen] = useState(false);
   
-  const hasAccess = profile?.role === 'admin' || profile?.role === 'manager';
+  const hasAccess = can('inventory_items', 'edit') || can('inventory_items', 'create');
   const [traceabilityOpen, setTraceabilityOpen] = useState(false);
   const [traceabilityItem, setTraceabilityItem] = useState<Item | null>(null);
   const [printQROpen, setPrintQROpen] = useState(false);
@@ -204,6 +207,10 @@ export const InventoryItems: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
+    if (!can('inventory_items', 'delete')) {
+      alert('Bạn không có quyền xóa vật tư. Vui lòng liên hệ Quản trị viên.');
+      return;
+    }
     if (window.confirm('Bạn có chắc chắn muốn xóa vật tư này?')) {
       try {
         const { error } = await supabase
@@ -567,6 +574,10 @@ export const InventoryItems: React.FC = () => {
     }
   };
 
+  if (!can('inventory_items', 'view')) {
+    return <AccessDenied title="Danh mục Vật tư" />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -588,28 +599,34 @@ export const InventoryItems: React.FC = () => {
           >
             <ScanLine size={20} /> Quét mã QR
           </button>
-          <button
-            onClick={() => {
-              setEditingItem(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center justify-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
-          >
-            <Plus size={20} /> Thêm Vật Tư
-          </button>
-          <button
-            onClick={handleImportClick}
-            disabled={importing}
-            className="hidden md:flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400"
-          >
-            <Upload size={20} /> {importing ? 'Đang nhập...' : 'Nhập Excel'}
-          </button>
-          <button
-            onClick={handleExportExcel}
-            className="hidden md:flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <Download size={20} /> Xuất Excel
-          </button>
+          {can('inventory_items', 'create') && (
+            <>
+              <button
+                onClick={() => {
+                  setEditingItem(null);
+                  setIsModalOpen(true);
+                }}
+                className="flex items-center justify-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
+              >
+                <Plus size={20} /> Thêm Vật Tư
+              </button>
+              <button
+                onClick={handleImportClick}
+                disabled={importing}
+                className="hidden md:flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400"
+              >
+                <Upload size={20} /> {importing ? 'Đang nhập...' : 'Nhập Excel'}
+              </button>
+            </>
+          )}
+          {can('inventory_items', 'export') && (
+            <button
+              onClick={handleExportExcel}
+              className="hidden md:flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <Download size={20} /> Xuất Excel
+            </button>
+          )}
         </div>
       </div>
 
@@ -734,16 +751,18 @@ export const InventoryItems: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingItem(inv.item);
-                              setIsModalOpen(true);
-                            }}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                            title="Chỉnh sửa"
-                          >
-                            <Edit size={18} />
-                          </button>
+                          {can('inventory_items', 'edit') && (
+                            <button
+                              onClick={() => {
+                                setEditingItem(inv.item);
+                                setIsModalOpen(true);
+                              }}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit size={18} />
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setTraceabilityItem(inv.item);
@@ -774,13 +793,15 @@ export const InventoryItems: React.FC = () => {
                           >
                             <ZapOff size={18} />
                           </button>
-                          <button
-                            onClick={() => handleDelete(inv.item.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded"
-                            title="Xóa"
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                          {can('inventory_items', 'delete') && (
+                            <button
+                              onClick={() => handleDelete(inv.item.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded"
+                              title="Xóa"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -839,12 +860,16 @@ export const InventoryItems: React.FC = () => {
                       <button onClick={() => { setTraceabilityItem(inv.item); setTraceabilityOpen(true); }} className="flex-1 flex justify-center items-center py-2.5 text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
                         <Layers size={18} />
                       </button>
-                      <button onClick={() => { setEditingItem(inv.item); setIsModalOpen(true); }} className="flex-1 flex justify-center items-center py-2.5 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
-                        <Edit size={18} />
-                      </button>
-                      <button onClick={() => handleDeleteClick(inv.item.id)} className="flex-1 flex justify-center items-center py-2.5 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200">
-                        <Trash2 size={18} />
-                      </button>
+                      {can('inventory_items', 'edit') && (
+                        <button onClick={() => { setEditingItem(inv.item); setIsModalOpen(true); }} className="flex-1 flex justify-center items-center py-2.5 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
+                          <Edit size={18} />
+                        </button>
+                      )}
+                      {can('inventory_items', 'delete') && (
+                        <button onClick={() => handleDelete(inv.item.id)} className="flex-1 flex justify-center items-center py-2.5 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200">
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))

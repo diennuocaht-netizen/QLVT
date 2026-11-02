@@ -7,6 +7,8 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { ProjectDetailsModal } from '../components/projects/ProjectDetailsModal';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 const fetchProjects = async () => {
   const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
@@ -16,6 +18,7 @@ const fetchProjects = async () => {
 
 export const Projects: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const queryClient = useQueryClient();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,8 +30,9 @@ export const Projects: React.FC = () => {
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
-  const canDelete = profile?.role === 'admin';
+  const canCreate = can('projects', 'create');
+  const canEdit = can('projects', 'edit');
+  const canDelete = can('projects', 'delete');
 
   // React Query
   const { data: projects = [], isLoading: loading } = useQuery({
@@ -80,12 +84,16 @@ export const Projects: React.FC = () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  if (!can('projects', 'view')) {
+    return <AccessDenied title="Quản lý Dự án" />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý Dự án</h1>
         <div className="flex space-x-3">
-          {canEdit && (
+          {canCreate && (
             <button 
               onClick={() => { setEditingProject(null); setIsFormOpen(true); }}
               className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center text-sm font-medium"

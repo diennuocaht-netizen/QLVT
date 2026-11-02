@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase-client';
 import type { User } from '@supabase/supabase-js';
+import { OWNER_EMAIL, type UserPermissions } from '../utils/permissions';
 
 export type Role = 'admin' | 'manager' | 'viewer';
 
@@ -10,6 +11,8 @@ export interface UserProfile {
   display_name: string;
   role: Role;
   job_title?: string;
+  permissions?: UserPermissions;
+  is_owner?: boolean;
   created_at: string;
 }
 
@@ -21,6 +24,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   signUpUser: (email: string, password: string, displayName: string, role: Role) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,19 +51,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!isMountedRef.current) return;
 
       if (!error && userData) {
+        const isOwnerAccount = userData.is_owner || userData.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+        const enrichedProfile: UserProfile = {
+          ...userData,
+          is_owner: isOwnerAccount,
+          permissions: userData.permissions || {},
+        };
         setProfile(prev => {
           if (
             prev &&
-            prev.id === userData.id &&
-            prev.email === userData.email &&
-            prev.display_name === userData.display_name &&
-            prev.role === userData.role &&
-            prev.job_title === userData.job_title
+            prev.id === enrichedProfile.id &&
+            prev.email === enrichedProfile.email &&
+            prev.display_name === enrichedProfile.display_name &&
+            prev.role === enrichedProfile.role &&
+            prev.job_title === enrichedProfile.job_title &&
+            prev.is_owner === enrichedProfile.is_owner &&
+            JSON.stringify(prev.permissions || {}) === JSON.stringify(enrichedProfile.permissions || {})
           ) {
             return prev;
           }
           console.log('✅ [Auth] User profile loaded');
-          return userData as UserProfile;
+          return enrichedProfile;
         });
       } else if (error?.code === 'PGRST116') {
         // User not in database yet, create profile
@@ -270,8 +282,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw error;
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await loadUserProfile(user.id, user.email || '');
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, signUpUser, resetPassword }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, signUpUser, resetPassword, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

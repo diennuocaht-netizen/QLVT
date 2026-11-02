@@ -9,9 +9,12 @@ import { SiblingDevicesModal } from '../components/SiblingDevicesModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const Devices: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,8 +36,9 @@ export const Devices: React.FC = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canEdit = true; // Allowed all users to edit
-  const canDelete = profile?.role === 'admin';
+  const canCreate = can('devices', 'create');
+  const canEdit = can('devices', 'edit');
+  const canDelete = can('devices', 'delete');
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -220,6 +224,11 @@ export const Devices: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!deleteConfirmId) return;
+    if (!canDelete) {
+      alert('Bạn không có quyền xóa thiết bị.');
+      setDeleteConfirmId(null);
+      return;
+    }
     try {
       const { error } = await supabase.from('devices').delete().eq('id', deleteConfirmId);
       if (error) throw error;
@@ -509,11 +518,15 @@ export const Devices: React.FC = () => {
     });
   }, [devices, searchTerm, locationFilter]);
 
+  if (!can('devices', 'view')) {
+    return <AccessDenied title="Quản lý Tủ điện" />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
           <h1 className="text-2xl font-bold text-gray-900 whitespace-nowrap">Quản lý Thiết bị</h1>
-          {canEdit && (
+          {canCreate && (
             <div className="flex flex-wrap gap-2 mt-2 md:mt-0">
             <input 
               type="file" 

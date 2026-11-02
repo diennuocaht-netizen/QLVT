@@ -609,6 +609,289 @@ app.post('/api/push/send', async (req, res) => {
   }
 });
 
+// =====================================================
+// SHIFT SCHEDULE GOOGLE SHEET SYNC ENDPOINTS
+// =====================================================
+
+/**
+ * Proxy download XLSX from Google Sheet (bypass strict network/CORS restrictions)
+ */
+app.get('/api/shift-schedule/proxy-xlsx', async (req, res) => {
+  try {
+    const { sheetId } = req.query;
+    if (!sheetId) return res.status(400).json({ error: 'Missing sheetId' });
+
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+    const response = await fetch(exportUrl);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch from Google Sheets' });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const arrayBuffer = await response.arrayBuffer();
+    return res.send(Buffer.from(arrayBuffer));
+  } catch (error) {
+    console.error('Error in proxy-xlsx:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Helper: Normalization for Vietnamese employee names
+ */
+const normalizeVnName = (str) => {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+};
+
+/**
+ * Server-side Shift Sync Function
+ */
+const syncShiftScheduleFromSheetServer = async (sheetId, targetMonth, targetYear) => {
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  // 1. Fetch employees and shift types
+  const [empRes, typesRes] = await Promise.all([
+    supabase.from('shift_employees').select('*').order('order_index'),
+    supabase.from('shift_types').select('*').order('order_index')
+  ]);
+  if (empRes.error) throw empRes.error;
+  if (typesRes.error) throw typesRes.error;
+
+  const employees = empRes.data || [];
+  const shiftTypes = typesRes.data || [];
+  if (employees.length === 0) throw new Error('No employees in database');
+
+  // 2. Fetch workbook
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+  const response = await fetch(exportUrl);
+  if (!response.ok) throw new Error(`Google Sheet export failed with status ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+  // 3. Find sheet for target month/year
+  const cleanMonth = targetMonth.toString();
+  const padMonth = targetMonth.toString().padStart(2, '0');
+  const fullYear = targetYear.toString();
+  const shortYear = targetYear.toString().slice(-2);
+
+  let sheetName = workbook.SheetNames.find((s) => {
+    const norm = normalizeVnName(s).replace(/[\s\-_/]/g, '');
+    const hasMonth = norm.includes(`t${cleanMonth}`) || norm.includes(`t${padMonth}`) || norm.includes(`thang${cleanMonth}`);
+    const hasYear = norm.includes(fullYear) || norm.includes(shortYear);
+    return hasMonth && hasYear;
+  });
+
+  if (!sheetName && workbook.SheetNames.length === 1) {
+    sheetName = workbook.SheetNames[0];
+  } else if (!sheetName) {
+    sheetName = workbook.SheetNames.find((s) => {
+      const norm = normalizeVnName(s).replace(/[\s\-_/]/g, '');
+      return norm.includes(`t${cleanMonth}`) || norm.includes(`t${padMonth}`);
+    });
+  }
+
+  if (!sheetName) {
+    return { skipped: true, reason: `No matching sheet found for month ${targetMonth}/${targetYear}` };
+  }
+
+  const worksheet = workbook.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+  // 4. Find header row
+  let headerRowIdx = -1;
+  const dateColMap = {};
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    let foundDays = 0;
+    const tempMap = {};
+    if (Array.isArray(row)) {
+      for (let j = 0; j < row.length; j++) {
+        const val = parseInt(row[j]);
+        if (!isNaN(val) && val >= 1 && val <= 31) {
+          tempMap[val] = j;
+          foundDays++;
+        }
+      }
+    }
+    if (foundDays >= 28) {
+      headerRowIdx = i;
+      Object.assign(dateColMap, tempMap);
+      break;
+    }
+  }
+
+  if (headerRowIdx === -1) {
+    throw new Error(`Header date row not found in sheet ${sheetName}`);
+  }
+
+  // 5. Match employees and build upserts
+  const upsertRows = [];
+  const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+  let matchCount = 0;
+
+  for (let i = headerRowIdx + 1; i < data.length; i++) {
+    const row = data[i];
+    if (!Array.isArray(row)) continue;
+
+    let matchedEmp;
+    for (const cell of row) {
+      if (typeof cell === 'string' && cell.trim().length > 0) {
+        const normCell = normalizeVnName(cell);
+        matchedEmp = employees.find((e) => normalizeVnName(e.full_name) === normCell);
+        if (matchedEmp) break;
+      }
+    }
+
+    if (matchedEmp) {
+      matchCount++;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const colIdx = dateColMap[day];
+        if (colIdx !== undefined) {
+          const cellVal = row[colIdx];
+          const dateStr = `${targetYear}-${targetMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+          if (typeof cellVal === 'string' && cellVal.trim().length > 0) {
+            const shiftCode = cellVal.trim().toUpperCase();
+            const sType = shiftTypes.find((t) => t.code.toUpperCase() === shiftCode);
+            upsertRows.push({
+              employee_id: matchedEmp.id,
+              date: dateStr,
+              shift_type_id: sType ? sType.id : null,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // 6. Upsert to Supabase
+  if (upsertRows.length > 0) {
+    const BATCH_SIZE = 200;
+    for (let i = 0; i < upsertRows.length; i += BATCH_SIZE) {
+      const batch = upsertRows.slice(i, i + BATCH_SIZE);
+      const { error: upsertErr } = await supabase
+        .from('shift_assignments')
+        .upsert(batch, { onConflict: 'employee_id,date' });
+      if (upsertErr) throw upsertErr;
+    }
+  }
+
+  return {
+    success: true,
+    sheetName,
+    matchCount,
+    totalUpserts: upsertRows.length,
+    month: targetMonth,
+    year: targetYear,
+  };
+};
+
+/**
+ * Webhook triggered by Google Apps Script onChange event
+ */
+app.post('/api/shift-schedule/sync-webhook', async (req, res) => {
+  console.log('⚡ [Webhook] Received Google Sheet change notification:', req.body);
+  try {
+    let sheetId = req.body?.sheetId || req.query?.sheetId;
+
+    // If not provided in request, load from database settings
+    if (!sheetId && supabase) {
+      const { data } = await supabase
+        .from('shift_google_sheet_settings')
+        .select('sheet_id, auto_sync')
+        .limit(1)
+        .maybeSingle();
+      if (data && data.sheet_id) sheetId = data.sheet_id;
+    }
+
+    if (!sheetId) {
+      return res.status(400).json({ error: 'Missing sheetId' });
+    }
+
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    // Sync current month and next month
+    const curRes = await syncShiftScheduleFromSheetServer(sheetId, currentMonth, currentYear);
+    
+    // Also try next month
+    const nextDate = new Date(currentYear, currentMonth, 1);
+    let nextRes = null;
+    try {
+      nextRes = await syncShiftScheduleFromSheetServer(sheetId, nextDate.getMonth() + 1, nextDate.getFullYear());
+    } catch (e) {
+      // ignore if next month not in sheet yet
+    }
+
+    // Update settings table
+    if (supabase) {
+      await supabase
+        .from('shift_google_sheet_settings')
+        .update({
+          last_synced_at: new Date().toISOString(),
+          last_sync_status: 'success',
+          last_sync_message: `Webhook tự động: Đồng bộ thành công ${curRes.matchCount || 0} nhân sự từ Sheet "${curRes.sheetName || 'Mặc định'}"`,
+          last_sync_count: curRes.totalUpserts || 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq('sheet_id', sheetId);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Synced successfully via webhook',
+      currentMonth: curRes,
+      nextMonth: nextRes
+    });
+  } catch (err) {
+    console.error('Webhook sync error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Periodic background poller (every 10 minutes)
+ */
+const startBackgroundPoller = () => {
+  const TEN_MINUTES = 10 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      if (!supabase) return;
+      const { data: settings } = await supabase
+        .from('shift_google_sheet_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (settings && settings.sheet_id && settings.auto_sync !== false) {
+        console.log(`⏰ [Background Poller] Checking Google Sheet ${settings.sheet_id}...`);
+        const now = new Date();
+        const res = await syncShiftScheduleFromSheetServer(settings.sheet_id, now.getMonth() + 1, now.getFullYear());
+        console.log(`✅ [Background Poller] Synced:`, res.sheetName, `${res.totalUpserts} assignments`);
+
+        await supabase
+          .from('shift_google_sheet_settings')
+          .update({
+            last_synced_at: new Date().toISOString(),
+            last_sync_status: 'success',
+            last_sync_message: `Đồng bộ định kỳ nền: ${res.matchCount} nhân sự (${res.totalUpserts} ca)`,
+            last_sync_count: res.totalUpserts,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', settings.id);
+      }
+    } catch (err) {
+      console.warn('⚠️ [Background Poller] Auto-sync check error:', err.message);
+    }
+  }, TEN_MINUTES);
+};
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'User API Server is running' });
 });
@@ -622,6 +905,7 @@ const startServer = (portToTry = PORT) => {
     console.log(`📝 POST http://localhost:${portToTry}/api/users/create`);
     console.log(`📤 POST http://localhost:${portToTry}/api/drive/upload`);
     console.log(`🔍 GET  http://localhost:${portToTry}/api/health\n`);
+    startBackgroundPoller();
   }).on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.warn(`⚠️  Port ${portToTry} is in use, trying port ${portToTry + 1}...`);

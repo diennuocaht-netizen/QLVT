@@ -3,9 +3,12 @@ import { supabase } from '../supabase-client';
 import { MeasurementForm, MeasurementField, ChecklistItem } from '../types/measurement';
 import { Plus, Edit, Trash2, Save, X, PlusCircle, Settings, ClipboardList } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const MeasurementForms: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [forms, setForms] = useState<MeasurementForm[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -155,6 +158,10 @@ export const MeasurementForms: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!can('measurement_forms', 'delete')) {
+      alert('Bạn không có quyền xóa biểu mẫu đo đạc.');
+      return;
+    }
     if (window.confirm('Bạn có chắc chắn muốn xóa biểu mẫu này? Chú ý: Các phiếu đo đạc đã tạo từ biểu mẫu này có thể bị ảnh hưởng.')) {
       try {
         const { error } = await supabase.from('measurement_forms').delete().eq('id', id);
@@ -167,6 +174,10 @@ export const MeasurementForms: React.FC = () => {
     }
   };
 
+  if (!can('measurement_forms', 'view')) {
+    return <AccessDenied title="Biểu mẫu đo đạc" />;
+  }
+
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4 md:mb-6">
@@ -177,13 +188,15 @@ export const MeasurementForms: React.FC = () => {
           </h1>
           <p className="text-sm text-gray-500 mt-1">Cấu hình các mẫu biên bản đo đạc định kỳ cho thiết bị (VD: Bơm, Tủ điện...)</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Tạo biểu mẫu mới
-        </button>
+        {can('measurement_forms', 'create') && (
+          <button
+            onClick={() => handleOpenModal()}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Tạo biểu mẫu mới
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-6">
@@ -239,12 +252,16 @@ export const MeasurementForms: React.FC = () => {
                   {new Date(form.updated_at).toLocaleDateString('vi-VN')}
                 </span>
                 <div className="flex space-x-2">
-                  <button onClick={() => handleOpenModal(form)} className="text-indigo-600 hover:text-indigo-900 p-1">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDelete(form.id)} className="text-red-600 hover:text-red-900 p-1">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {can('measurement_forms', 'edit') && (
+                    <button onClick={() => handleOpenModal(form)} className="text-indigo-600 hover:text-indigo-900 p-1" title="Sửa">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                  )}
+                  {can('measurement_forms', 'delete') && (
+                    <button onClick={() => handleDelete(form.id)} className="text-red-600 hover:text-red-900 p-1" title="Xóa">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,14 +1,23 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../supabase-client';
 import { ShiftTeam, ShiftEmployee, ShiftType, ShiftAssignment, ShiftMonthlyNote } from '../types/shift';
-import { Calendar, LayoutGrid, ChevronLeft, ChevronRight, Save, Plus, Users, Upload, Search, Trash2, X, RotateCcw, CheckSquare } from 'lucide-react';
+import { Calendar, LayoutGrid, ChevronLeft, ChevronRight, Save, Plus, Users, Upload, Search, Trash2, X, RotateCcw, CheckSquare, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { logActivity } from '../utils/activityLogger';
 
 import { useAuth } from '../contexts/AuthContext';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
+import { GoogleSheetSyncModal } from '../components/shift/GoogleSheetSyncModal';
+import {
+  loadGoogleSheetSettings,
+  syncShiftScheduleFromGoogleSheet,
+  type GoogleSheetSettings,
+} from '../services/googleSheetShiftSync';
 
 export const ShiftSchedule: React.FC = () => {
   const { profile } = useAuth();
-  const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
+  const { can } = usePermission();
+  const canEdit = can('shift_schedule', 'edit');
   const [viewMode, setViewMode] = useState<'matrix' | 'calendar'>('matrix');
   const [currentDate, setCurrentDate] = useState(new Date());
   
@@ -19,6 +28,11 @@ export const ShiftSchedule: React.FC = () => {
   const [teams, setTeams] = useState<ShiftTeam[]>([]);
   const [employees, setEmployees] = useState<ShiftEmployee[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
+
+  // Google Sheet Sync State
+  const [isGoogleSheetModalOpen, setIsGoogleSheetModalOpen] = useState(false);
+  const [googleSheetSettings, setGoogleSheetSettings] = useState<GoogleSheetSettings | null>(null);
+  const [isAutoSyncing, setIsAutoSyncing] = useState(false);
   
   // Maps for quick access
   const [assignments, setAssignments] = useState<Record<string, Record<string, string>>>({}); // employee_id -> date -> shift_type_id
@@ -38,6 +52,52 @@ export const ShiftSchedule: React.FC = () => {
   useEffect(() => {
     fetchAllData();
   }, [currentDate.getMonth(), currentDate.getFullYear()]);
+
+  // Load Google Sheet settings & Realtime subscription
+  useEffect(() => {
+    loadGoogleSheetSettings().then((s) => {
+      setGoogleSheetSettings(s);
+    });
+
+    const sub = supabase
+      .channel(`shift_schedule_realtime_${Math.random()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_assignments' }, () => {
+        fetchAllData();
+      })
+      .subscribe();
+
+    return () => {
+      sub.unsubscribe();
+    };
+  }, []);
+
+  const handleQuickSyncGoogleSheet = async () => {
+    if (!googleSheetSettings?.sheet_id) {
+      setIsGoogleSheetModalOpen(true);
+      return;
+    }
+
+    try {
+      setIsAutoSyncing(true);
+      const res = await syncShiftScheduleFromGoogleSheet(
+        googleSheetSettings.sheet_id,
+        currentDate.getMonth() + 1,
+        currentDate.getFullYear(),
+        {
+          employees,
+          shiftTypes,
+        }
+      );
+      await fetchAllData();
+      loadGoogleSheetSettings().then(setGoogleSheetSettings);
+      alert(`✅ ${res.message}`);
+    } catch (err: any) {
+      console.error('Quick sync error:', err);
+      alert(`⚠️ ${err.message || 'Không thể đồng bộ từ Google Sheet'}`);
+    } finally {
+      setIsAutoSyncing(false);
+    }
+  };
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -505,6 +565,10 @@ export const ShiftSchedule: React.FC = () => {
   };
 
   const handleDeleteEmployee = async (empId: string, empName: string) => {
+    if (!can('shift_schedule', 'delete')) {
+      alert('Bạn không có quyền xóa nhân sự khỏi bảng phân ca.');
+      return;
+    }
     if (!window.confirm(`Bạn có chắc chắn muốn xóa nhân sự "${empName}" khỏi bảng phân ca? Mọi dữ liệu lịch của người này sẽ bị xóa.`)) return;
     try {
       setLoading(true);
@@ -599,6 +663,10 @@ export const ShiftSchedule: React.FC = () => {
 
   const hasUnsavedChanges = Object.keys(editedAssignments).length > 0 || Object.keys(editedEmployees).length > 0;
 
+  if (!can('shift_schedule', 'view')) {
+    return <AccessDenied title="Phân ca làm việc" />;
+  }
+
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -664,6 +732,29 @@ export const ShiftSchedule: React.FC = () => {
           <div className="flex flex-wrap gap-2 text-xs">
               {canEdit && (
               <>
+                <button
+                  onClick={() => setIsGoogleSheetModalOpen(true)}
+                  className="px-2 md:px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 shadow-2xs transition-colors"
+                  title="Cấu hình tự động đồng bộ từ link Google Sheet"
+                >
+                  <FileSpreadsheet className="w-4 h-4 lg:mr-1.5 text-emerald-600" />
+                  <span className="hidden lg:inline font-semibold">Google Sheet Live</span>
+                  {googleSheetSettings?.last_synced_at && (
+                    <span className="ml-1.5 hidden xl:inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Đã kết nối Google Sheet" />
+                  )}
+                </button>
+
+                {googleSheetSettings?.sheet_id && (
+                  <button
+                    onClick={handleQuickSyncGoogleSheet}
+                    disabled={isAutoSyncing}
+                    className="px-2 md:px-2.5 py-1.5 rounded-md flex items-center text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs transition-colors disabled:opacity-50"
+                    title={`Đồng bộ ngay Tháng ${month}/${year} từ Google Sheet`}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isAutoSyncing ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
+
                 <input 
                   type="file" 
                   accept=".xlsx, .xls" 
@@ -674,7 +765,7 @@ export const ShiftSchedule: React.FC = () => {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="px-2 md:px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
-                  title="Nhập lịch từ file Excel"
+                  title="Nhập lịch từ file Excel thủ công"
                 >
                   <Upload className="w-4 h-4 lg:mr-1.5" />
                     <span className="hidden lg:inline">Nhập Excel</span>
@@ -1032,6 +1123,22 @@ export const ShiftSchedule: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {/* Google Sheet Sync Modal */}
+        {isGoogleSheetModalOpen && (
+          <GoogleSheetSyncModal
+            isOpen={isGoogleSheetModalOpen}
+            onClose={() => setIsGoogleSheetModalOpen(false)}
+            currentMonth={currentDate.getMonth() + 1}
+            currentYear={currentDate.getFullYear()}
+            employees={employees}
+            shiftTypes={shiftTypes}
+            onSyncSuccess={() => {
+              fetchAllData();
+              loadGoogleSheetSettings().then(setGoogleSheetSettings);
+            }}
+          />
         )}
       </div>
     </div>

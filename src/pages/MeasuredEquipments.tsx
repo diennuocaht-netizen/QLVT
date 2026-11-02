@@ -4,9 +4,12 @@ import { Box, Plus, Search, Edit, Trash2, Eye, Filter } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { EquipmentDetailsModal } from '../components/devices/EquipmentDetailsModal';
 import CreatableSelect from 'react-select/creatable';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const MeasuredEquipments: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [equipments, setEquipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -148,6 +151,10 @@ export const MeasuredEquipments: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!can('measured_equipments', 'delete')) {
+      alert('Bạn không có quyền xóa máy móc.');
+      return;
+    }
     if (window.confirm('Bạn có chắc chắn muốn xóa máy móc này? Các phiếu đo đạc liên quan cũng sẽ bị xóa.')) {
       try {
         const { error } = await supabase.from('measured_equipments').delete().eq('id', id);
@@ -170,6 +177,10 @@ export const MeasuredEquipments: React.FC = () => {
     return matchSearch && matchSubsystem && matchManufacturer && matchStatus;
   });
 
+  if (!can('measured_equipments', 'view')) {
+    return <AccessDenied title="Quản lý Máy móc & Thiết bị" />;
+  }
+
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4 md:mb-6">
@@ -180,13 +191,15 @@ export const MeasuredEquipments: React.FC = () => {
           </h1>
           <p className="text-sm text-gray-500 mt-1">Quản lý danh sách các máy móc cần ghi nhận thông số đo đạc</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Thêm máy móc
-        </button>
+        {can('measured_equipments', 'create') && (
+          <button
+            onClick={() => handleOpenModal()}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm whitespace-nowrap"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Thêm máy móc
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
@@ -301,14 +314,16 @@ export const MeasuredEquipments: React.FC = () => {
                       <button onClick={() => setViewingDetailsItem(item)} className="text-blue-600 hover:text-blue-900 mr-3" title="Chi tiết">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleOpenModal(item)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                        {profile?.role === 'admin' && (
-                          <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900" title="Xóa">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                      {can('measured_equipments', 'edit') && (
+                        <button onClick={() => handleOpenModal(item)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      {can('measured_equipments', 'delete') && (
+                        <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900" title="Xóa">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                       
                     </td>
                   </tr>

@@ -3,8 +3,11 @@ import { supabase } from '../supabase-client';
 import { ClipboardList, Search, Plus, Calendar, User, Eye, Trash2, X } from 'lucide-react';
 import { MeasurementSessionModal } from '../components/devices/MeasurementSessionModal';
 import { MeasurementRecord } from '../types/measurement';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const MeasurementRecords: React.FC = () => {
+  const { can } = usePermission();
   const [records, setRecords] = useState<any[]>([]);
   const [equipments, setEquipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +59,10 @@ export const MeasurementRecords: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!can('measurement_records', 'delete')) {
+      alert('Bạn không có quyền xóa biên bản đo đạc.');
+      return;
+    }
     if (window.confirm('Bạn có chắc chắn muốn xóa biên bản đo đạc này?')) {
       try {
         const { error } = await supabase.from('measurement_records').delete().eq('id', id);
@@ -72,6 +79,10 @@ export const MeasurementRecords: React.FC = () => {
     r.record_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.form?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (!can('measurement_records', 'view')) {
+    return <AccessDenied title="Phiếu đo đạc" />;
+  }
 
   return (
     <div className="p-6 h-full flex flex-col">
@@ -165,13 +176,15 @@ export const MeasurementRecords: React.FC = () => {
                       >
                         <Eye className="w-4 h-4 mr-1" /> Chi tiết
                       </button>
-                      <button 
-                        onClick={() => handleDelete(record.id)} 
-                        className="text-red-600 hover:text-red-900 p-1"
-                        title="Xóa"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {can('measurement_records', 'delete') && (
+                        <button 
+                          onClick={() => handleDelete(record.id)} 
+                          className="text-red-600 hover:text-red-900 p-1"
+                          title="Xóa"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

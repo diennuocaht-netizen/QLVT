@@ -20,8 +20,11 @@ import {
 } from 'lucide-react';
 import { getVietnamDateString } from '../utils/dateUtils';
 import { TaskTimelineModal } from '../components/hr/TaskTimelineModal';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const HRTaskLog: React.FC = () => {
+  const { can } = usePermission();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -310,6 +313,10 @@ export const HRTaskLog: React.FC = () => {
     XLSX.writeFile(wb, `NhatKyCongViec_${startDate}_to_${endDate}.xlsx`);
   };
 
+  if (!can('hr_task_log', 'view')) {
+    return <AccessDenied title="Nhật ký công việc" />;
+  }
+
   return (
     <div className="space-y-6 h-[calc(100vh-6rem)] flex flex-col">
       <div className="flex justify-between items-center shrink-0">
@@ -371,13 +378,15 @@ export const HRTaskLog: React.FC = () => {
             </div>
           </div>
         </div>
-        <button
-          onClick={handleExportExcel}
-          className="flex items-center px-4 py-1.5 md:py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-sm font-medium"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Xuất Excel
-        </button>
+        {can('hr_task_log', 'export') && (
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center px-4 py-1.5 md:py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-sm font-medium"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Xuất Excel
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 overflow-hidden flex flex-col">

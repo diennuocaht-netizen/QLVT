@@ -9,8 +9,12 @@ import { HandoverRecordUploadModal } from '../components/inventory/HandoverRecor
 import { useAuth } from '../contexts/AuthContext';
 import { slipFromDatabase, requisitionFromDatabase } from '../utils/dataTransform';
 import { deleteFromGoogleDrive } from '../utils/googleDriveClient';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
+
 export const InventoryReceipts: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [slips, setSlips] = useState<InventorySlip[]>([]);
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -256,8 +260,8 @@ export const InventoryReceipts: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (profile?.role !== 'admin') {
-      alert('Chỉ Admin mới có quyền xóa phiếu. Vui lòng liên hệ quản trị viên.');
+    if (!can('inventory_receipts', 'delete')) {
+      alert('Bạn không có quyền xóa phiếu nhập. Vui lòng liên hệ Quản trị viên.');
       return;
     }
 
@@ -540,18 +544,24 @@ export const InventoryReceipts: React.FC = () => {
     XLSX.writeFile(wb, "Danh_sach_phieu_nhap.xlsx");
   };
 
+  if (!can('inventory_receipts', 'view')) {
+    return <AccessDenied title="Phiếu Nhập Kho" />;
+  }
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
         <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Phiếu Nhập Kho</h1>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => { setEditingSlip(null); setIsModalOpen(true); }}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
-            >
-              <Plus size={18} /> Thêm Phiếu Nhập
-            </button>
+            {can('inventory_receipts', 'create') && (
+              <button
+                onClick={() => { setEditingSlip(null); setIsModalOpen(true); }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
+              >
+                <Plus size={18} /> Thêm Phiếu Nhập
+              </button>
+            )}
             <button
               onClick={handleExportExcel}
               className="hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm"
@@ -716,7 +726,7 @@ export const InventoryReceipts: React.FC = () => {
                         >
                           <FileText size={18} />
                         </button>
-                        {slip.status === 'Đang mở' && (
+                        {can('inventory_receipts', 'edit') && slip.status === 'Đang mở' && (
                           <>
                             <button
                               onClick={() => handleEditSlip(slip)}
@@ -734,7 +744,7 @@ export const InventoryReceipts: React.FC = () => {
                             </button>
                           </>
                         )}
-                        {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && (
+                        {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && can('inventory_receipts', 'edit') && (
                           <button
                             onClick={() => handleCloseSlip(slip)}
                             className="p-2 text-amber-600 hover:bg-amber-50 rounded"
@@ -743,7 +753,7 @@ export const InventoryReceipts: React.FC = () => {
                             <LinkIcon size={18} />
                           </button>
                         )}
-                        {profile?.role === 'admin' && (
+                        {can('inventory_receipts', 'delete') && (
                           <button
                             onClick={() => handleDelete(slip.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded"
@@ -804,7 +814,7 @@ export const InventoryReceipts: React.FC = () => {
                   >
                     <FileText size={18} />
                   </button>
-                  {slip.status === 'Đang mở' && (
+                  {can('inventory_receipts', 'edit') && slip.status === 'Đang mở' && (
                     <>
                       <button
                         onClick={() => handleEditSlip(slip)}
@@ -822,7 +832,7 @@ export const InventoryReceipts: React.FC = () => {
                       </button>
                     </>
                   )}
-                  {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && (
+                  {slip.status === 'Đã đóng' && !slip.handoverRecordUrl && can('inventory_receipts', 'edit') && (
                     <button
                       onClick={() => handleCloseSlip(slip)}
                       className="p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-md"
@@ -831,7 +841,7 @@ export const InventoryReceipts: React.FC = () => {
                       <LinkIcon size={18} />
                     </button>
                   )}
-                  {profile?.role === 'admin' && (
+                  {can('inventory_receipts', 'delete') && (
                     <button
                       onClick={() => handleDelete(slip.id)}
                       className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md"

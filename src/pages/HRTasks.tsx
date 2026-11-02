@@ -8,10 +8,15 @@ import { RoutineChecklistModal } from '../components/hr/RoutineChecklistModal';
 import { HandoverModal } from '../components/hr/HandoverModal';
 import { TaskTimelineModal } from '../components/hr/TaskTimelineModal';
 import { getVietnamDateString, getCurrentShiftCode } from '../utils/dateUtils';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const HRTasks: React.FC = () => {
   const { profile } = useAuth();
-  const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
+  const { can } = usePermission();
+  const canCreate = can('hr_tasks', 'create');
+  const canEdit = can('hr_tasks', 'edit');
+  const canDelete = can('hr_tasks', 'delete');
   
   const [tasks, setTasks] = useState<any[]>([]);
   const [shiftTypes, setShiftTypes] = useState<any[]>([]);
@@ -342,6 +347,10 @@ export const HRTasks: React.FC = () => {
   };
 
   const deleteTask = async (taskId: string) => {
+    if (!canDelete) {
+      alert('Bạn không có quyền xóa công việc.');
+      return;
+    }
     if (!confirm('Bạn có chắc muốn xóa công việc này?')) return;
     try {
       const { error } = await supabase.from('hr_shift_tasks').delete().eq('id', taskId);
@@ -359,6 +368,10 @@ export const HRTasks: React.FC = () => {
     { id: 'done', title: 'Hoàn thành', color: 'border-green-200 bg-green-50' },
     { id: 'handover', title: 'Bàn giao ca sau', color: 'border-orange-200 bg-orange-50' }
   ];
+
+  if (!can('hr_tasks', 'view')) {
+    return <AccessDenied title="Công việc & Giao ca" />;
+  }
 
   return (
     <div className="space-y-6 h-[calc(100vh-6rem)] flex flex-col">
@@ -386,12 +399,15 @@ export const HRTasks: React.FC = () => {
                   <span className="hidden sm:inline">Checklist</span></button>
               </>
             )}
-          <button
-            className="inline-flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors whitespace-nowrap"
-            onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
-          >
-            <Plus size={18} />
-            <span className="hidden sm:inline">Tạo công việc</span><span className="sm:hidden">Tạo mới</span></button>
+          {canCreate && (
+            <button
+              className="inline-flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors whitespace-nowrap"
+              onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
+            >
+              <Plus size={18} />
+              <span className="hidden sm:inline">Tạo công việc</span><span className="sm:hidden">Tạo mới</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -473,8 +489,8 @@ export const HRTasks: React.FC = () => {
                           onDragStart={(e) => handleDragStart(e, task.id)}
                         >
                           <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded px-1">
-                             <button onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }} className="p-1 text-gray-400 hover:text-indigo-600 rounded"><Edit3 size={14}/></button>
-                             {canEdit && <button onClick={() => deleteTask(task.id)} className="p-1 text-gray-400 hover:text-red-600 rounded"><Trash2 size={14}/></button>}
+                             {canEdit && <button onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }} className="p-1 text-gray-400 hover:text-indigo-600 rounded"><Edit3 size={14}/></button>}
+                             {canDelete && <button onClick={() => deleteTask(task.id)} className="p-1 text-gray-400 hover:text-red-600 rounded"><Trash2 size={14}/></button>}
                           </div>
                           <div className="flex justify-between items-start mb-2">
                             <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${task.priority === 'high' ? 'bg-red-100 text-red-700' : task.priority === 'low' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>

@@ -8,9 +8,12 @@ import { DetailRequisitionModal } from '../components/inventory/DetailRequisitio
 import { PrintRequisitionModal } from '../components/inventory/PrintRequisitionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { requisitionFromDatabase, slipFromDatabase } from '../utils/dataTransform';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const InventoryRequisitions: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [slips, setSlips] = useState<InventorySlip[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -145,8 +148,8 @@ export const InventoryRequisitions: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (profile?.role !== 'admin') {
-      alert('Chỉ Admin mới có quyền xóa tờ trình. Vui lòng liên hệ Administrator.');
+    if (!can('inventory_requisitions', 'delete')) {
+      alert('Bạn không có quyền xóa tờ trình. Vui lòng liên hệ Quản trị viên.');
       return;
     }
 
@@ -264,24 +267,32 @@ export const InventoryRequisitions: React.FC = () => {
     XLSX.writeFile(wb, "Danh_sach_to_trinh.xlsx");
   };
 
+  if (!can('inventory_requisitions', 'view')) {
+    return <AccessDenied title="Tờ Trình Mua Sắm" />;
+  }
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
         <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Tờ Trình Xin Cấp Vật Tư</h1>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => { setEditingRequisition(null); setIsModalOpen(true); }}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
-            >
-              <Plus size={18} /> Tờ Trình Mới
-            </button>
-            <button
-              onClick={handleExportExcel}
-              className="hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm"
-            >
-              <Download size={18} /> Xuất Excel
-            </button>
+            {can('inventory_requisitions', 'create') && (
+              <button
+                onClick={() => { setEditingRequisition(null); setIsModalOpen(true); }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
+              >
+                <Plus size={18} /> Tờ Trình Mới
+              </button>
+            )}
+            {can('inventory_requisitions', 'export') && (
+              <button
+                onClick={handleExportExcel}
+                className="hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm"
+              >
+                <Download size={18} /> Xuất Excel
+              </button>
+            )}
           </div>
         </div>
 
@@ -438,7 +449,7 @@ export const InventoryRequisitions: React.FC = () => {
                         >
                           <Printer size={18} />
                         </button>
-                        {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                        {can('inventory_requisitions', 'edit') && (
                           <button
                             onClick={() => {
                               setEditingRequisition(req);
@@ -450,7 +461,7 @@ export const InventoryRequisitions: React.FC = () => {
                             <Edit size={18} />
                           </button>
                         )}
-                        {profile?.role === 'admin' && (
+                        {can('inventory_requisitions', 'delete') && (
                           <button
                             onClick={() => handleDelete(req.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded"
@@ -509,7 +520,7 @@ export const InventoryRequisitions: React.FC = () => {
                   >
                     <Printer size={18} />
                   </button>
-                  {(profile?.role === 'admin' || profile?.role === 'manager') && (
+                  {can('inventory_requisitions', 'edit') && (
                     <button
                       onClick={() => {
                         setEditingRequisition(req);
@@ -521,7 +532,7 @@ export const InventoryRequisitions: React.FC = () => {
                       <Edit size={18} />
                     </button>
                   )}
-                  {profile?.role === 'admin' && (
+                  {can('inventory_requisitions', 'delete') && (
                     <button
                       onClick={() => handleDelete(req.id)}
                       className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md"

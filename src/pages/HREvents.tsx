@@ -1,13 +1,18 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase-client';
 import { useAuth } from '../contexts/AuthContext';
 import { Calendar as CalendarIcon, Plus, MapPin, Clock, Users, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { logActivity } from '../utils/activityLogger';
 import { EventDetailsModal } from '../components/hr/EventDetailsModal';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const HREvents: React.FC = () => {
   const { profile } = useAuth();
-  const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
+  const { can } = usePermission();
+  const canEdit = can('events', 'edit');
+  const canCreate = can('events', 'create');
+  const canDelete = can('events', 'delete');
   
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +90,10 @@ export const HREvents: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  if (!can('events', 'view')) {
+    return <AccessDenied title="Quản lý Sự kiện" />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -92,7 +101,7 @@ export const HREvents: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 whitespace-nowrap">Quản lý Sự kiện</h1>
           <p className="text-gray-500 text-sm mt-1">Lên kế hoạch, tổ chức và phân công hạng mục sự kiện nội bộ.</p>
         </div>
-        {canEdit && (
+        {canCreate && (
           <button
             onClick={openNewModal}
             className="bg-indigo-600 text-white px-4 py-1.5 md:py-2 text-sm rounded-md hover:bg-indigo-700 flex items-center shadow-sm font-medium transition-colors"

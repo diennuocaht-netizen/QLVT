@@ -5,8 +5,11 @@ import { Plus, Edit, Trash2, Save, X, Upload, Link2, AlertCircle } from 'lucide-
 import { CostCode, DriveSettings } from '../types/inventory';
 import * as XLSX from 'xlsx';
 import Select from 'react-select';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const InventorySettings: React.FC = () => {
+  const { can } = usePermission();
   const [activeTab, setActiveTab] = useState<'subsystems' | 'requisitionTypes' | 'costCodes' | 'driveSettings' | 'locations' | 'auditTemplates'>('locations');
 
   // Subsystems State
@@ -560,6 +563,10 @@ export const InventorySettings: React.FC = () => {
       handleFirestoreError(err, OperationType.UPDATE, 'inventory_drive_settings');
     }
   };
+
+  if (!can('inventory_settings', 'view')) {
+    return <AccessDenied title="Cài đặt Vật tư" />;
+  }
 
   return (
     <div className="p-6">

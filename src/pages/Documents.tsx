@@ -8,6 +8,8 @@ import { DocumentDetailsModal } from '../components/DocumentDetailsModal';
 import { toast } from 'sonner';
 import { useDocumentImport } from '../hooks/useDocumentImport';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 import {
   useReactTable,
   getCoreRowModel,
@@ -43,9 +45,11 @@ export const Documents: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canEdit = profile?.role === 'admin' || profile?.role === 'manager';
-  const canDelete = profile?.role === 'admin';
-  const canApprove = profile?.role === 'admin' || profile?.role === 'manager';
+  const { can } = usePermission();
+  const canCreate = can('documents', 'create');
+  const canEdit = can('documents', 'edit');
+  const canDelete = can('documents', 'delete');
+  const canApprove = can('documents', 'approve');
 
   // React Query
   const { data: documents = [], isLoading: loading } = useQuery({
@@ -269,6 +273,10 @@ export const Documents: React.FC = () => {
     },
   });
 
+  if (!can('documents', 'view')) {
+    return <AccessDenied title="Tài liệu ISO" />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -282,7 +290,7 @@ export const Documents: React.FC = () => {
             Bộ lọc
           </button>
           
-          {canEdit && (
+          {canCreate && (
             <>
               <input 
                 type="file" 

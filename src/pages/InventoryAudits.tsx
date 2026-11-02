@@ -5,9 +5,12 @@ import { InventoryAudit, InventoryLocation, Item, CalculatedInventoryItem, SlipT
 import { Plus, Search, FileText, Edit2, Trash2 } from 'lucide-react';
 import { AuditModal } from '../components/inventory/AuditModal';
 import { DetailAuditModal } from '../components/inventory/DetailAuditModal';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const InventoryAudits: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [audits, setAudits] = useState<InventoryAudit[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,6 +18,10 @@ export const InventoryAudits: React.FC = () => {
   const [editAudit, setEditAudit] = useState<InventoryAudit | null>(null);
 
   const handleDeleteAudit = async (id: string) => {
+    if (!can('inventory_audits', 'delete')) {
+      alert('Bạn không có quyền xóa phiếu kiểm kê.');
+      return;
+    }
     if (!window.confirm('Bạn có chắc chắn muốn xóa phiếu kiểm kê này?')) return;
     try {
       const { error } = await supabase.from('inventory_audits').delete().eq('id', id);
@@ -68,16 +75,22 @@ export const InventoryAudits: React.FC = () => {
     (a.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  if (!can('inventory_audits', 'view')) {
+    return <AccessDenied title="Kiểm Kê Kho" />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Kiểm Kê Kho</h1>
-        <button
-          onClick={() => { setEditAudit(null); setIsModalOpen(true); }}
-          className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
-        >
-          <Plus size={18} /> Tạo Phiếu Kiểm Kê
-        </button>
+        {can('inventory_audits', 'create') && (
+          <button
+            onClick={() => { setEditAudit(null); setIsModalOpen(true); }}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
+          >
+            <Plus size={18} /> Tạo Phiếu Kiểm Kê
+          </button>
+        )}
       </div>
 
       <div className="flex gap-4 items-center">
@@ -136,15 +149,15 @@ export const InventoryAudits: React.FC = () => {
                           <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Chi tiết">
                             <FileText size={18} />
                           </button>
-                          {(profile?.role === 'admin' || profile?.role === 'manager') && (
-                            <>
-                              <button onClick={() => { setEditAudit(audit); setIsModalOpen(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded" title="Chỉnh sửa">
-                                <Edit2 size={18} />
-                              </button>
-                              <button onClick={() => handleDeleteAudit(audit.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Xóa">
-                                <Trash2 size={18} />
-                              </button>
-                            </>
+                          {can('inventory_audits', 'edit') && (
+                            <button onClick={() => { setEditAudit(audit); setIsModalOpen(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded" title="Chỉnh sửa">
+                              <Edit2 size={18} />
+                            </button>
+                          )}
+                          {can('inventory_audits', 'delete') && (
+                            <button onClick={() => handleDeleteAudit(audit.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Xóa">
+                              <Trash2 size={18} />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -179,19 +192,19 @@ export const InventoryAudits: React.FC = () => {
                   <span className="font-medium text-gray-800">{audit.notes || '-'}</span>
                 </div>
                 <div className="flex justify-end gap-2 border-t pt-3">
-                  {(profile?.role === 'admin' || profile?.role === 'manager') && (
-                      <>
-                        <button onClick={() => { setEditAudit(audit); setIsModalOpen(true); }} className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md" title="Chỉnh sửa">
-                          <Edit2 size={18} />
-                        </button>
-                        <button onClick={() => handleDeleteAudit(audit.id)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md" title="Xóa">
-                          <Trash2 size={18} />
-                        </button>
-                      </>
-                    )}
-                    <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md" title="Chi tiết">
-                      <FileText size={18} />
+                  {can('inventory_audits', 'edit') && (
+                    <button onClick={() => { setEditAudit(audit); setIsModalOpen(true); }} className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md" title="Chỉnh sửa">
+                      <Edit2 size={18} />
                     </button>
+                  )}
+                  {can('inventory_audits', 'delete') && (
+                    <button onClick={() => handleDeleteAudit(audit.id)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md" title="Xóa">
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                  <button onClick={() => { setSelectedAudit(audit); setIsDetailModalOpen(true); }} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md" title="Chi tiết">
+                    <FileText size={18} />
+                  </button>
                 </div>
               </div>
             ))

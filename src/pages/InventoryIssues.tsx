@@ -10,9 +10,12 @@ import { GlobalCompletionModal } from '../components/inventory/GlobalCompletionM
 import { useAuth } from '../contexts/AuthContext';
 import { slipFromDatabase, itemFromDatabase } from '../utils/dataTransform';
 import { fetchAllItems } from '../utils/fetchHelpers';
+import { usePermission } from '../hooks/usePermission';
+import { AccessDenied } from '../components/AccessDenied';
 
 export const InventoryIssues: React.FC = () => {
   const { profile } = useAuth();
+  const { can } = usePermission();
   const [slips, setSlips] = useState<InventorySlip[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,8 +86,8 @@ export const InventoryIssues: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (profile?.role !== 'admin') {
-      alert('Chỉ Admin mới có quyền xóa phiếu. Vui lòng liên hệ quản trị viên.');
+    if (!can('inventory_issues', 'delete')) {
+      alert('Bạn không có quyền xóa phiếu xuất. Vui lòng liên hệ Quản trị viên.');
       return;
     }
 
@@ -266,13 +269,17 @@ export const InventoryIssues: React.FC = () => {
     XLSX.writeFile(wb, "Danh_sach_phieu_xuat.xlsx");
   };
 
+  if (!can('inventory_issues', 'view')) {
+    return <AccessDenied title="Phiếu Xuất Kho" />;
+  }
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
         <div className="flex justify-between items-start md:items-center gap-3 mb-4 flex-wrap">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 whitespace-nowrap">Phiếu Xuất Kho</h1>
           <div className="flex flex-wrap gap-2">
-            {(profile?.role === 'admin' || profile?.role === 'manager') && (
+            {can('inventory_issues', 'edit') && (
               <button
                 onClick={() => setIsGlobalCompleteModalOpen(true)}
                 className="flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-sm"
@@ -280,18 +287,22 @@ export const InventoryIssues: React.FC = () => {
                 <CheckCircle size={18} /> Hoàn Thành
               </button>
             )}
-            <button
-              onClick={() => { setEditingSlip(null); setIsModalOpen(true); }}
-              className="flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm"
-            >
-              <Plus size={18} /> Thêm Phiếu
-            </button>
-            <button
-              onClick={handleExportExcel}
-              className="hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm"
-            >
-              <Download size={18} /> Xuất Excel
-            </button>
+            {can('inventory_issues', 'create') && (
+              <button
+                onClick={() => { setEditingSlip(null); setIsModalOpen(true); }}
+                className="flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm"
+              >
+                <Plus size={18} /> Thêm Phiếu
+              </button>
+            )}
+            {can('inventory_issues', 'export') && (
+              <button
+                onClick={handleExportExcel}
+                className="hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm"
+              >
+                <Download size={18} /> Xuất Excel
+              </button>
+            )}
           </div>
         </div>
 
@@ -446,7 +457,7 @@ export const InventoryIssues: React.FC = () => {
                         >
                           <Printer size={18} />
                         </button>
-                        {((!isSlipLocked(slip.date) && slip.status !== 'Đã hoàn thành') || profile?.role === 'admin' || profile?.role === 'manager') && (
+                        {can('inventory_issues', 'edit') && ((!isSlipLocked(slip.date) && slip.status !== 'Đã hoàn thành') || can('inventory_issues', 'unlock')) && (
                           <button
                             onClick={() => {
                               setEditingSlip(slip);
@@ -458,7 +469,7 @@ export const InventoryIssues: React.FC = () => {
                             <Edit size={18} />
                           </button>
                         )}
-                        {profile?.role === 'admin' && (
+                        {can('inventory_issues', 'delete') && (
                           <button
                             onClick={() => handleDelete(slip.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded"
@@ -540,7 +551,7 @@ export const InventoryIssues: React.FC = () => {
                   >
                     <Printer size={18} />
                   </button>
-                  {((!isSlipLocked(slip.date) && slip.status !== 'Đã hoàn thành') || profile?.role === 'admin' || profile?.role === 'manager') && (
+                  {can('inventory_issues', 'edit') && ((!isSlipLocked(slip.date) && slip.status !== 'Đã hoàn thành') || can('inventory_issues', 'unlock')) && (
                     <button
                       onClick={() => {
                         setEditingSlip(slip);
@@ -552,7 +563,7 @@ export const InventoryIssues: React.FC = () => {
                       <Edit size={18} />
                     </button>
                   )}
-                  {profile?.role === 'admin' && (
+                  {can('inventory_issues', 'delete') && (
                     <button
                       onClick={() => handleDelete(slip.id)}
                       className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md"
