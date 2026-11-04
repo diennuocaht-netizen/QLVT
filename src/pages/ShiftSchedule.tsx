@@ -6,8 +6,10 @@ import { logActivity } from '../utils/activityLogger';
 
 import { useAuth } from '../contexts/AuthContext';
 import { usePermission } from '../hooks/usePermission';
+import { isOwner } from '../utils/permissions';
 import { AccessDenied } from '../components/AccessDenied';
 import { GoogleSheetSyncModal } from '../components/shift/GoogleSheetSyncModal';
+import { CalendarSyncModal } from '../components/shift/CalendarSyncModal';
 import {
   loadGoogleSheetSettings,
   syncShiftScheduleFromGoogleSheet,
@@ -28,6 +30,9 @@ export const ShiftSchedule: React.FC = () => {
   const [teams, setTeams] = useState<ShiftTeam[]>([]);
   const [employees, setEmployees] = useState<ShiftEmployee[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
+
+  // Calendar Sync (iOS / Google) - Chỉ mở cho Owner
+  const [isCalendarSyncModalOpen, setIsCalendarSyncModalOpen] = useState(false);
 
   // Google Sheet Sync State
   const [isGoogleSheetModalOpen, setIsGoogleSheetModalOpen] = useState(false);
@@ -732,6 +737,19 @@ export const ShiftSchedule: React.FC = () => {
           <div className="flex flex-wrap gap-2 text-xs">
               {canEdit && (
               <>
+                {/* Nút Đồng bộ Lịch cá nhân - Dành riêng cho Owner */}
+                {isOwner(profile) && (
+                  <button
+                    onClick={() => setIsCalendarSyncModalOpen(true)}
+                    className="px-2 md:px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-2xs transition-all"
+                    title="Đồng bộ lịch ca trực lên Google Calendar hoặc iPhone (iOS) - Dành riêng cho Owner"
+                  >
+                    <Calendar className="w-4 h-4 lg:mr-1.5 text-blue-100" />
+                    <span className="hidden lg:inline font-semibold">Đồng bộ Lịch</span>
+                    <span className="ml-1.5 px-1.5 py-0.2 text-[10px] bg-white/20 rounded font-semibold text-white">Owner</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => setIsGoogleSheetModalOpen(true)}
                   className="px-2 md:px-3 py-1.5 rounded-md flex items-center text-sm font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 shadow-2xs transition-colors"
@@ -1138,6 +1156,15 @@ export const ShiftSchedule: React.FC = () => {
               fetchAllData();
               loadGoogleSheetSettings().then(setGoogleSheetSettings);
             }}
+          />
+        )}
+
+        {/* Calendar Sync Modal (Google Calendar / iPhone iOS) - Dành cho Owner */}
+        {isCalendarSyncModalOpen && isOwner(profile) && (
+          <CalendarSyncModal
+            isOpen={isCalendarSyncModalOpen}
+            onClose={() => setIsCalendarSyncModalOpen(false)}
+            employees={employees}
           />
         )}
       </div>
