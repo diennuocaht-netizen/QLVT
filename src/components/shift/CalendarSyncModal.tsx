@@ -374,11 +374,18 @@ export const CalendarSyncModal: React.FC<CalendarSyncModalProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 flex items-start space-x-2">
-                  <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                  <p>
-                    <strong>Cơ chế tự động:</strong> Khi bạn sửa lịch phân ca hoặc khi Google Sheet đồng bộ vào hệ thống, ứng dụng Lịch trên iPhone sẽ tự động cập nhật ca làm mới nhất mà bạn không cần phải đăng ký lại.
-                  </p>
+                <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 space-y-2">
+                  <div className="flex items-start space-x-2">
+                    <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <p>
+                      <strong>Cơ chế tự động:</strong> Khi bạn sửa lịch trên app (và bấm <em>Lưu thay đổi</em>) hoặc khi Google Sheet đồng bộ vào hệ thống, dữ liệu mới sẽ sẵn sàng trên server ngay lập tức.
+                    </p>
+                  </div>
+                  <div className="pl-6 space-y-1 text-blue-800 text-[11px] border-t border-blue-200/60 pt-2">
+                    <p className="font-semibold text-blue-950">⚡ Cách xem ngay ca mới trên iPhone mà không cần chờ:</p>
+                    <p>• <strong>Cập nhật tức thì:</strong> Mở app Lịch trên iPhone ➔ Bấm chữ <strong>"Lịch"</strong> ở cạnh dưới màn hình ➔ Dùng ngón tay <strong>kéo vuốt từ trên xuống dưới (Pull to refresh)</strong> để iPhone tải lại ngay lập tức.</p>
+                    <p>• <strong>Cài đặt tự động kiểm tra nhanh:</strong> Vào <strong>Cài đặt (Settings)</strong> của iPhone ➔ <strong>Lịch (Calendar)</strong> ➔ <strong>Tài khoản (Accounts)</strong> ➔ Chọn lịch ca trực ➔ Mục <strong>Tự động làm mới (Auto-Refresh)</strong>: Chọn <strong>"Mỗi 15 phút"</strong>.</p>
+                  </div>
                 </div>
               </div>
             )}

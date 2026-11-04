@@ -951,8 +951,8 @@ app.get('/api/shift-calendar-feed', async (req, res) => {
       'METHOD:PUBLISH',
       `X-WR-CALNAME:${calendarTitle}`,
       'X-WR-TIMEZONE:Asia/Ho_Chi_Minh',
-      'X-PUBLISHED-TTL:PT30M',
-      'REFRESH-INTERVAL;VALUE=DURATION:PT30M',
+      'X-PUBLISHED-TTL:PT5M',
+      'REFRESH-INTERVAL;VALUE=DURATION:PT5M',
       'BEGIN:VTIMEZONE',
       'TZID:Asia/Ho_Chi_Minh',
       'X-LIC-LOCATION:Asia/Ho_Chi_Minh',
@@ -973,7 +973,8 @@ app.get('/api/shift-calendar-feed', async (req, res) => {
       const isOffOrLeave = shift.is_off_day || shift.is_leave_day || ['O', 'AL', 'PH', 'OFF'].includes((shift.code || '').toUpperCase());
       if (isOffOrLeave && !includeOffDays) continue;
 
-      const uid = `shift-${item.id || `${item.employee_id}-${item.date}`}@dnct.vercel.app`;
+      // Sử dụng employee_id và date làm UID cố định để thiết bị tự động ghi đè ca mới khi có thay đổi
+      const uid = `shift-${item.employee_id}-${item.date}@dnct.vercel.app`;
       const empName = emp?.full_name || 'Nhân sự';
       const shiftCode = shift.code || '';
       const shiftName = shift.name || `Ca ${shiftCode}`;
@@ -1020,7 +1021,9 @@ app.get('/api/shift-calendar-feed', async (req, res) => {
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'inline; filename="shift-schedule.ics"');
-    res.setHeader('Cache-Control', 'public, max-age=900, stale-while-revalidate=1800');
+    res.setHeader('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     return res.status(200).send(lines.join('\r\n'));
   } catch (err) {

@@ -119,8 +119,8 @@ export function generateIcalendarContent(options: GenerateIcsOptions): string {
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${calendarTitle}`,
     'X-WR-TIMEZONE:Asia/Ho_Chi_Minh',
-    'X-PUBLISHED-TTL:PT1H',
-    'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+    'X-PUBLISHED-TTL:PT5M',
+    'REFRESH-INTERVAL;VALUE=DURATION:PT5M',
   ];
 
   // Định nghĩa múi giờ Asia/Ho_Chi_Minh (GMT+7)
@@ -149,7 +149,8 @@ export function generateIcalendarContent(options: GenerateIcsOptions): string {
       continue;
     }
 
-    const uid = `shift-${item.id || `${item.employee_id}-${item.date}`}@dnct.vercel.app`;
+    // Sử dụng employee_id và date làm UID cố định để thiết bị tự động ghi đè ca mới khi có thay đổi
+    const uid = `shift-${item.employee_id}-${item.date}@dnct.vercel.app`;
     const empName = emp?.full_name || 'Nhân sự';
     const shiftCode = shift.code || '';
     const shiftName = shift.name || `Ca ${shiftCode}`;
